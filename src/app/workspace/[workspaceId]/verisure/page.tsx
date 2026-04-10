@@ -108,7 +108,7 @@ export default function VerisurePage() {
     d.nivel === nivelExtras || d.nivel === 'ambos'
   )
   // Agrupar por nombre (eliminar duplicados alto/bajo ya filtrados)
-  const nombresUnicos = [...new Set(dispositivosNivel.map(d => d.nombre))]
+  const nombresUnicos = dispositivosNivel.map(d => d.nombre).filter((n, i, arr) => arr.indexOf(n) === i)
 
   const toggleExtra = (dispId: string, cantidadIdx: number) => {
     setExtras(prev => {
