@@ -149,3 +149,74 @@ export interface Presupuesto {
   creadoPor: string
   createdAt: Date
 }
+
+// ── VERISURE ──
+export type NivelPrecio = 'catalogo' | 'alto' | 'medio' | 'bajo' | 'jefe' | 'gerente'
+export type TipoVenta = 'RE' | 'RP'
+export type NivelDispositivo = 'alto' | 'bajo'
+
+export interface PreciosKitVerisure {
+  catalogo: number
+  alto: number
+  medio: number
+  bajo: number
+  jefe: number
+  gerente: number
+}
+
+export interface ComisionesKitVerisure {
+  catalogo_RE: number
+  catalogo_RP: number
+  alto_RE: number
+  alto_RP: number
+  medio_RE: number
+  medio_RP: number
+  bajo_RE: number
+  bajo_RP: number
+}
+
+export interface UpgradeVerisure {
+  catalogo: number
+  alto: number
+  medioBajo: number
+  cuotaAdicional: number
+}
+
+export interface PromoVerisure {
+  id: string
+  label: string
+  precio: number
+  descripcion: string
+  activa: boolean
+}
+
+export interface DispositivoExtra {
+  id: string
+  nombre: string
+  nivel: NivelDispositivo | 'ambos'
+  precios: number[]        // [x1, x2, x3, x4, x6] — 0 si no aplica
+  cuotas: number[]         // [x1, x2, x3, x4, x6]
+  comisiones: number[]     // [x1, x2, x3, x4, x6]
+  cantidades: number[]     // ej [1,2,3,4,6]
+}
+
+export interface ConfigVerisure {
+  cuotaBase: number         // 62.999
+  cuotaUpgrade: number      // 5.999
+  ivaPct: number            // 21
+  kits: PreciosKitVerisure
+  upgrades: UpgradeVerisure
+  comisiones: ComisionesKitVerisure
+  promos: PromoVerisure[]
+  dispositivos: DispositivoExtra[]
+  // Bonos
+  bonoPerformance: { ventas: number; monto: number }[]
+  bonoPerformanceExtra: number
+  bonoRP: { rp: number; monto: number }[]
+  bonoRPExtra: number
+  bonoExpress: { express: number; monto: number }[]
+  bonoInstalacionRP: number
+  bonoInstalacionJefeGerente: number
+  xvenConCertificado: number
+  xvenSinCertificado: number
+}

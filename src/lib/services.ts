@@ -184,3 +184,19 @@ export const toggleTarea = async (workspaceId: string, tareaId: string, completa
 export const deleteTarea = async (workspaceId: string, tareaId: string) => {
   await deleteDoc(doc(db, 'workspaces', workspaceId, 'tareas', tareaId))
 }
+
+// ── VERISURE CONFIG ──
+import type { ConfigVerisure } from '@/types'
+import { CONFIG_VERISURE_DEFAULT } from './verisure-defaults'
+
+export const getConfigVerisure = async (workspaceId: string): Promise<ConfigVerisure> => {
+  const ref = doc(db, 'workspaces', workspaceId, 'config', 'verisure')
+  const snap = await getDoc(ref)
+  if (snap.exists()) return snap.data() as ConfigVerisure
+  return CONFIG_VERISURE_DEFAULT
+}
+
+export const saveConfigVerisure = async (workspaceId: string, config: ConfigVerisure) => {
+  const ref = doc(db, 'workspaces', workspaceId, 'config', 'verisure')
+  await setDoc(ref, config)
+}

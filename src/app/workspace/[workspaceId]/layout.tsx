@@ -4,19 +4,20 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Package, FileText,
-  CheckSquare, TrendingUp, ChevronLeft, Settings
+  CheckSquare, TrendingUp, ChevronLeft, Settings, Shield
 } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import type { Workspace } from '@/types'
 
-const NAV_ITEMS = [
-  { id: 'resumen',      label: 'Resumen',   icon: LayoutDashboard },
-  { id: 'clientes',     label: 'Clientes',  icon: Users },
-  { id: 'catalogo',     label: 'Catálogo',  icon: Package },
-  { id: 'presupuesto',  label: 'Cotizar',   icon: FileText },
-  { id: 'ventas',       label: 'Ventas',    icon: TrendingUp },
-  { id: 'tareas',       label: 'Tareas',    icon: CheckSquare },
+const NAV_ITEMS_BASE = [
+  { id: 'resumen',      label: 'Resumen',   icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
+  { id: 'clientes',     label: 'Clientes',  icon: Users,           tipos: ['servicios','productos','mixto'] },
+  { id: 'catalogo',     label: 'Catálogo',  icon: Package,         tipos: ['servicios','productos','mixto'] },
+  { id: 'verisure',     label: 'Calc',      icon: Shield,          tipos: ['servicios'] },
+  { id: 'presupuesto',  label: 'Cotizar',   icon: FileText,        tipos: ['productos','mixto'] },
+  { id: 'ventas',       label: 'Ventas',    icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
+  { id: 'tareas',       label: 'Tareas',    icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +32,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const [ws, setWs] = useState<Workspace | null>(null)
 
   // Siempre sincronizado con la URL real
-  const activeTab = NAV_ITEMS.find(item => pathname.endsWith(`/${item.id}`))?.id ?? 'resumen'
+  const activeTab = NAV_ITEMS_BASE.find(item => pathname.endsWith(`/${item.id}`))?.id ?? 'resumen'
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth')
@@ -102,7 +103,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-200 z-40">
         <div className="max-w-2xl mx-auto h-16 flex items-center">
-          {NAV_ITEMS.map(item => {
+          {NAV_ITEMS_BASE.filter(item => item.tipos.includes(ws.tipo)).map(item => {
             const Icon = item.icon
             const isActive = activeTab === item.id
             return (
