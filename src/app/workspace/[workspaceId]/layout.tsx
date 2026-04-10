@@ -11,13 +11,13 @@ import { getWorkspaces } from '@/lib/services'
 import type { Workspace } from '@/types'
 
 const NAV_ITEMS_BASE = [
-  { id: 'resumen',      label: 'Resumen',   icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
-  { id: 'clientes',     label: 'Clientes',  icon: Users,           tipos: ['servicios','productos','mixto'] },
-  { id: 'catalogo',     label: 'Catálogo',  icon: Package,         tipos: ['servicios','productos','mixto'] },
-  { id: 'verisure',     label: 'Calc',      icon: Shield,          tipos: ['servicios'] },
-  { id: 'presupuesto',  label: 'Cotizar',   icon: FileText,        tipos: ['productos','mixto'] },
-  { id: 'ventas',       label: 'Ventas',    icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
-  { id: 'tareas',       label: 'Tareas',    icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
+  { id: 'resumen',     label: 'Resumen',  icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
+  { id: 'clientes',    label: 'Clientes', icon: Users,           tipos: ['servicios','productos','mixto'] },
+  { id: 'catalogo',    label: 'Catálogo', icon: Package,         tipos: ['productos','mixto'] },
+  { id: 'verisure',    label: 'Calc',     icon: Shield,          tipos: ['servicios'] },
+  { id: 'presupuesto', label: 'Cotizar',  icon: FileText,        tipos: ['productos','mixto'] },
+  { id: 'ventas',      label: 'Ventas',   icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
+  { id: 'tareas',      label: 'Tareas',   icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
