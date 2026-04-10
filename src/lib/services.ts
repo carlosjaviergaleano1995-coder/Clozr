@@ -76,6 +76,18 @@ export const updateWorkspace = async (id: string, data: Partial<Workspace>) => {
   })
 }
 
+export const deleteWorkspace = async (id: string) => {
+  await deleteDoc(doc(db, 'workspaces', id))
+}
+
+// ── HELPER: convierte Timestamp o Date a Date nativo ──
+export const toDate = (value: any): Date => {
+  if (!value) return new Date()
+  if (typeof value.toDate === 'function') return value.toDate()
+  if (value instanceof Date) return value
+  return new Date(value)
+}
+
 // ── CLIENTES ──
 export const getClientes = async (workspaceId: string): Promise<Cliente[]> => {
   const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'clientes'))

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Plus, TrendingUp, DollarSign, CheckCircle, Clock } from 'lucide-react'
-import { getVentas, createVenta, getClientes } from '@/lib/services'
+import { getVentas, createVenta, getClientes, toDate } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import type { Venta, Cliente, VentaEstado } from '@/types'
 import { format } from 'date-fns'
@@ -50,7 +50,7 @@ export default function VentasPage() {
   // Métricas
   const now = new Date()
   const ventasMes = ventas.filter(v => {
-    const fecha = (v.createdAt as any)?.toDate?.() ?? new Date(v.createdAt)
+    const fecha = toDate(v.createdAt)
     return fecha.getMonth() === now.getMonth() && fecha.getFullYear() === now.getFullYear() && v.estado === 'cerrada'
   })
   const totalMes = ventasMes.reduce((acc, v) => acc + v.total, 0)

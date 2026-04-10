@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Package, FileText,
   CheckSquare, TrendingUp, ChevronLeft, Settings
@@ -11,24 +11,27 @@ import { getWorkspaces } from '@/lib/services'
 import type { Workspace } from '@/types'
 
 const NAV_ITEMS = [
-  { id: 'resumen',      label: 'Resumen',     icon: LayoutDashboard },
-  { id: 'clientes',     label: 'Clientes',    icon: Users },
-  { id: 'catalogo',     label: 'Catálogo',    icon: Package },
-  { id: 'presupuesto',  label: 'Cotizar',     icon: FileText },
-  { id: 'ventas',       label: 'Ventas',      icon: TrendingUp },
-  { id: 'tareas',       label: 'Tareas',      icon: CheckSquare },
+  { id: 'resumen',      label: 'Resumen',   icon: LayoutDashboard },
+  { id: 'clientes',     label: 'Clientes',  icon: Users },
+  { id: 'catalogo',     label: 'Catálogo',  icon: Package },
+  { id: 'presupuesto',  label: 'Cotizar',   icon: FileText },
+  { id: 'ventas',       label: 'Ventas',    icon: TrendingUp },
+  { id: 'tareas',       label: 'Tareas',    icon: CheckSquare },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const params = useParams()
+  const pathname = usePathname()
   const workspaceId = params.workspaceId as string
 
   const { user, loading: authLoading } = useAuthStore()
-  const { workspaces, setWorkspaces, setActiveWorkspace, getActiveWorkspace } = useWorkspaceStore()
+  const { workspaces, setWorkspaces, setActiveWorkspace } = useWorkspaceStore()
 
-  const [activeTab, setActiveTab] = useState('resumen')
   const [ws, setWs] = useState<Workspace | null>(null)
+
+  // Siempre sincronizado con la URL real
+  const activeTab = NAV_ITEMS.find(item => pathname.endsWith(`/${item.id}`))?.id ?? 'resumen'
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth')
@@ -98,25 +101,20 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-200 z-40">
-        <div className="max-w-2xl mx-auto px-2 h-16 flex items-center justify-around">
+        <div className="max-w-2xl mx-auto h-16 flex items-center">
           {NAV_ITEMS.map(item => {
             const Icon = item.icon
             const isActive = activeTab === item.id
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id)
-                  router.push(`/workspace/${workspaceId}/${item.id}`)
-                }}
-                className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all ${
-                  isActive
-                    ? 'text-brand-600'
-                    : 'text-surface-400 hover:text-surface-700'
+                onClick={() => router.push(`/workspace/${workspaceId}/${item.id}`)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 min-w-0 transition-all ${
+                  isActive ? 'text-brand-600' : 'text-surface-400 hover:text-surface-700'
                 }`}
               >
                 <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-                <span className={`text-[10px] font-medium ${isActive ? 'font-semibold' : ''}`}>
+                <span className={`text-[9px] leading-tight truncate w-full text-center px-0.5 ${isActive ? 'font-semibold' : 'font-medium'}`}>
                   {item.label}
                 </span>
               </button>

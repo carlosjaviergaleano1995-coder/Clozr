@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { TrendingUp, Users, Package, CheckSquare, DollarSign, ArrowUpRight } from 'lucide-react'
-import { getVentas, getClientes, getTareas } from '@/lib/services'
+import { getVentas, getClientes, getTareas, toDate } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import type { Venta, Cliente, Tarea } from '@/types'
 import { format } from 'date-fns'
@@ -42,7 +42,7 @@ export default function ResumenPage() {
   // Métricas del mes actual
   const now = new Date()
   const ventasMes = ventas.filter(v => {
-    const fecha = (v.createdAt as any)?.toDate?.() ?? new Date(v.createdAt)
+    const fecha = toDate(v.createdAt)
     return fecha.getMonth() === now.getMonth() && fecha.getFullYear() === now.getFullYear()
   })
   const totalMes = ventasMes.reduce((acc, v) => acc + v.total, 0)
@@ -147,7 +147,7 @@ export default function ResumenPage() {
                   <div>
                     <p className="text-sm font-medium text-surface-900">{v.clienteNombre}</p>
                     <p className="text-xs text-surface-400">
-                      {format((v.createdAt as any)?.toDate?.() ?? new Date(), 'dd/MM HH:mm')}
+                      {format(toDate(v.createdAt), 'dd/MM HH:mm')}
                     </p>
                   </div>
                 </div>

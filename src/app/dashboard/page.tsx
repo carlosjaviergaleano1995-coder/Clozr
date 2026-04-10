@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, ChevronRight, LogOut, Pencil, Trash2, X, Check } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
-import { getWorkspaces, createWorkspace, updateWorkspace, logOut } from '@/lib/services'
-import { deleteDoc, doc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace, logOut } from '@/lib/services'
 import type { Workspace, WorkspaceType } from '@/types'
 
 const WORKSPACE_TYPES: { tipo: WorkspaceType; label: string; desc: string; emoji: string }[] = [
@@ -109,7 +107,7 @@ export default function DashboardPage() {
 
   const handleDelete = async (ws: Workspace) => {
     if (!confirm(`¿Eliminar "${ws.nombre}"? Se borrarán todos los datos.`)) return
-    await deleteDoc(doc(db, 'workspaces', ws.id))
+    await deleteWorkspace(ws.id)
     await loadWorkspaces()
     setMenuId(null)
   }
