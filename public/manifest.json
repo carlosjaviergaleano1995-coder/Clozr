@@ -1,0 +1,10 @@
+{
+  "name": "Clozr",
+  "short_name": "Clozr",
+  "description": "CRM para equipos de ventas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#E8001D",
+  "icons": []
+}
