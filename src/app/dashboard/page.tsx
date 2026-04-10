@@ -217,7 +217,7 @@ export default function DashboardPage() {
                     key={c}
                     onClick={() => setNewColor(c)}
                     className={`w-7 h-7 rounded-lg transition-all ${newColor === c ? 'ring-2 ring-offset-2 ring-offset-surface-900 scale-110' : 'hover:scale-105'}`}
-                    style={{ background: c, ringColor: c }}
+                    style={{ background: c }}
                   />
                 ))}
               </div>
