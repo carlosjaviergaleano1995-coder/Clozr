@@ -2,48 +2,134 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check } from 'lucide-react'
+import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, Gift, TrendingUp } from 'lucide-react'
 import { getConfigVerisure, saveConfigVerisure } from '@/lib/services'
 import { CONFIG_VERISURE_DEFAULT } from '@/lib/verisure-defaults'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const iva = (n: number, pct = 21) => Math.round(n * (1 + pct / 100))
 const fmt = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+const nowStr = () => {
+  const d = new Date()
+  return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
+}
 
-type NivelKit = Exclude<NivelPrecio, 'jefe' | 'gerente'>
-const NIVELES_KIT: NivelKit[] = ['catalogo', 'alto', 'medio', 'bajo']
 const NIVEL_LABEL: Record<NivelPrecio, string> = {
   catalogo: 'Catálogo', alto: 'Alto', medio: 'Medio',
   bajo: 'Bajo', jefe: 'Jefe', gerente: 'Gerente',
 }
+const NIVELES_ORDEN: NivelPrecio[] = ['catalogo', 'alto', 'medio', 'bajo', 'jefe', 'gerente']
 
-interface ExtraSeleccionado {
+// ── Tipos locales ─────────────────────────────────────────────────────────────
+interface ExtraItem {
   dispositivoId: string
-  cantidadIdx: number   // índice en el array cantidades[]
+  cantidadIdx: number
   nivel: 'alto' | 'bajo'
+  bonificado: boolean
 }
 
-// ── Componente principal ─────────────────────────────────────────────────────
+interface Instalacion {
+  id: number
+  nivelKit: NivelPrecio
+  usaPromo: boolean
+  promoId: string
+  conUpgrade: boolean
+  extras: ExtraItem[]
+  nivelExtras: 'alto' | 'bajo'
+  esExpress: boolean
+}
+
+interface CalcResult {
+  kitSinIVA: number
+  kitConIVA: number
+  extrasPrecioSinIVA: number
+  totalInsSinIVA: number
+  totalInsConIVA: number
+  cuotaBaseSinIVA: number
+  cuotaExtrasSinIVA: number
+  cuotaTotalSinIVA: number
+  cuotaTotalConIVA: number
+  comisionKit: number
+  comisionExtras: number
+  comisionTotal: number
+  extrasData: { disp: DispositivoExtra; idx: number; bonificado: boolean }[]
+}
+
+// ── Calculadora por instalación ───────────────────────────────────────────────
+function calcInstalacion(inst: Instalacion, config: ConfigVerisure, tipoVenta: TipoVenta): CalcResult {
+  const esJG = inst.nivelKit === 'jefe' || inst.nivelKit === 'gerente'
+  const promoActual = config.promos.find(p => p.id === inst.promoId)
+
+  const upgPrecio = inst.nivelKit === 'catalogo' ? config.upgrades.catalogo
+    : inst.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo
+  const kitSinIVA = inst.usaPromo && promoActual
+    ? promoActual.precio
+    : config.kits[inst.nivelKit] + (inst.conUpgrade && !esJG ? upgPrecio : 0)
+  const kitConIVA = iva(kitSinIVA, config.ivaPct)
+
+  const extrasData = inst.extras.map(e => {
+    const disp = config.dispositivos.find(d => d.id === e.dispositivoId)
+    if (!disp) return null
+    return { disp, idx: e.cantidadIdx, bonificado: e.bonificado }
+  }).filter(Boolean) as { disp: DispositivoExtra; idx: number; bonificado: boolean }[]
+
+  const extrasPrecioSinIVA = extrasData.reduce((s, { disp, idx, bonificado }) => s + (bonificado ? 0 : disp.precios[idx]), 0)
+  const cuotaExtrasSinIVA  = extrasData.reduce((s, { disp, idx }) => s + disp.cuotas[idx], 0)
+  const comisionExtras     = extrasData.reduce((s, { disp, idx }) => s + disp.comisiones[idx], 0)
+
+  const totalInsSinIVA = kitSinIVA + extrasPrecioSinIVA
+  const totalInsConIVA = iva(totalInsSinIVA, config.ivaPct)
+  const cuotaBaseSinIVA = config.cuotaBase + (inst.conUpgrade && !esJG ? config.cuotaUpgrade : 0)
+  const cuotaTotalSinIVA = cuotaBaseSinIVA + cuotaExtrasSinIVA
+  const cuotaTotalConIVA = iva(cuotaTotalSinIVA, config.ivaPct)
+
+  const comisionKit = (() => {
+    if (inst.usaPromo || esJG) return 0
+    const key = `${inst.nivelKit}_${tipoVenta}` as keyof typeof config.comisiones
+    return config.comisiones[key] ?? 0
+  })()
+
+  return {
+    kitSinIVA, kitConIVA,
+    extrasPrecioSinIVA, totalInsSinIVA, totalInsConIVA,
+    cuotaBaseSinIVA, cuotaExtrasSinIVA, cuotaTotalSinIVA, cuotaTotalConIVA,
+    comisionKit, comisionExtras, comisionTotal: comisionKit + comisionExtras,
+    extrasData,
+  }
+}
+
+// ── Componente principal ──────────────────────────────────────────────────────
 export default function VerisurePage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
 
   const [config, setConfig] = useState<ConfigVerisure>(CONFIG_VERISURE_DEFAULT)
   const [loading, setLoading] = useState(true)
-  const [showPromos, setShowPromos] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copiedCliente, setCopiedCliente] = useState(false)
+  const [copiedInterno, setCopiedInterno] = useState(false)
 
-  // Calculadora
+  // Global
   const [tipoVenta, setTipoVenta] = useState<TipoVenta>('RP')
-  const [nivelKit, setNivelKit] = useState<NivelPrecio>('catalogo')
-  const [usaPromo, setUsaPromo] = useState(false)
-  const [promoId, setPromoId] = useState('')
-  const [conUpgrade, setConUpgrade] = useState(false)
   const [cuotas, setCuotas] = useState(12)
-  const [extras, setExtras] = useState<ExtraSeleccionado[]>([])
-  const [nivelExtras, setNivelExtras] = useState<'alto' | 'bajo'>('alto')
+  const [ventasMes, setVentasMes] = useState(0)
+  const [rpMes, setRpMes] = useState(0)
+  const [expressMes, setExpressMes] = useState(0)
+
+  // Instalaciones
+  const makeInstBase = (promoId = ''): Instalacion => ({
+    id: Date.now() + Math.random(), nivelKit: 'catalogo',
+    usaPromo: false, promoId, conUpgrade: false,
+    extras: [], nivelExtras: 'alto', esExpress: false,
+  })
+  const [instalaciones, setInstalaciones] = useState<Instalacion[]>([makeInstBase()])
+  const [instActiva, setInstActiva] = useState(0)
+
+  // UI panels
+  const [showPromos, setShowPromos] = useState(false)
+  const [showBonos, setShowBonos] = useState(true)
+  const [showSugs, setShowSugs] = useState(true)
 
   useEffect(() => { load() }, [workspaceId])
 
@@ -51,127 +137,179 @@ export default function VerisurePage() {
     try {
       const c = await getConfigVerisure(workspaceId)
       setConfig(c)
-      if (c.promos.length > 0) setPromoId(c.promos[0].id)
+      setInstalaciones([makeInstBase(c.promos[0]?.id ?? '')])
     } finally { setLoading(false) }
   }
 
-  // ── Cálculos ───────────────────────────────────────────────────────────────
-  const promoActual = config.promos.find(p => p.id === promoId)
-  const esJefeGerente = nivelKit === 'jefe' || nivelKit === 'gerente'
+  const inst = instalaciones[instActiva] ?? instalaciones[0]
+  const setInst = (fn: (i: Instalacion) => Instalacion) =>
+    setInstalaciones(prev => prev.map((x, i) => i === instActiva ? fn(x) : x))
 
-  // Precio instalación (sin IVA)
-  const precioInsSinIVA = usaPromo && promoActual
-    ? promoActual.precio
-    : config.kits[nivelKit] + (conUpgrade && !esJefeGerente
-        ? (nivelKit === 'catalogo' ? config.upgrades.catalogo
-          : nivelKit === 'alto'    ? config.upgrades.alto
-          : config.upgrades.medioBajo)
-        : 0)
+  // Cálculos
+  const calcs = instalaciones.map(i => calcInstalacion(i, config, tipoVenta))
+  const totalInsSinIVA = calcs.reduce((s, c) => s + c.totalInsSinIVA, 0)
+  const totalInsConIVA = calcs.reduce((s, c) => s + c.totalInsConIVA, 0)
+  const cuotaTotalConIVA = calcs.reduce((s, c) => s + c.cuotaTotalConIVA, 0)
+  const cuotaTotalSinIVA = calcs.reduce((s, c) => s + c.cuotaTotalSinIVA, 0)
+  const comisionVenta = calcs.reduce((s, c) => s + c.comisionTotal, 0)
 
-  // Precio instalación con IVA
-  const precioInsConIVA = iva(precioInsSinIVA, config.ivaPct)
+  // ── Bonos ─────────────────────────────────────────────────────────────────
+  const ventasConEsta = ventasMes + instalaciones.length
+  const rpConEsta = tipoVenta === 'RP' ? rpMes + instalaciones.length : rpMes
+  const expressConEsta = instalaciones.filter(i => i.esExpress).length + expressMes
 
-  // Cuota base sin IVA
-  const cuotaBaseSinIVA = config.cuotaBase + (conUpgrade && !esJefeGerente ? config.cuotaUpgrade : 0)
+  const calcBonoPerf = (n: number) => {
+    const esc = [...config.bonoPerformance].sort((a, b) => b.ventas - a.ventas).find(e => n >= e.ventas)
+    if (!esc) return 0
+    const maxEsc = Math.max(...config.bonoPerformance.map(e => e.ventas))
+    const extra = Math.max(0, n - maxEsc)
+    return esc.monto + extra * config.bonoPerformanceExtra
+  }
+  const calcBonoRP = (n: number) => {
+    const esc = [...config.bonoRP].sort((a, b) => b.rp - a.rp).find(e => n >= e.rp)
+    if (!esc) return 0
+    const maxEsc = Math.max(...config.bonoRP.map(e => e.rp))
+    const extra = Math.max(0, n - maxEsc)
+    return esc.monto + extra * config.bonoRPExtra
+  }
+  const calcBonoExpress = (n: number) =>
+    [...config.bonoExpress].sort((a, b) => b.express - a.express).find(e => n >= e.express)?.monto ?? 0
 
-  // Extras
-  const extrasData = extras.map(e => {
-    const disp = config.dispositivos.find(d => d.id === e.dispositivoId)
-    if (!disp) return null
-    return { disp, idx: e.cantidadIdx }
-  }).filter(Boolean) as { disp: DispositivoExtra; idx: number }[]
+  const bonoPerf        = calcBonoPerf(ventasConEsta)
+  const bonoPerfAntes   = calcBonoPerf(ventasMes)
+  const bonoRP          = calcBonoRP(rpConEsta)
+  const bonoRPAntes     = calcBonoRP(rpMes)
+  const bonoExpress     = calcBonoExpress(expressConEsta)
+  const bonoInstalacion = instalaciones.reduce((s, i) => {
+    if (tipoVenta === 'RE') return s
+    const esJG = i.nivelKit === 'jefe' || i.nivelKit === 'gerente'
+    return s + (esJG ? config.bonoInstalacionJefeGerente : config.bonoInstalacionRP)
+  }, 0)
 
-  const extraPrecioSinIVA = extrasData.reduce((acc, { disp, idx }) => acc + disp.precios[idx], 0)
-  const extraCuotaSinIVA  = extrasData.reduce((acc, { disp, idx }) => acc + disp.cuotas[idx], 0)
-  const extraComision     = extrasData.reduce((acc, { disp, idx }) => acc + disp.comisiones[idx], 0)
+  const totalBonos = bonoPerf + bonoRP + bonoExpress + bonoInstalacion
+  const gananciaTotal = comisionVenta + totalBonos
 
-  // Totales con IVA
-  const totalInsConIVA  = iva(precioInsSinIVA + extraPrecioSinIVA, config.ivaPct)
-  const cuotaTotalConIVA = iva(cuotaBaseSinIVA + extraCuotaSinIVA, config.ivaPct)
-  const cuotaClienteConIVA = Math.round(totalInsConIVA / cuotas) // cuota de instalación dividida
+  const sigEscPerf = config.bonoPerformance.filter(e => e.ventas > ventasConEsta).sort((a,b) => a.ventas - b.ventas)[0]
+  const sigEscRP   = config.bonoRP.filter(e => e.rp > rpConEsta).sort((a,b) => a.rp - b.rp)[0]
 
-  // Comisión kit
-  const comisionKit = (() => {
-    if (usaPromo) return 0
-    if (esJefeGerente) return 0
-    const key = `${nivelKit}_${tipoVenta}` as keyof typeof config.comisiones
-    return config.comisiones[key] ?? 0
-  })()
-
-  const comisionTotal = comisionKit + extraComision
-
-  // Cuota mensual que paga el cliente
-  const cuotaMensualCliente = cuotaTotalConIVA
-
-  // ── Extras handlers ────────────────────────────────────────────────────────
-  const dispositivosNivel = config.dispositivos.filter(d =>
-    d.nivel === nivelExtras || d.nivel === 'ambos'
-  )
-  // Agrupar por nombre (eliminar duplicados alto/bajo ya filtrados)
+  // ── Extras ────────────────────────────────────────────────────────────────
+  const dispositivosNivel = config.dispositivos.filter(d => d.nivel === inst.nivelExtras || d.nivel === 'ambos')
   const nombresUnicos = dispositivosNivel.map(d => d.nombre).filter((n, i, arr) => arr.indexOf(n) === i)
+  const getDisp = (nombre: string) =>
+    config.dispositivos.find(d => d.nombre === nombre && (d.nivel === inst.nivelExtras || d.nivel === 'ambos'))
+  const extraActivo = (dispId: string) => inst.extras.find(e => e.dispositivoId === dispId)
 
-  const toggleExtra = (dispId: string, cantidadIdx: number) => {
-    setExtras(prev => {
-      const existe = prev.find(e => e.dispositivoId === dispId)
-      if (existe) {
-        if (existe.cantidadIdx === cantidadIdx) {
-          return prev.filter(e => e.dispositivoId !== dispId)
-        }
-        return prev.map(e => e.dispositivoId === dispId ? { ...e, cantidadIdx } : e)
+  const toggleExtra = (dispId: string, cantidadIdx: number) =>
+    setInst(i => {
+      const ex = i.extras.find(e => e.dispositivoId === dispId)
+      if (ex) {
+        if (ex.cantidadIdx === cantidadIdx) return { ...i, extras: i.extras.filter(e => e.dispositivoId !== dispId) }
+        return { ...i, extras: i.extras.map(e => e.dispositivoId === dispId ? { ...e, cantidadIdx } : e) }
       }
-      return [...prev, { dispositivoId: dispId, cantidadIdx, nivel: nivelExtras }]
+      return { ...i, extras: [...i.extras, { dispositivoId: dispId, cantidadIdx, nivel: i.nivelExtras, bonificado: false }] }
     })
-  }
 
-  const getDispByNombreNivel = (nombre: string) =>
-    config.dispositivos.find(d => d.nombre === nombre && (d.nivel === nivelExtras || d.nivel === 'ambos'))
+  const toggleBonif = (dispId: string) =>
+    setInst(i => ({ ...i, extras: i.extras.map(e => e.dispositivoId === dispId ? { ...e, bonificado: !e.bonificado } : e) }))
 
-  const extraActivo = (dispId: string) => extras.find(e => e.dispositivoId === dispId)
-
-  // ── Mensaje WhatsApp ───────────────────────────────────────────────────────
-  const generarMensaje = () => {
-    const nivelLabel = NIVEL_LABEL[nivelKit]
-    let msg = `🔒 *Presupuesto Verisure*\n\n`
-
-    if (usaPromo && promoActual) {
-      msg += `📦 *Promo ${promoActual.label}*\n`
-      msg += `   ${promoActual.descripcion}\n`
-    } else {
-      msg += `📦 *Kit ${nivelLabel}*${conUpgrade ? ' + Upgrade' : ''}\n`
-    }
-
-    if (extrasData.length > 0) {
-      msg += `\n➕ *Extras:*\n`
-      extrasData.forEach(({ disp, idx }) => {
-        const cant = disp.cantidades[idx]
-        msg += `   • ${cant}x ${disp.nombre} — ${fmt(iva(disp.precios[idx], config.ivaPct))}\n`
-      })
-    }
-
-    msg += `\n💰 *Instalación: ${fmt(totalInsConIVA)}*`
-    msg += `\n📅 *Cuota mensual: ${fmt(cuotaMensualCliente)}*`
-
+  // ── Mensajes ──────────────────────────────────────────────────────────────
+  const msgCliente = () => {
+    let t = `🛡️ *Sistema de Seguridad Verisure*\n\n`
+    instalaciones.forEach((ins, idx) => {
+      const c = calcs[idx]
+      if (instalaciones.length > 1) t += `*Instalación #${idx + 1}*\n`
+      t += `📦 Instalación: *${fmt(c.totalInsConIVA)}*${ins.usaPromo ? ' _(precio especial)_' : ''}\n`
+      if (ins.conUpgrade && !['jefe','gerente'].includes(ins.nivelKit)) t += `⬆️ Upgrade incluido\n`
+      const pagos  = c.extrasData.filter(e => !e.bonificado && e.disp.precios[e.idx] > 0)
+      const bonifs = c.extrasData.filter(e => e.bonificado)
+      if (pagos.length) {
+        t += `➕ Equipamiento adicional:\n`
+        pagos.forEach(({ disp, idx: i }) => t += `   • ${disp.cantidades[i]}x ${disp.nombre}: *${fmt(iva(disp.precios[i], config.ivaPct))}*\n`)
+      }
+      if (bonifs.length) {
+        t += `🎁 Incluido sin costo:\n`
+        bonifs.forEach(({ disp, idx: i }) => t += `   • ${disp.cantidades[i]}x ${disp.nombre} ✓\n`)
+      }
+      if (idx < instalaciones.length - 1) t += '\n'
+    })
+    t += `\n─────────────────────\n`
     if (cuotas > 1) {
-      msg += `\n\n📊 En ${cuotas} cuotas: ${fmt(cuotaClienteConIVA)} por cuota (instalación)`
+      const cuotaKit = Math.round(totalInsConIVA / cuotas)
+      t += `💳 *En ${cuotas} cuotas de ${fmt(cuotaKit)}* _(instalación)_\n`
+      t += `📅 *Durante ${cuotas} meses:* ${fmt(cuotaTotalConIVA + cuotaKit)}/mes\n`
+      t += `   _(mensualidad + cuota de instalación)_\n\n`
+      t += `📅 *Después:* *${fmt(cuotaTotalConIVA)}/mes*\n`
+      t += `   _(solo mensualidad del servicio)_\n`
+    } else {
+      t += `📅 *Mensualidad del servicio:* *${fmt(cuotaTotalConIVA)}/mes*\n`
     }
-
-    msg += `\n\n✅ Monitoreo 24/7 · Instalación incluida · Sin permanencia`
-    return msg
+    t += `─────────────────────\n`
+    t += `\n✅ *Precios finales con IVA incluido*\n`
+    t += `🔒 Monitoreo 24hs · Atención personalizada`
+    return t
   }
 
-  const copiar = () => {
-    navigator.clipboard.writeText(generarMensaje())
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const msgInterno = () => {
+    let t = `[VENTA VERISURE] ${nowStr()}\n`
+    t += `Tipo: ${tipoVenta} | Instalaciones: ${instalaciones.length}\n`
+    t += `${'─'.repeat(36)}\n`
+    instalaciones.forEach((ins, idx) => {
+      const c = calcs[idx]
+      const promo = config.promos.find(p => p.id === ins.promoId)
+      t += `\nINSTALACIÓN #${idx + 1}\n`
+      t += `Kit: ${ins.usaPromo ? `PROMO ${promo?.label}` : NIVEL_LABEL[ins.nivelKit]} ${fmt(c.kitSinIVA)} s/IVA > ${fmt(c.kitConIVA)} c/IVA\n`
+      t += `Cuota base: ${fmt(config.cuotaBase)}/mes s/IVA > ${fmt(iva(config.cuotaBase, config.ivaPct))}/mes c/IVA\n`
+      if (ins.conUpgrade && !['jefe','gerente'].includes(ins.nivelKit)) {
+        const up = ins.nivelKit === 'catalogo' ? config.upgrades.catalogo : ins.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo
+        t += `Upgrade: ${fmt(up)} s/IVA > ${fmt(iva(up, config.ivaPct))} c/IVA | +${fmt(config.upgrades.cuotaAdicional)}/mes\n`
+      }
+      if (c.extrasData.length) {
+        t += `Extras:\n`
+        c.extrasData.forEach(({ disp, idx: i, bonificado }) => {
+          t += `  + ${disp.cantidades[i]}x ${disp.nombre} (${disp.nivel})`
+          t += bonificado ? ` BONIF $0` : ` ${fmt(disp.precios[i])} s/IVA > ${fmt(iva(disp.precios[i], config.ivaPct))} c/IVA`
+          if (disp.cuotas[i]) t += ` | cuota +${fmt(disp.cuotas[i])}/mes`
+          t += '\n'
+        })
+      }
+      t += `Comisión: kit ${fmt(c.comisionKit)} + extras ${fmt(c.comisionExtras)} = ${fmt(c.comisionTotal)}\n`
+    })
+    t += `\n${'─'.repeat(36)}\n`
+    t += `SUBTOTAL s/IVA : ${fmt(totalInsSinIVA)}\n`
+    t += `IVA 21%        : ${fmt(totalInsConIVA - totalInsSinIVA)}\n`
+    t += `TOTAL c/IVA    : ${fmt(totalInsConIVA)}\n`
+    t += `${'─'.repeat(36)}\n`
+    t += `MENS. s/IVA    : ${fmt(cuotaTotalSinIVA)}/mes\n`
+    t += `MENS. c/IVA    : ${fmt(cuotaTotalConIVA)}/mes\n`
+    if (cuotas > 1) {
+      const cuotaKit = Math.round(totalInsConIVA / cuotas)
+      t += `${'─'.repeat(36)}\n`
+      t += `Durante ${cuotas} meses : ${fmt(cuotaTotalConIVA + cuotaKit)}/mes\n`
+      t += `  (mens ${fmt(cuotaTotalConIVA)} + cuota kit ${fmt(cuotaKit)})\n`
+      t += `Luego          : ${fmt(cuotaTotalConIVA)}/mes\n`
+    }
+    t += `${'─'.repeat(36)}\n`
+    t += `COMISIÓN VENTA : ${fmt(comisionVenta)}\n`
+    if (bonoInstalacion > 0) t += `Bono instalac. : ${fmt(bonoInstalacion)}\n`
+    t += `TOTAL ESTIMADO : ${fmt(gananciaTotal)}\n`
+    return t
   }
 
+  const copiarCliente = () => { navigator.clipboard.writeText(msgCliente()); setCopiedCliente(true); setTimeout(() => setCopiedCliente(false), 2500) }
+  const copiarInterno = () => { navigator.clipboard.writeText(msgInterno()); setCopiedInterno(true); setTimeout(() => setCopiedInterno(false), 2500) }
+
+  const agregarInst = () => {
+    const nueva = makeInstBase(config.promos[0]?.id ?? '')
+    setInstalaciones(prev => [...prev, nueva])
+    setInstActiva(instalaciones.length)
+  }
+  const eliminarInst = (idx: number) => {
+    setInstalaciones(prev => prev.filter((_, i) => i !== idx))
+    setInstActiva(Math.max(0, idx - 1))
+  }
   const reset = () => {
-    setNivelKit('catalogo')
-    setTipoVenta('RP')
-    setUsaPromo(false)
-    setConUpgrade(false)
-    setCuotas(12)
-    setExtras([])
+    setInstalaciones([makeInstBase(config.promos[0]?.id ?? '')])
+    setInstActiva(0); setTipoVenta('RP'); setCuotas(12)
   }
 
   if (loading) return (
@@ -180,91 +318,104 @@ export default function VerisurePage() {
     </div>
   )
 
+  const promoActual = config.promos.find(p => p.id === inst.promoId)
+  const esJG = inst.nivelKit === 'jefe' || inst.nivelKit === 'gerente'
+
   return (
-    <div className="space-y-4 animate-fade-in pb-4">
+    <div className="space-y-4 animate-fade-in pb-6">
 
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
           <h2 className="text-lg font-semibold text-surface-900">Calculadora Verisure</h2>
-          <p className="text-surface-500 text-xs mt-0.5">Calculá precio, cuota y comisión</p>
+          <p className="text-surface-500 text-xs mt-0.5">Precio · Comisión · Bonos</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={reset} className="btn-ghost text-xs gap-1">
-            <RefreshCw size={13} /> Reset
-          </button>
-          <button onClick={() => setShowConfig(!showConfig)} className="btn-ghost text-xs gap-1">
-            <Settings size={13} /> Config
-          </button>
+          <button onClick={reset} className="btn-ghost text-xs gap-1"><RefreshCw size={13} /> Reset</button>
+          <button onClick={() => setShowConfig(!showConfig)} className="btn-ghost text-xs gap-1"><Settings size={13} /></button>
         </div>
       </div>
 
-      {/* Tipo de venta */}
-      <div className="card">
-        <p className="text-xs font-semibold text-surface-500 mb-2 uppercase tracking-wide">Tipo de venta</p>
-        <div className="grid grid-cols-2 gap-2">
-          {(['RP', 'RE'] as TipoVenta[]).map(t => (
-            <button key={t} onClick={() => setTipoVenta(t)}
-              className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                tipoVenta === t ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-              }`}>
-              {t === 'RP' ? '🤝 RP — Recurso Propio' : '🏢 RE — Recurso Empresa'}
-            </button>
-          ))}
+      {/* Tipo venta + Cuotas */}
+      <div className="card space-y-3">
+        <div>
+          <p className="text-xs font-semibold text-surface-500 mb-2 uppercase tracking-wide">Tipo de venta</p>
+          <div className="grid grid-cols-2 gap-2">
+            {(['RP', 'RE'] as TipoVenta[]).map(t => (
+              <button key={t} onClick={() => setTipoVenta(t)}
+                className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${tipoVenta === t ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                {t === 'RP' ? '🤝 RP — Recurso Propio' : '🏢 RE — Recurso Empresa'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Cuotas instalación</p>
+            <span className="text-sm font-bold text-surface-900">{cuotas === 1 ? 'Contado' : `${cuotas}x`}</span>
+          </div>
+          <div className="flex gap-1.5">
+            {[1,3,6,12].map(n => (
+              <button key={n} onClick={() => setCuotas(n)}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${cuotas === n ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                {n === 1 ? 'Ctdo' : `${n}x`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Promos del día */}
+      {/* Tabs instalaciones */}
+      <div className="flex gap-1.5 items-center">
+        {instalaciones.map((ins, idx) => (
+          <button key={ins.id} onClick={() => setInstActiva(idx)}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all relative ${instActiva === idx ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+            Inst. #{idx + 1}
+            {instalaciones.length > 1 && instActiva === idx && (
+              <span onClick={e => { e.stopPropagation(); eliminarInst(idx) }}
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center leading-none">
+                ✕
+              </span>
+            )}
+          </button>
+        ))}
+        {instalaciones.length < 4 && (
+          <button onClick={agregarInst} className="px-3 py-2 rounded-xl bg-surface-100 text-surface-500 hover:bg-surface-200 transition-all">
+            <Plus size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* Promos */}
       <div className="card">
-        <button
-          className="w-full flex items-center justify-between"
-          onClick={() => setShowPromos(!showPromos)}
-        >
+        <button className="w-full flex items-center justify-between" onClick={() => setShowPromos(!showPromos)}>
           <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Promos del día</p>
           {showPromos ? <ChevronUp size={16} className="text-surface-400" /> : <ChevronDown size={16} className="text-surface-400" />}
         </button>
-
         {showPromos && (
           <div className="mt-3 space-y-2">
-            <button
-              onClick={() => setUsaPromo(false)}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
-                !usaPromo ? 'border-surface-900 bg-surface-900 text-white' : 'border-surface-200 hover:border-surface-300'
-              }`}
-            >
+            <button onClick={() => setInst(i => ({ ...i, usaPromo: false }))}
+              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${!inst.usaPromo ? 'border-surface-900 bg-surface-900 text-white' : 'border-surface-200'}`}>
               <span className="text-sm font-medium">Sin promo — Kit estándar</span>
             </button>
             {config.promos.filter(p => p.activa).map(promo => (
-              <button key={promo.id}
-                onClick={() => { setUsaPromo(true); setPromoId(promo.id) }}
-                className={`w-full flex items-start justify-between p-3 rounded-xl border transition-all text-left ${
-                  usaPromo && promoId === promo.id
-                    ? 'border-brand-600 bg-brand-50'
-                    : 'border-surface-200 hover:border-surface-300'
-                }`}
-              >
+              <button key={promo.id} onClick={() => setInst(i => ({ ...i, usaPromo: true, promoId: promo.id }))}
+                className={`w-full flex items-start justify-between p-3 rounded-xl border transition-all text-left ${inst.usaPromo && inst.promoId === promo.id ? 'border-brand-600 bg-brand-50' : 'border-surface-200'}`}>
                 <div>
-                  <p className={`text-sm font-semibold ${usaPromo && promoId === promo.id ? 'text-brand-700' : 'text-surface-800'}`}>
-                    {promo.label}
-                  </p>
+                  <p className={`text-sm font-semibold ${inst.usaPromo && inst.promoId === promo.id ? 'text-brand-700' : 'text-surface-800'}`}>{promo.label}</p>
                   <p className="text-xs text-surface-500 mt-0.5">{promo.descripcion}</p>
                 </div>
                 <div className="text-right ml-3 flex-shrink-0">
-                  <p className={`text-sm font-bold ${usaPromo && promoId === promo.id ? 'text-brand-600' : 'text-surface-700'}`}>
-                    {fmt(promo.precio)}
-                  </p>
-                  <p className={`text-[10px] ${usaPromo && promoId === promo.id ? 'text-brand-400' : 'text-surface-400'}`}>
-                    {fmt(iva(promo.precio, config.ivaPct))} c/IVA
-                  </p>
+                  <p className={`text-sm font-bold ${inst.usaPromo && inst.promoId === promo.id ? 'text-brand-600' : 'text-surface-700'}`}>{fmt(promo.precio)}</p>
+                  <p className="text-[10px] text-surface-400">{fmt(iva(promo.precio, config.ivaPct))} c/IVA</p>
                 </div>
               </button>
             ))}
           </div>
         )}
-
-        {usaPromo && promoActual && !showPromos && (
+        {inst.usaPromo && promoActual && !showPromos && (
           <div className="mt-2 flex items-center justify-between bg-brand-50 rounded-xl px-3 py-2">
-            <span className="text-xs font-medium text-brand-700">✅ Promo: {promoActual.label}</span>
+            <span className="text-xs font-medium text-brand-700">✅ {promoActual.label}</span>
             <div className="text-right">
               <p className="text-xs font-bold text-brand-600">{fmt(promoActual.precio)}</p>
               <p className="text-[10px] text-brand-400">{fmt(iva(promoActual.precio, config.ivaPct))} c/IVA</p>
@@ -273,332 +424,407 @@ export default function VerisurePage() {
         )}
       </div>
 
-      {/* Nivel del kit — solo si no hay promo */}
-      {!usaPromo && (
+      {/* Nivel kit */}
+      {!inst.usaPromo && (
         <div className="card">
           <p className="text-xs font-semibold text-surface-500 mb-3 uppercase tracking-wide">Nivel del kit</p>
           <div className="grid grid-cols-3 gap-2 mb-3">
             {(Object.keys(config.kits) as NivelPrecio[]).map(nivel => (
-              <button key={nivel} onClick={() => setNivelKit(nivel)}
-                className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${
-                  nivelKit === nivel
-                    ? 'border-brand-600 bg-brand-50'
-                    : 'border-surface-200 hover:border-surface-300 bg-white'
-                }`}
-              >
-                <span className={`text-xs font-semibold ${nivelKit === nivel ? 'text-brand-700' : 'text-surface-700'}`}>
-                  {NIVEL_LABEL[nivel]}
-                </span>
-                <span className={`text-[10px] font-medium mt-0.5 ${nivelKit === nivel ? 'text-brand-600' : 'text-surface-700'}`}>
-                  {fmt(config.kits[nivel])}
-                </span>
-                <span className={`text-[9px] mt-0.5 ${nivelKit === nivel ? 'text-brand-400' : 'text-surface-400'}`}>
-                  {fmt(iva(config.kits[nivel], config.ivaPct))} c/IVA
-                </span>
+              <button key={nivel} onClick={() => setInst(i => ({ ...i, nivelKit: nivel }))}
+                className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${inst.nivelKit === nivel ? 'border-brand-600 bg-brand-50' : 'border-surface-200 bg-white'}`}>
+                <span className={`text-xs font-semibold ${inst.nivelKit === nivel ? 'text-brand-700' : 'text-surface-700'}`}>{NIVEL_LABEL[nivel]}</span>
+                <span className={`text-[10px] font-medium mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-600' : 'text-surface-700'}`}>{fmt(config.kits[nivel])}</span>
+                <span className={`text-[9px] mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-400' : 'text-surface-400'}`}>{fmt(iva(config.kits[nivel], config.ivaPct))} c/IVA</span>
               </button>
             ))}
           </div>
-
-          {/* Upgrade */}
-          {!esJefeGerente && (
-            <button
-              onClick={() => setConUpgrade(!conUpgrade)}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
-                conUpgrade ? 'border-brand-600 bg-brand-50' : 'border-surface-200 hover:border-surface-300'
-              }`}
-            >
+          {!esJG && (
+            <button onClick={() => setInst(i => ({ ...i, conUpgrade: !i.conUpgrade }))}
+              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-50' : 'border-surface-200'}`}>
               <div>
-                <p className={`text-sm font-medium ${conUpgrade ? 'text-brand-700' : 'text-surface-700'}`}>
-                  ⬆️ Con Upgrade
-                </p>
+                <p className={`text-sm font-medium ${inst.conUpgrade ? 'text-brand-700' : 'text-surface-700'}`}>⬆️ Con Upgrade</p>
                 <p className="text-xs text-surface-400 mt-0.5">
-                  +{fmt(
-                    nivelKit === 'catalogo' ? config.upgrades.catalogo
-                    : nivelKit === 'alto'   ? config.upgrades.alto
-                    : config.upgrades.medioBajo
-                  )} instalación · +{fmt(config.upgrades.cuotaAdicional)}/mes
-                  <span className="text-surface-300"> (sin IVA)</span>
+                  +{fmt(inst.nivelKit === 'catalogo' ? config.upgrades.catalogo : inst.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo)} ins.
+                  · +{fmt(config.upgrades.cuotaAdicional)}/mes <span className="text-surface-300">s/IVA</span>
                 </p>
               </div>
-              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
-                conUpgrade ? 'border-brand-600 bg-brand-600' : 'border-surface-300'
-              }`}>
-                {conUpgrade && <Check size={12} className="text-white" />}
+              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-600' : 'border-surface-300'}`}>
+                {inst.conUpgrade && <Check size={12} className="text-white" />}
               </div>
             </button>
           )}
         </div>
       )}
 
-      {/* Cuotas */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Cuotas sin interés</p>
-          <span className="text-sm font-bold text-surface-900">{cuotas}x</span>
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {[1,2,3,4,6,9,12].map(n => (
-            <button key={n} onClick={() => setCuotas(n)}
-              className={`flex-1 min-w-[36px] py-2 rounded-xl text-sm font-semibold transition-all ${
-                cuotas === n ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-              }`}>
-              {n}
-            </button>
-          ))}
-        </div>
-        {cuotas > 1 && (
-          <p className="text-xs text-surface-400 mt-2 text-center">
-            Cuota instalación: {fmt(Math.round(totalInsConIVA / cuotas))} × {cuotas}
-          </p>
-        )}
-      </div>
-
-      {/* Dispositivos extras */}
+      {/* Extras */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Dispositivos extras</p>
           <div className="flex gap-1">
             {(['alto', 'bajo'] as const).map(n => (
-              <button key={n} onClick={() => setNivelExtras(n)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  nivelExtras === n ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-500'
-                }`}>
+              <button key={n} onClick={() => setInst(i => ({ ...i, nivelExtras: n }))}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${inst.nivelExtras === n ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-500'}`}>
                 {n === 'alto' ? 'Alto' : 'Bajo'}
               </button>
             ))}
           </div>
         </div>
-
         <div className="space-y-2">
           {nombresUnicos.map(nombre => {
-            const disp = getDispByNombreNivel(nombre)
+            const disp = getDisp(nombre)
             if (!disp) return null
             const activo = extraActivo(disp.id)
             return (
-              <div key={disp.id} className={`rounded-xl border transition-all ${
-                activo ? 'border-brand-200 bg-brand-50' : 'border-surface-200'
-              }`}>
+              <div key={disp.id} className={`rounded-xl border transition-all ${activo ? 'border-brand-200 bg-brand-50' : 'border-surface-200'}`}>
                 <div className="flex items-center justify-between px-3 py-2.5">
-                  <div className="flex-1 min-w-0 mr-3">
-                    <p className={`text-sm font-medium ${activo ? 'text-brand-800' : 'text-surface-800'}`}>
-                      {disp.nombre}
-                    </p>
+                  <div className="flex-1 min-w-0 mr-2">
+                    <p className={`text-sm font-medium ${activo ? 'text-brand-800' : 'text-surface-800'}`}>{disp.nombre}</p>
                     {activo ? (
                       <div className="mt-1 space-y-0.5">
-                        <div className="flex gap-3">
-                          <p className="text-xs font-semibold text-brand-700">
-                            {fmt(disp.precios[activo.cantidadIdx])}
-                            <span className="font-normal text-brand-400"> sin IVA</span>
-                          </p>
-                          <p className="text-xs text-brand-500">
-                            {fmt(iva(disp.precios[activo.cantidadIdx], config.ivaPct))}
-                            <span className="text-brand-400"> c/IVA</span>
-                          </p>
-                        </div>
+                        {!activo.bonificado ? (
+                          <div className="flex gap-3">
+                            <p className="text-xs font-semibold text-brand-700">{fmt(disp.precios[activo.cantidadIdx])} <span className="font-normal text-brand-400">s/IVA</span></p>
+                            <p className="text-xs text-brand-500">{fmt(iva(disp.precios[activo.cantidadIdx], config.ivaPct))} <span className="text-brand-400">c/IVA</span></p>
+                          </div>
+                        ) : (
+                          <p className="text-xs font-semibold text-green-600">🎁 Bonificado — $0</p>
+                        )}
                         {disp.cuotas[activo.cantidadIdx] > 0 && (
-                          <p className="text-xs text-brand-500">
-                            +{fmt(iva(disp.cuotas[activo.cantidadIdx], config.ivaPct))}
-                            <span className="text-brand-400">/mes c/IVA</span>
-                          </p>
+                          <p className="text-xs text-brand-500">+{fmt(iva(disp.cuotas[activo.cantidadIdx], config.ivaPct))}<span className="text-brand-400">/mes c/IVA</span></p>
                         )}
                       </div>
                     ) : (
-                      <p className="text-[10px] text-surface-400 mt-0.5">
-                        desde {fmt(disp.precios[0])} sin IVA
-                      </p>
+                      <p className="text-[10px] text-surface-400 mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
                     )}
                   </div>
-                  {/* Selector cantidad */}
-                  <div className="flex gap-1 flex-shrink-0">
-                    {disp.cantidades.map((cant, idx) => (
-                      <button key={cant}
-                        onClick={() => toggleExtra(disp.id, idx)}
-                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                          activo?.cantidadIdx === idx
-                            ? 'bg-brand-600 text-white'
-                            : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-                        }`}>
-                        {cant}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {activo && (
+                      <button onClick={() => toggleBonif(disp.id)}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${activo.bonificado ? 'bg-green-100 border-green-300 text-green-700' : 'bg-surface-100 border-surface-200 text-surface-500'}`}>
+                        <Gift size={10} className="inline mr-0.5" />Bonif
                       </button>
-                    ))}
+                    )}
+                    <div className="flex gap-1">
+                      {disp.cantidades.map((cant, idx) => (
+                        <button key={cant} onClick={() => toggleExtra(disp.id, idx)}
+                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${activo?.cantidadIdx === idx ? 'bg-brand-600 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                          {cant}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )
           })}
         </div>
-
-        {extras.length === 0 && (
-          <p className="text-xs text-surface-400 text-center py-2">
-            Tocá una cantidad para agregar un dispositivo
-          </p>
-        )}
+        {inst.extras.length === 0 && <p className="text-xs text-surface-400 text-center py-2">Tocá una cantidad para agregar</p>}
       </div>
+
+      {/* Express (solo RE) */}
+      {tipoVenta === 'RE' && (
+        <button onClick={() => setInst(i => ({ ...i, esExpress: !i.esExpress }))}
+          className={`card w-full flex items-center justify-between transition-all ${inst.esExpress ? 'border-brand-300 bg-brand-50' : ''}`}>
+          <div>
+            <p className="text-sm font-medium text-surface-700">⚡ Venta Express</p>
+            <p className="text-xs text-surface-400 mt-0.5">Instalación el mismo día — suma al bono Express</p>
+          </div>
+          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${inst.esExpress ? 'border-brand-600 bg-brand-600' : 'border-surface-300'}`}>
+            {inst.esExpress && <Check size={12} className="text-white" />}
+          </div>
+        </button>
+      )}
 
       {/* Resultado */}
       <div className="rounded-2xl overflow-hidden border border-surface-200">
-        {/* Precio cliente */}
         <div className="bg-surface-900 px-4 py-4">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-surface-400 text-xs mb-1">Instalación</p>
-              <p className="text-white text-2xl font-bold">{fmt(precioInsSinIVA + extraPrecioSinIVA)}</p>
-              <p className="text-surface-500 text-xs mt-0.5">{fmt(totalInsConIVA)} con IVA</p>
+              <p className="text-surface-400 text-xs mb-1">Instalación{instalaciones.length > 1 ? ' total' : ''}</p>
+              <p className="text-white text-2xl font-bold">{fmt(totalInsSinIVA)}</p>
+              <p className="text-surface-500 text-xs mt-0.5">{fmt(totalInsConIVA)} c/IVA</p>
             </div>
             <div className="text-right">
               <p className="text-surface-400 text-xs mb-1">Cuota mensual</p>
-              <p className="text-white text-lg font-semibold">{fmt(cuotaBaseSinIVA + extraCuotaSinIVA)}</p>
-              <p className="text-surface-500 text-xs mt-0.5">{fmt(cuotaMensualCliente)} con IVA</p>
+              <p className="text-white text-lg font-semibold">{fmt(cuotaTotalSinIVA)}</p>
+              <p className="text-surface-500 text-xs mt-0.5">{fmt(cuotaTotalConIVA)} c/IVA</p>
             </div>
           </div>
           {cuotas > 1 && (
             <div className="mt-3 pt-3 border-t border-surface-700">
               <p className="text-surface-300 text-xs text-center">
-                En {cuotas} cuotas de {fmt(Math.round((precioInsSinIVA + extraPrecioSinIVA) / cuotas))} · sin interés · sin IVA
-              </p>
-              <p className="text-surface-500 text-[10px] text-center mt-0.5">
-                {fmt(Math.round(totalInsConIVA / cuotas))} con IVA
+                En {cuotas} cuotas de {fmt(Math.round(totalInsSinIVA / cuotas))} s/IVA · sin interés
               </p>
             </div>
           )}
         </div>
 
-        {/* Comisión vendedor */}
         <div className="bg-green-50 px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-700 text-xs font-medium">Tu comisión</p>
-              {usaPromo && <p className="text-green-500 text-[10px] mt-0.5">Kit: $0 (promo) + extras</p>}
-              {!usaPromo && comisionKit > 0 && (
-                <p className="text-green-500 text-[10px] mt-0.5">
-                  Kit {NIVEL_LABEL[nivelKit]} {tipoVenta}: {fmt(comisionKit)}
-                  {extraComision > 0 ? ` + extras: ${fmt(extraComision)}` : ''}
-                </p>
-              )}
+              <p className="text-green-700 text-xs font-medium">Comisión esta venta</p>
+              <p className="text-green-500 text-[10px] mt-0.5">
+                Kit: {fmt(calcs.reduce((s,c)=>s+c.comisionKit,0))} · Extras: {fmt(calcs.reduce((s,c)=>s+c.comisionExtras,0))}
+              </p>
             </div>
-            <p className="text-green-700 text-xl font-bold">{fmt(comisionTotal)}</p>
+            <p className="text-green-700 text-xl font-bold">{fmt(comisionVenta)}</p>
           </div>
         </div>
 
-        {/* Desglose */}
         <div className="bg-white px-4 py-3 space-y-1.5">
-          <div className="flex justify-between text-xs text-surface-500">
-            <span>Kit {usaPromo ? `Promo ${promoActual?.label}` : NIVEL_LABEL[nivelKit]}{conUpgrade && !usaPromo ? ' + Upgrade' : ''}</span>
-            <span>{fmt(iva(precioInsSinIVA, config.ivaPct))}</span>
-          </div>
-          {extrasData.map(({ disp, idx }) => (
-            <div key={disp.id} className="flex justify-between text-xs text-surface-500">
-              <span>{disp.cantidades[idx]}x {disp.nombre}</span>
-              <span>{fmt(iva(disp.precios[idx], config.ivaPct))}</span>
+          {calcs.map((c, idx) => (
+            <div key={idx}>
+              {instalaciones.length > 1 && <p className="text-[10px] text-surface-400 font-semibold uppercase tracking-wide mt-1">Inst. #{idx+1}</p>}
+              <div className="flex justify-between text-xs text-surface-500">
+                <span>{instalaciones[idx].usaPromo ? `Promo` : NIVEL_LABEL[instalaciones[idx].nivelKit]}{instalaciones[idx].conUpgrade ? ' + Upg' : ''}</span>
+                <span>{fmt(c.kitSinIVA)}</span>
+              </div>
+              {c.extrasData.map(({ disp, idx: i, bonificado }) => (
+                <div key={disp.id} className="flex justify-between text-xs text-surface-400">
+                  <span>{disp.cantidades[i]}x {disp.nombre}{bonificado ? ' 🎁' : ''}</span>
+                  <span>{bonificado ? '$0' : fmt(disp.precios[i])}</span>
+                </div>
+              ))}
             </div>
           ))}
           <div className="flex justify-between text-xs text-surface-400 pt-1 border-t border-surface-100">
-            <span>Cuota base</span>
-            <span>{fmt(iva(config.cuotaBase, config.ivaPct))}/mes</span>
+            <span>Cuota total</span><span>{fmt(cuotaTotalSinIVA)}/mes s/IVA</span>
           </div>
-          {extrasData.map(({ disp, idx }) => disp.cuotas[idx] > 0 && (
-            <div key={`cuota_${disp.id}`} className="flex justify-between text-xs text-surface-400">
-              <span>+ {disp.cantidades[idx]}x {disp.nombre}</span>
-              <span>+{fmt(iva(disp.cuotas[idx], config.ivaPct))}/mes</span>
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* Acciones */}
-      <button onClick={copiar}
-        className="w-full btn-primary py-3 text-sm gap-2">
-        {copied ? <><Check size={16} /> ¡Copiado!</> : <><Copy size={16} /> Copiar mensaje WhatsApp</>}
-      </button>
+      {/* Panel bonos */}
+      <div className="card">
+        <button className="w-full flex items-center justify-between" onClick={() => setShowBonos(!showBonos)}>
+          <div className="flex items-center gap-2">
+            <TrendingUp size={15} className="text-surface-500" />
+            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Panel de bonos del mes</p>
+          </div>
+          {showBonos ? <ChevronUp size={16} className="text-surface-400" /> : <ChevronDown size={16} className="text-surface-400" />}
+        </button>
+        {showBonos && (
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              {[['Ventas mes', ventasMes, setVentasMes], ['RP mes', rpMes, setRpMes], ['Express mes', expressMes, setExpressMes]].map(([label, val, set]) => (
+                <div key={label as string}>
+                  <label className="label">{label as string}</label>
+                  <input type="number" min="0" value={val as number}
+                    onChange={e => (set as (n:number)=>void)(Number(e.target.value))}
+                    className="input text-sm py-1.5 text-center" />
+                </div>
+              ))}
+            </div>
 
-      {/* Config de precios (editable) */}
-      {showConfig && (
-        <ConfigPanel config={config} workspaceId={workspaceId} onSave={c => { setConfig(c); setShowConfig(false) }} />
-      )}
+            {/* Bono performance */}
+            <div className={`rounded-xl p-3 ${bonoPerf > bonoPerfAntes ? 'bg-green-50 border border-green-200' : 'bg-surface-50'}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-semibold text-surface-700">🎯 Bono Performance</p>
+                  <p className="text-xs text-surface-500 mt-0.5">{ventasConEsta} ventas con esta operación
+                    {bonoPerf > bonoPerfAntes && <span className="text-green-600 font-semibold"> · ¡Subís escalón!</span>}
+                  </p>
+                  {sigEscPerf && <p className="text-[10px] text-surface-400 mt-0.5">Faltan {sigEscPerf.ventas - ventasConEsta} para {fmt(sigEscPerf.monto)}</p>}
+                </div>
+                <p className={`text-lg font-bold ${bonoPerf > 0 ? 'text-green-700' : 'text-surface-400'}`}>{fmt(bonoPerf)}</p>
+              </div>
+            </div>
+
+            {/* Bono RP */}
+            <div className={`rounded-xl p-3 ${bonoRP > bonoRPAntes ? 'bg-green-50 border border-green-200' : 'bg-surface-50'}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-semibold text-surface-700">🤝 Bono RP</p>
+                  <p className="text-xs text-surface-500 mt-0.5">{rpConEsta} RP con esta operación
+                    {bonoRP > bonoRPAntes && <span className="text-green-600 font-semibold"> · ¡Subís escalón!</span>}
+                  </p>
+                  {sigEscRP && <p className="text-[10px] text-surface-400 mt-0.5">Faltan {sigEscRP.rp - rpConEsta} RP para {fmt(sigEscRP.monto)}</p>}
+                </div>
+                <p className={`text-lg font-bold ${bonoRP > 0 ? 'text-green-700' : 'text-surface-400'}`}>{fmt(bonoRP)}</p>
+              </div>
+            </div>
+
+            {/* Bono express */}
+            {(tipoVenta === 'RE' || expressMes > 0) && (
+              <div className="rounded-xl p-3 bg-surface-50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-semibold text-surface-700">⚡ Bono Express</p>
+                    <p className="text-xs text-surface-500 mt-0.5">{expressConEsta} express este mes</p>
+                  </div>
+                  <p className={`text-lg font-bold ${bonoExpress > 0 ? 'text-green-700' : 'text-surface-400'}`}>{fmt(bonoExpress)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Bono instalación */}
+            {bonoInstalacion > 0 && (
+              <div className="rounded-xl p-3 bg-green-50 border border-green-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-semibold text-surface-700">🔧 Bono Instalación</p>
+                    <p className="text-xs text-surface-500 mt-0.5">
+                      {instalaciones.map((ins, i) => `#${i+1}: ${fmt((ins.nivelKit === 'jefe' || ins.nivelKit === 'gerente') ? config.bonoInstalacionJefeGerente : config.bonoInstalacionRP)}`).join(' · ')}
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold text-green-700">{fmt(bonoInstalacion)}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Total estimado */}
+            <div className="bg-surface-900 rounded-xl px-4 py-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-surface-300 text-xs">Comisión + bonos estimados</p>
+                  <p className="text-surface-400 text-[10px] mt-0.5">{fmt(comisionVenta)} + {fmt(totalBonos)} bonos</p>
+                </div>
+                <p className="text-white text-xl font-bold">{fmt(gananciaTotal)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sugerencias */}
+      <div className="card">
+        <button className="w-full flex items-center justify-between" onClick={() => setShowSugs(!showSugs)}>
+          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">💡 Sugerencias</p>
+          {showSugs ? <ChevronUp size={16} className="text-surface-400" /> : <ChevronDown size={16} className="text-surface-400" />}
+        </button>
+        {showSugs && (
+          <div className="mt-3 space-y-2">
+            {/* Upsell */}
+            {!inst.usaPromo && inst.nivelKit !== 'catalogo' && (() => {
+              const idx = NIVELES_ORDEN.indexOf(inst.nivelKit)
+              const sup = idx > 0 ? NIVELES_ORDEN[idx - 1] : null
+              if (!sup) return null
+              const difPrecio = iva(config.kits[sup], config.ivaPct) - iva(config.kits[inst.nivelKit], config.ivaPct)
+              const comSup = config.comisiones[`${sup}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
+              const comAct = config.comisiones[`${inst.nivelKit}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
+              return (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-amber-800">🔼 Upsell a {NIVEL_LABEL[sup]}</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Cliente paga <strong>{fmt(difPrecio)}</strong> más c/IVA
+                    {comSup - comAct > 0 && <> · Tu comisión sube <strong>{fmt(comSup - comAct)}</strong></>}
+                  </p>
+                </div>
+              )
+            })()}
+
+            {sigEscPerf && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <p className="text-xs font-semibold text-blue-800">🎯 Próximo bono Performance</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Faltan <strong>{sigEscPerf.ventas - ventasConEsta} venta{sigEscPerf.ventas - ventasConEsta !== 1 ? 's' : ''}</strong> para el bono de <strong>{fmt(sigEscPerf.monto)}</strong>
+                </p>
+              </div>
+            )}
+
+            {sigEscRP && tipoVenta === 'RP' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <p className="text-xs font-semibold text-blue-800">🤝 Próximo bono RP</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Faltan <strong>{sigEscRP.rp - rpConEsta} RP</strong> para el bono de <strong>{fmt(sigEscRP.monto)}</strong>
+                </p>
+              </div>
+            )}
+
+            {!inst.conUpgrade && !inst.usaPromo && !esJG && (() => {
+              const up = inst.nivelKit === 'catalogo' ? config.upgrades.catalogo : inst.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo
+              return (
+                <div className="bg-surface-50 border border-surface-200 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-surface-700">⬆️ Agregar Upgrade</p>
+                  <p className="text-xs text-surface-500 mt-1">
+                    Cliente paga <strong>{fmt(iva(up, config.ivaPct))}</strong> más + <strong>{fmt(iva(config.upgrades.cuotaAdicional, config.ivaPct))}</strong>/mes. Tu comisión no cambia.
+                  </p>
+                </div>
+              )
+            })()}
+
+            {tipoVenta === 'RE' && !inst.esExpress && (() => {
+              const sig = config.bonoExpress.filter(e => e.express > expressConEsta).sort((a,b) => a.express - b.express)[0]
+              return sig ? (
+                <div className="bg-surface-50 border border-surface-200 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-surface-700">⚡ Activar Express</p>
+                  <p className="text-xs text-surface-500 mt-1">
+                    Si instalás hoy, faltan <strong>{sig.express - expressConEsta}</strong> express para {fmt(sig.monto)}.
+                  </p>
+                </div>
+              ) : null
+            })()}
+
+            {!sigEscPerf && !sigEscRP && inst.conUpgrade && inst.usaPromo && (
+              <p className="text-xs text-surface-400 text-center py-2">Todo optimizado 🎯</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Botones mensaje */}
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={copiarCliente} className="btn-primary py-3 text-sm gap-2 flex items-center justify-center">
+          {copiedCliente ? <><Check size={15}/> Copiado</> : <><Copy size={15}/> Para cliente</>}
+        </button>
+        <button onClick={copiarInterno}
+          className={`py-3 text-sm gap-2 rounded-xl font-medium border flex items-center justify-center transition-all ${copiedInterno ? 'bg-green-100 text-green-700 border-green-200' : 'bg-surface-100 text-surface-700 border-surface-200 hover:bg-surface-200'}`}>
+          {copiedInterno ? <><Check size={15}/> Copiado</> : <><Copy size={15}/> Para equipo</>}
+        </button>
+      </div>
+
+      {showConfig && <ConfigPanel config={config} workspaceId={workspaceId} onSave={c => { setConfig(c); setShowConfig(false) }} />}
     </div>
   )
 }
 
-// ── Panel de configuración ────────────────────────────────────────────────────
-function ConfigPanel({ config, workspaceId, onSave }: {
-  config: ConfigVerisure
-  workspaceId: string
-  onSave: (c: ConfigVerisure) => void
-}) {
+// ── Config Panel ──────────────────────────────────────────────────────────────
+function ConfigPanel({ config, workspaceId, onSave }: { config: ConfigVerisure; workspaceId: string; onSave: (c: ConfigVerisure) => void }) {
   const [draft, setDraft] = useState<ConfigVerisure>(JSON.parse(JSON.stringify(config)))
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState<'kits' | 'promos' | 'bonos'>('kits')
 
-  const updateKit = (k: NivelPrecio, val: number) =>
-    setDraft(d => ({ ...d, kits: { ...d.kits, [k]: val } }))
-
-  const updateComision = (k: keyof ConfigVerisure['comisiones'], val: number) =>
-    setDraft(d => ({ ...d, comisiones: { ...d.comisiones, [k]: val } }))
-
-  const updatePromo = (id: string, field: string, val: any) =>
-    setDraft(d => ({ ...d, promos: d.promos.map(p => p.id === id ? { ...p, [field]: val } : p) }))
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await saveConfigVerisure(workspaceId, draft)
-      onSave(draft)
-    } finally { setSaving(false) }
-  }
+  const updateKit = (k: NivelPrecio, val: number) => setDraft(d => ({ ...d, kits: { ...d.kits, [k]: val } }))
+  const updateCom = (k: keyof ConfigVerisure['comisiones'], val: number) => setDraft(d => ({ ...d, comisiones: { ...d.comisiones, [k]: val } }))
+  const updatePromo = (id: string, field: string, val: any) => setDraft(d => ({ ...d, promos: d.promos.map(p => p.id === id ? { ...p, [field]: val } : p) }))
+  const handleSave = async () => { setSaving(true); try { await saveConfigVerisure(workspaceId, draft); onSave(draft) } finally { setSaving(false) } }
 
   return (
     <div className="card border-amber-200 bg-amber-50">
       <p className="text-sm font-semibold text-amber-800 mb-3">⚙️ Configuración de precios</p>
-
       <div className="flex gap-1 mb-4">
         {(['kits', 'promos', 'bonos'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${
-              tab === t ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-700'
-            }`}>
-            {t}
-          </button>
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${tab === t ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-700'}`}>{t}</button>
         ))}
       </div>
-
       {tab === 'kits' && (
         <div className="space-y-2">
           <p className="text-xs text-amber-700 font-medium mb-1">Precios de instalación (sin IVA)</p>
           {(Object.keys(draft.kits) as NivelPrecio[]).map(nivel => (
             <div key={nivel} className="flex items-center gap-3">
               <span className="text-xs text-amber-800 w-20 font-medium">{NIVEL_LABEL[nivel]}</span>
-              <input type="number" value={draft.kits[nivel]}
-                onChange={e => updateKit(nivel, Number(e.target.value))}
-                className="input text-sm py-1.5 bg-white" />
+              <input type="number" value={draft.kits[nivel]} onChange={e => updateKit(nivel, Number(e.target.value))} className="input text-sm py-1.5 bg-white" />
             </div>
           ))}
           <p className="text-xs text-amber-700 font-medium mt-3 mb-1">Comisiones (sin IVA)</p>
           {(Object.keys(draft.comisiones) as (keyof ConfigVerisure['comisiones'])[]).map(k => (
             <div key={k} className="flex items-center gap-3">
               <span className="text-xs text-amber-800 w-28 font-medium">{k.replace('_', ' ')}</span>
-              <input type="number" value={draft.comisiones[k]}
-                onChange={e => updateComision(k, Number(e.target.value))}
-                className="input text-sm py-1.5 bg-white" />
+              <input type="number" value={draft.comisiones[k]} onChange={e => updateCom(k, Number(e.target.value))} className="input text-sm py-1.5 bg-white" />
             </div>
           ))}
         </div>
       )}
-
       {tab === 'promos' && (
         <div className="space-y-3">
           {draft.promos.map(promo => (
             <div key={promo.id} className="bg-white rounded-xl p-3 space-y-2">
-              <input value={promo.label} onChange={e => updatePromo(promo.id, 'label', e.target.value)}
-                className="input text-sm py-1.5 font-medium" placeholder="Nombre promo" />
-              <input value={promo.descripcion} onChange={e => updatePromo(promo.id, 'descripcion', e.target.value)}
-                className="input text-sm py-1.5" placeholder="Descripción" />
+              <input value={promo.label} onChange={e => updatePromo(promo.id, 'label', e.target.value)} className="input text-sm py-1.5" placeholder="Nombre" />
+              <input value={promo.descripcion} onChange={e => updatePromo(promo.id, 'descripcion', e.target.value)} className="input text-sm py-1.5" placeholder="Descripción" />
               <div className="flex gap-2 items-center">
-                <input type="number" value={promo.precio} onChange={e => updatePromo(promo.id, 'precio', Number(e.target.value))}
-                  className="input text-sm py-1.5 flex-1" placeholder="Precio sin IVA" />
+                <input type="number" value={promo.precio} onChange={e => updatePromo(promo.id, 'precio', Number(e.target.value))} className="input text-sm py-1.5 flex-1" placeholder="Precio sin IVA" />
                 <button onClick={() => updatePromo(promo.id, 'activa', !promo.activa)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                    promo.activa ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-500'
-                  }`}>
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium ${promo.activa ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-500'}`}>
                   {promo.activa ? '✅ Activa' : '⏸ Pausada'}
                 </button>
               </div>
@@ -606,38 +832,18 @@ function ConfigPanel({ config, workspaceId, onSave }: {
           ))}
         </div>
       )}
-
       {tab === 'bonos' && (
         <div className="space-y-2">
-          <p className="text-xs text-amber-700 font-medium">Cuota base y upgrade (sin IVA)</p>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-amber-800 w-28">Cuota base</span>
-            <input type="number" value={draft.cuotaBase}
-              onChange={e => setDraft(d => ({ ...d, cuotaBase: Number(e.target.value) }))}
-              className="input text-sm py-1.5 bg-white" />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-amber-800 w-28">Cuota upgrade</span>
-            <input type="number" value={draft.cuotaUpgrade}
-              onChange={e => setDraft(d => ({ ...d, cuotaUpgrade: Number(e.target.value) }))}
-              className="input text-sm py-1.5 bg-white" />
-          </div>
-          <p className="text-xs text-amber-700 font-medium mt-3">Bonos instalación</p>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-amber-800 w-28">Por RP instalada</span>
-            <input type="number" value={draft.bonoInstalacionRP}
-              onChange={e => setDraft(d => ({ ...d, bonoInstalacionRP: Number(e.target.value) }))}
-              className="input text-sm py-1.5 bg-white" />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-amber-800 w-28">Jefe/Gerente</span>
-            <input type="number" value={draft.bonoInstalacionJefeGerente}
-              onChange={e => setDraft(d => ({ ...d, bonoInstalacionJefeGerente: Number(e.target.value) }))}
-              className="input text-sm py-1.5 bg-white" />
-          </div>
+          {[['Cuota base', 'cuotaBase'], ['Cuota upgrade', 'cuotaUpgrade'], ['Bono RP instalada', 'bonoInstalacionRP'], ['Bono Jefe/Gerente', 'bonoInstalacionJefeGerente']].map(([label, key]) => (
+            <div key={key} className="flex items-center gap-3">
+              <span className="text-xs text-amber-800 w-32">{label}</span>
+              <input type="number" value={(draft as any)[key]}
+                onChange={e => setDraft(d => ({ ...d, [key]: Number(e.target.value) }))}
+                className="input text-sm py-1.5 bg-white" />
+            </div>
+          ))}
         </div>
       )}
-
       <button onClick={handleSave} disabled={saving}
         className="w-full mt-4 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm rounded-xl py-2.5 transition-all disabled:opacity-40">
         {saving ? 'Guardando...' : 'Guardar configuración'}
