@@ -208,7 +208,7 @@ export default function VerisurePage() {
               className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${
                 tipoVenta === t ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
               }`}>
-              {t === 'RP' ? '🤝 RP — Referido Propio' : '📨 RE — Referido Externo'}
+              {t === 'RP' ? '🤝 RP — Recurso Propio' : '🏢 RE — Recurso Empresa'}
             </button>
           ))}
         </div>
