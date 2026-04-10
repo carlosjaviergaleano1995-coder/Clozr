@@ -47,9 +47,21 @@ export default function TareasPage() {
   const completadas = tareas.filter(t => t.completada)
   const progreso = tareas.length > 0 ? Math.round((completadas.length / tareas.length) * 100) : 0
 
+  const [toggling, setToggling] = useState<Set<string>>(new Set())
+
   const handleToggle = async (t: Tarea) => {
-    await toggleTarea(workspaceId, t.id, !t.completada)
+    if (toggling.has(t.id)) return
+    // Update optimista inmediato
     setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: !x.completada } : x))
+    setToggling(prev => new Set(prev).add(t.id))
+    try {
+      await toggleTarea(workspaceId, t.id, !t.completada)
+    } catch {
+      // Revertir si falla
+      setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: t.completada } : x))
+    } finally {
+      setToggling(prev => { const s = new Set(prev); s.delete(t.id); return s })
+    }
   }
 
   const handleAdd = async () => {
@@ -147,7 +159,8 @@ export default function TareasPage() {
             <div key={t.id} className="card flex items-center gap-3">
               <button
                 onClick={() => handleToggle(t)}
-                className="text-surface-300 hover:text-brand-600 transition-colors flex-shrink-0"
+                disabled={toggling.has(t.id)}
+                className="text-surface-300 hover:text-brand-600 transition-colors flex-shrink-0 disabled:opacity-40"
               >
                 <Square size={20} />
               </button>
@@ -175,7 +188,8 @@ export default function TareasPage() {
               <div key={t.id} className="card flex items-center gap-3 opacity-60">
                 <button
                   onClick={() => handleToggle(t)}
-                  className="text-green-500 flex-shrink-0"
+                  disabled={toggling.has(t.id)}
+                  className="text-green-500 flex-shrink-0 disabled:opacity-40"
                 >
                   <CheckSquare size={20} />
                 </button>
