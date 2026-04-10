@@ -15,8 +15,19 @@ import type { Workspace, Cliente, Producto, Venta, Tarea, User } from '@/types'
 
 // ── AUTH ──
 const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
 
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider)
+export const signInWithGoogle = async () => {
+  try {
+    return await signInWithPopup(auth, googleProvider)
+  } catch (error: any) {
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+      const { signInWithRedirect } = await import('firebase/auth')
+      return signInWithRedirect(auth, googleProvider)
+    }
+    throw error
+  }
+}
 
 export const signInWithEmail = (email: string, password: string) =>
   signInWithEmailAndPassword(auth, email, password)
