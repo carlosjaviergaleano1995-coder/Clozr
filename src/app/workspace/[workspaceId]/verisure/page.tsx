@@ -249,9 +249,14 @@ export default function VerisurePage() {
                   </p>
                   <p className="text-xs text-surface-500 mt-0.5">{promo.descripcion}</p>
                 </div>
-                <span className={`text-sm font-bold ml-3 flex-shrink-0 ${usaPromo && promoId === promo.id ? 'text-brand-600' : 'text-surface-700'}`}>
-                  {fmt(iva(promo.precio, config.ivaPct))}
-                </span>
+                <div className="text-right ml-3 flex-shrink-0">
+                  <p className={`text-sm font-bold ${usaPromo && promoId === promo.id ? 'text-brand-600' : 'text-surface-700'}`}>
+                    {fmt(promo.precio)}
+                  </p>
+                  <p className={`text-[10px] ${usaPromo && promoId === promo.id ? 'text-brand-400' : 'text-surface-400'}`}>
+                    {fmt(iva(promo.precio, config.ivaPct))} c/IVA
+                  </p>
+                </div>
               </button>
             ))}
           </div>
@@ -260,7 +265,10 @@ export default function VerisurePage() {
         {usaPromo && promoActual && !showPromos && (
           <div className="mt-2 flex items-center justify-between bg-brand-50 rounded-xl px-3 py-2">
             <span className="text-xs font-medium text-brand-700">✅ Promo: {promoActual.label}</span>
-            <span className="text-xs font-bold text-brand-600">{fmt(iva(promoActual.precio, config.ivaPct))}</span>
+            <div className="text-right">
+              <p className="text-xs font-bold text-brand-600">{fmt(promoActual.precio)}</p>
+              <p className="text-[10px] text-brand-400">{fmt(iva(promoActual.precio, config.ivaPct))} c/IVA</p>
+            </div>
           </div>
         )}
       </div>
@@ -281,8 +289,11 @@ export default function VerisurePage() {
                 <span className={`text-xs font-semibold ${nivelKit === nivel ? 'text-brand-700' : 'text-surface-700'}`}>
                   {NIVEL_LABEL[nivel]}
                 </span>
-                <span className={`text-[10px] mt-0.5 ${nivelKit === nivel ? 'text-brand-500' : 'text-surface-400'}`}>
-                  {fmt(iva(config.kits[nivel], config.ivaPct))}
+                <span className={`text-[10px] font-medium mt-0.5 ${nivelKit === nivel ? 'text-brand-600' : 'text-surface-700'}`}>
+                  {fmt(config.kits[nivel])}
+                </span>
+                <span className={`text-[9px] mt-0.5 ${nivelKit === nivel ? 'text-brand-400' : 'text-surface-400'}`}>
+                  {fmt(iva(config.kits[nivel], config.ivaPct))} c/IVA
                 </span>
               </button>
             ))}
@@ -301,12 +312,12 @@ export default function VerisurePage() {
                   ⬆️ Con Upgrade
                 </p>
                 <p className="text-xs text-surface-400 mt-0.5">
-                  +{fmt(iva(
+                  +{fmt(
                     nivelKit === 'catalogo' ? config.upgrades.catalogo
                     : nivelKit === 'alto'   ? config.upgrades.alto
-                    : config.upgrades.medioBajo,
-                    config.ivaPct
-                  ))} instalación · +{fmt(iva(config.upgrades.cuotaAdicional, config.ivaPct))}/mes
+                    : config.upgrades.medioBajo
+                  )} instalación · +{fmt(config.upgrades.cuotaAdicional)}/mes
+                  <span className="text-surface-300"> (sin IVA)</span>
                 </p>
               </div>
               <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
@@ -368,18 +379,37 @@ export default function VerisurePage() {
                 activo ? 'border-brand-200 bg-brand-50' : 'border-surface-200'
               }`}>
                 <div className="flex items-center justify-between px-3 py-2.5">
-                  <div>
+                  <div className="flex-1 min-w-0 mr-3">
                     <p className={`text-sm font-medium ${activo ? 'text-brand-800' : 'text-surface-800'}`}>
                       {disp.nombre}
                     </p>
-                    {activo && (
-                      <p className="text-xs text-brand-500 mt-0.5">
-                        +{fmt(iva(disp.precios[activo.cantidadIdx], config.ivaPct))} · cuota +{fmt(iva(disp.cuotas[activo.cantidadIdx], config.ivaPct))}
+                    {activo ? (
+                      <div className="mt-1 space-y-0.5">
+                        <div className="flex gap-3">
+                          <p className="text-xs font-semibold text-brand-700">
+                            {fmt(disp.precios[activo.cantidadIdx])}
+                            <span className="font-normal text-brand-400"> sin IVA</span>
+                          </p>
+                          <p className="text-xs text-brand-500">
+                            {fmt(iva(disp.precios[activo.cantidadIdx], config.ivaPct))}
+                            <span className="text-brand-400"> c/IVA</span>
+                          </p>
+                        </div>
+                        {disp.cuotas[activo.cantidadIdx] > 0 && (
+                          <p className="text-xs text-brand-500">
+                            +{fmt(iva(disp.cuotas[activo.cantidadIdx], config.ivaPct))}
+                            <span className="text-brand-400">/mes c/IVA</span>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-surface-400 mt-0.5">
+                        desde {fmt(disp.precios[0])} sin IVA
                       </p>
                     )}
                   </div>
                   {/* Selector cantidad */}
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
                     {disp.cantidades.map((cant, idx) => (
                       <button key={cant}
                         onClick={() => toggleExtra(disp.id, idx)}
@@ -409,21 +439,25 @@ export default function VerisurePage() {
       <div className="rounded-2xl overflow-hidden border border-surface-200">
         {/* Precio cliente */}
         <div className="bg-surface-900 px-4 py-4">
-          <p className="text-surface-400 text-xs mb-1">Precio al cliente (con IVA)</p>
-          <div className="flex items-end justify-between">
+          <div className="flex items-start justify-between">
             <div>
-              <p className="text-white text-2xl font-bold">{fmt(totalInsConIVA)}</p>
-              <p className="text-surface-400 text-xs mt-1">instalación única</p>
+              <p className="text-surface-400 text-xs mb-1">Instalación</p>
+              <p className="text-white text-2xl font-bold">{fmt(precioInsSinIVA + extraPrecioSinIVA)}</p>
+              <p className="text-surface-500 text-xs mt-0.5">{fmt(totalInsConIVA)} con IVA</p>
             </div>
             <div className="text-right">
-              <p className="text-white text-lg font-semibold">{fmt(cuotaMensualCliente)}</p>
-              <p className="text-surface-400 text-xs">cuota mensual</p>
+              <p className="text-surface-400 text-xs mb-1">Cuota mensual</p>
+              <p className="text-white text-lg font-semibold">{fmt(cuotaBaseSinIVA + extraCuotaSinIVA)}</p>
+              <p className="text-surface-500 text-xs mt-0.5">{fmt(cuotaMensualCliente)} con IVA</p>
             </div>
           </div>
           {cuotas > 1 && (
             <div className="mt-3 pt-3 border-t border-surface-700">
               <p className="text-surface-300 text-xs text-center">
-                O en {cuotas} cuotas de {fmt(Math.round(totalInsConIVA / cuotas))} · sin interés
+                En {cuotas} cuotas de {fmt(Math.round((precioInsSinIVA + extraPrecioSinIVA) / cuotas))} · sin interés · sin IVA
+              </p>
+              <p className="text-surface-500 text-[10px] text-center mt-0.5">
+                {fmt(Math.round(totalInsConIVA / cuotas))} con IVA
               </p>
             </div>
           )}
