@@ -1,0 +1,15 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+
+export default function WorkspacePage() {
+  const params = useParams()
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace(`/workspace/${params.workspaceId}/resumen`)
+  }, [params.workspaceId, router])
+
+  return null
+}
