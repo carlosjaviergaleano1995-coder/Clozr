@@ -1,11 +1,11 @@
 import {
   collection, doc, getDocs, getDoc,
   addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp,
+  query, where, serverTimestamp,
   onSnapshot, type Unsubscribe
 } from 'firebase/firestore'
 import {
-  signInWithPopup, signInWithEmailAndPassword,
+  signInWithPopup, signInWithRedirect, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut,
   GoogleAuthProvider, onAuthStateChanged,
   type User as FirebaseUser
@@ -22,7 +22,6 @@ export const signInWithGoogle = async () => {
     return await signInWithPopup(auth, googleProvider)
   } catch (error: any) {
     if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
-      const { signInWithRedirect } = await import('firebase/auth')
       return signInWithRedirect(auth, googleProvider)
     }
     throw error
@@ -55,8 +54,7 @@ export const saveUserProfile = async (user: FirebaseUser) => {
 export const getWorkspaces = async (userId: string): Promise<Workspace[]> => {
   const q = query(
     collection(db, 'workspaces'),
-    where('miembros', 'array-contains', userId),
-    orderBy('createdAt', 'desc')
+    where('miembros', 'array-contains', userId)
   )
   const snap = await getDocs(q)
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Workspace))
@@ -80,11 +78,7 @@ export const updateWorkspace = async (id: string, data: Partial<Workspace>) => {
 
 // ── CLIENTES ──
 export const getClientes = async (workspaceId: string): Promise<Cliente[]> => {
-  const q = query(
-    collection(db, 'workspaces', workspaceId, 'clientes'),
-    orderBy('nombre', 'asc')
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'clientes'))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Cliente))
 }
 
@@ -108,15 +102,12 @@ export const deleteCliente = async (workspaceId: string, clienteId: string) => {
   await deleteDoc(doc(db, 'workspaces', workspaceId, 'clientes', clienteId))
 }
 
-// ── PRODUCTOS / CATÁLOGO ──
+// ── PRODUCTOS ──
 export const getProductos = async (workspaceId: string): Promise<Producto[]> => {
-  const q = query(
-    collection(db, 'workspaces', workspaceId, 'catalogo'),
-    where('activo', '==', true),
-    orderBy('nombre', 'asc')
-  )
-  const snap = await getDocs(q)
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Producto))
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'catalogo'))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Producto))
+    .filter(p => p.activo !== false)
 }
 
 export const createProducto = async (workspaceId: string, data: Omit<Producto, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
@@ -144,11 +135,7 @@ export const deleteProducto = async (workspaceId: string, productoId: string) =>
 
 // ── VENTAS ──
 export const getVentas = async (workspaceId: string): Promise<Venta[]> => {
-  const q = query(
-    collection(db, 'workspaces', workspaceId, 'ventas'),
-    orderBy('createdAt', 'desc')
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'ventas'))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Venta))
 }
 
@@ -163,11 +150,7 @@ export const createVenta = async (workspaceId: string, data: Omit<Venta, 'id' | 
 
 // ── TAREAS ──
 export const getTareas = async (workspaceId: string): Promise<Tarea[]> => {
-  const q = query(
-    collection(db, 'workspaces', workspaceId, 'tareas'),
-    orderBy('orden', 'asc')
-  )
-  const snap = await getDocs(q)
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'tareas'))
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Tarea))
 }
 
