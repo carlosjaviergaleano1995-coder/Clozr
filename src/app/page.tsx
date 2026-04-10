@@ -10,14 +10,18 @@ export default function Home() {
 
   useEffect(() => {
     if (!loading) {
-      router.push(user ? '/dashboard' : '/auth')
+      if (user) {
+        router.replace('/dashboard')
+      } else {
+        router.replace('/auth')
+      }
     }
   }, [user, loading, router])
 
   return (
     <div className="min-h-screen bg-surface-950 flex items-center justify-center">
-      <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center animate-pulse">
-        <span className="text-white font-bold text-lg">C</span>
+      <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center animate-pulse shadow-lg shadow-brand-600/30">
+        <span className="text-white font-bold text-xl">C</span>
       </div>
     </div>
   )
