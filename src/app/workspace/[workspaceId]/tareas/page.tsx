@@ -2,25 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, CheckSquare, Square, Trash2, RefreshCw } from 'lucide-react'
+import { Plus, CheckSquare, Square, Trash2, RefreshCw, RotateCcw } from 'lucide-react'
 import { getTareas, createTarea, toggleTarea, deleteTarea } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import type { Tarea, TareaFrecuencia } from '@/types'
 
-const FRECUENCIA_LABELS: Record<TareaFrecuencia, string> = {
-  diaria: '🔄 Diaria',
-  semanal: '📅 Semanal',
-  unica: '1️⃣ Una vez',
-}
+// Opción C: Tareas recurrentes fijas + tareas puntuales del día
+// - Recurrentes (diaria/semanal): persisten, se resetean solas
+// - Única: desaparecen al completarse
 
-const TAREAS_SUGERIDAS = [
-  { titulo: 'Subir historia a Instagram', frecuencia: 'diaria' as TareaFrecuencia },
-  { titulo: 'Publicar en feed', frecuencia: 'diaria' as TareaFrecuencia },
-  { titulo: 'Enviar 20 mensajes a prospectos', frecuencia: 'diaria' as TareaFrecuencia },
-  { titulo: 'Contactar revendedores dormidos', frecuencia: 'semanal' as TareaFrecuencia },
-  { titulo: 'Actualizar lista de precios', frecuencia: 'semanal' as TareaFrecuencia },
-  { titulo: 'Revisar stock disponible', frecuencia: 'diaria' as TareaFrecuencia },
-]
+const FRECUENCIA_CONFIG: Record<TareaFrecuencia, { label: string; color: string }> = {
+  diaria:  { label: 'Diaria',  color: 'var(--brand)' },
+  semanal: { label: 'Semanal', color: 'var(--blue)' },
+  unica:   { label: 'Puntual', color: 'var(--text-tertiary)' },
+}
 
 export default function TareasPage() {
   const params = useParams()
@@ -33,6 +28,7 @@ export default function TareasPage() {
   const [titulo, setTitulo] = useState('')
   const [frecuencia, setFrecuencia] = useState<TareaFrecuencia>('diaria')
   const [saving, setSaving] = useState(false)
+  const [toggling, setToggling] = useState<Set<string>>(new Set())
 
   useEffect(() => { load() }, [workspaceId])
 
@@ -43,21 +39,38 @@ export default function TareasPage() {
     } finally { setLoading(false) }
   }
 
-  const pendientes = tareas.filter(t => !t.completada)
-  const completadas = tareas.filter(t => t.completada)
-  const progreso = tareas.length > 0 ? Math.round((completadas.length / tareas.length) * 100) : 0
+  // Separar por tipo
+  const recurrentes = tareas.filter(t => t.frecuencia === 'diaria' || t.frecuencia === 'semanal')
+  const puntuales   = tareas.filter(t => t.frecuencia === 'unica' && !t.completada)
+  const completadasHoy = tareas.filter(t => t.completada)
 
-  const [toggling, setToggling] = useState<Set<string>>(new Set())
+  const totalActivas = recurrentes.length + puntuales.length
+  const completadas  = recurrentes.filter(t => t.completada).length
+  const progreso     = totalActivas > 0 ? Math.round((completadas / totalActivas) * 100) : 0
 
   const handleToggle = async (t: Tarea) => {
     if (toggling.has(t.id)) return
-    // Update optimista inmediato
-    setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: !x.completada } : x))
+    const nuevaCompletada = !t.completada
+
+    // Si es puntual y se completa, la eliminamos directamente
+    if (t.frecuencia === 'unica' && nuevaCompletada) {
+      setTareas(ts => ts.filter(x => x.id !== t.id))
+      setToggling(prev => new Set(prev).add(t.id))
+      try {
+        await deleteTarea(workspaceId, t.id)
+      } catch {
+        await load()
+      } finally {
+        setToggling(prev => { const s = new Set(prev); s.delete(t.id); return s })
+      }
+      return
+    }
+
+    setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: nuevaCompletada } : x))
     setToggling(prev => new Set(prev).add(t.id))
     try {
-      await toggleTarea(workspaceId, t.id, !t.completada)
+      await toggleTarea(workspaceId, t.id, nuevaCompletada)
     } catch {
-      // Revertir si falla
       setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: t.completada } : x))
     } finally {
       setToggling(prev => { const s = new Set(prev); s.delete(t.id); return s })
@@ -65,7 +78,7 @@ export default function TareasPage() {
   }
 
   const handleAdd = async () => {
-    if (!titulo.trim()) return
+    if (!titulo.trim() || !user) return
     setSaving(true)
     try {
       await createTarea(workspaceId, {
@@ -81,195 +94,220 @@ export default function TareasPage() {
     } finally { setSaving(false) }
   }
 
-  const handleSugerida = async (s: typeof TAREAS_SUGERIDAS[0]) => {
-    await createTarea(workspaceId, {
-      workspaceId,
-      titulo: s.titulo,
-      frecuencia: s.frecuencia,
-      completada: false,
-      orden: tareas.length,
-    })
-    await load()
-  }
-
   const handleDelete = async (id: string) => {
-    await deleteTarea(workspaceId, id)
     setTareas(ts => ts.filter(t => t.id !== id))
+    try { await deleteTarea(workspaceId, id) }
+    catch { await load() }
   }
 
-  const resetDiarias = async () => {
-    const diarias = tareas.filter(t => t.frecuencia === 'diaria' && t.completada)
-    await Promise.all(diarias.map(t => toggleTarea(workspaceId, t.id, false)))
-    await load()
+  // Resetear solo las recurrentes completadas
+  const handleReset = async () => {
+    const aReset = recurrentes.filter(t => t.completada)
+    setTareas(ts => ts.map(t => aReset.find(r => r.id === t.id) ? { ...t, completada: false } : t))
+    await Promise.all(aReset.map(t => toggleTarea(workspaceId, t.id, false)))
   }
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-16 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
     </div>
   )
 
   return (
     <div className="space-y-4 animate-fade-in">
+
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Tareas del día</h2>
-          <p className="text-[var(--text-secondary)] text-xs mt-0.5">
-            {completadas.length} de {tareas.length} completadas
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Tareas</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            {completadas} de {recurrentes.length} recurrentes · {puntuales.length} pendientes hoy
           </p>
         </div>
         <div className="flex gap-2">
-          {completadas.filter(t => t.frecuencia === 'diaria').length > 0 && (
-            <button onClick={resetDiarias} className="btn-ghost text-xs">
-              <RefreshCw size={13} /> Reiniciar
+          {recurrentes.some(t => t.completada) && (
+            <button onClick={handleReset}
+              className="btn-ghost text-xs gap-1"
+              style={{ color: 'var(--text-tertiary)' }}>
+              <RotateCcw size={13} /> Reset
             </button>
           )}
-          <button onClick={() => setShowForm(true)} className="btn-primary">
-            <Plus size={16} /> Nueva
+          <button onClick={() => setShowForm(true)} className="btn-primary gap-1">
+            <Plus size={15} /> Nueva
           </button>
         </div>
       </div>
 
-      {/* Barra de progreso */}
-      {tareas.length > 0 && (
+      {/* Progreso solo de recurrentes */}
+      {recurrentes.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-[var(--text-primary)]">Progreso de hoy</span>
-            <span className="text-sm font-bold text-brand-600">{progreso}%</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Rutina del día</span>
+            <span className="text-xs font-bold" style={{ color: progreso === 100 ? 'var(--green)' : 'var(--brand)' }}>
+              {progreso}%
+            </span>
           </div>
-          <div className="h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-600 rounded-full transition-all duration-500"
-              style={{ width: `${progreso}%` }}
-            />
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${progreso}%`, background: progreso === 100 ? 'var(--green)' : 'var(--brand)' }} />
           </div>
           {progreso === 100 && (
-            <p className="text-xs text-[var(--green)] font-medium mt-2 text-center">
-              ✅ ¡Todo listo por hoy!
+            <p className="text-xs font-medium mt-2 text-center" style={{ color: 'var(--green)' }}>
+              ✅ Rutina completa
             </p>
           )}
         </div>
       )}
 
-      {/* Tareas pendientes */}
-      {pendientes.length > 0 && (
-        <div className="space-y-2">
-          {pendientes.map(t => (
-            <div key={t.id} className="card flex items-center gap-3">
-              <button
-                onClick={() => handleToggle(t)}
-                disabled={toggling.has(t.id)}
-                className="text-[var(--text-secondary)] hover:text-brand-600 transition-colors flex-shrink-0 disabled:opacity-40"
-              >
-                <Square size={20} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{t.titulo}</p>
-                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{FRECUENCIA_LABELS[t.frecuencia]}</p>
-              </div>
-              <button
-                onClick={() => handleDelete(t.id)}
-                className="btn-icon text-[var(--text-secondary)] hover:text-[var(--brand-light)] flex-shrink-0"
-              >
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tareas completadas */}
-      {completadas.length > 0 && (
+      {/* Tareas de hoy (puntuales) */}
+      {puntuales.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-[var(--text-tertiary)] mb-2 px-1">Completadas</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
+            style={{ color: 'var(--text-tertiary)' }}>Para hoy</p>
           <div className="space-y-2">
-            {completadas.map(t => (
-              <div key={t.id} className="card flex items-center gap-3 opacity-60">
-                <button
-                  onClick={() => handleToggle(t)}
-                  disabled={toggling.has(t.id)}
-                  className="text-green-500 flex-shrink-0 disabled:opacity-40"
-                >
-                  <CheckSquare size={20} />
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[var(--text-secondary)] line-through">{t.titulo}</p>
-                </div>
-                <button onClick={() => handleDelete(t.id)} className="btn-icon text-[var(--text-secondary)] hover:text-[var(--brand-light)] flex-shrink-0">
-                  <Trash2 size={15} />
-                </button>
-              </div>
+            {puntuales.map(t => (
+              <TareaRow key={t.id} t={t} toggling={toggling}
+                onToggle={handleToggle} onDelete={handleDelete} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Sugeridas si no hay tareas */}
-      {tareas.length === 0 && (
-        <div className="card">
-          <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Tareas sugeridas para arrancar</p>
+      {/* Rutina — recurrentes pendientes */}
+      {recurrentes.filter(t => !t.completada).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
+            style={{ color: 'var(--text-tertiary)' }}>Rutina</p>
           <div className="space-y-2">
-            {TAREAS_SUGERIDAS.map((s, i) => (
-              <button
-                key={i}
-                onClick={() => handleSugerida(s)}
-                className="w-full flex items-center justify-between p-3 bg-[var(--surface-2)] hover:bg-[var(--surface-2)] rounded-xl transition-colors text-left"
-              >
-                <span className="text-sm text-[var(--text-primary)]">{s.titulo}</span>
-                <span className="text-xs text-[var(--text-tertiary)]">{FRECUENCIA_LABELS[s.frecuencia]}</span>
-              </button>
+            {recurrentes.filter(t => !t.completada).map(t => (
+              <TareaRow key={t.id} t={t} toggling={toggling}
+                onToggle={handleToggle} onDelete={handleDelete} />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Rutina completada */}
+      {recurrentes.filter(t => t.completada).length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
+            style={{ color: 'var(--text-tertiary)' }}>Completadas</p>
+          <div className="space-y-2 opacity-50">
+            {recurrentes.filter(t => t.completada).map(t => (
+              <TareaRow key={t.id} t={t} toggling={toggling}
+                onToggle={handleToggle} onDelete={handleDelete} done />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {tareas.length === 0 && (
+        <div className="text-center py-12">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+            style={{ background: 'var(--surface-2)' }}>
+            <CheckSquare size={22} style={{ color: 'var(--text-tertiary)' }} />
+          </div>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Sin tareas todavía</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            Agregá tu rutina diaria o tareas puntuales de hoy
+          </p>
         </div>
       )}
 
       {/* Modal nueva tarea */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[var(--surface)] rounded-2xl shadow-modal animate-slide-up p-5">
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowForm(false)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-[var(--text-primary)]">Nueva tarea</h3>
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Nueva tarea</h3>
               <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
             </div>
+
             <div className="space-y-3">
               <div>
                 <label className="label">¿Qué hay que hacer?</label>
-                <input
-                  className="input"
-                  placeholder="Ej: Subir historia a Instagram"
-                  value={titulo}
-                  onChange={e => setTitulo(e.target.value)}
+                <input className="input" placeholder="Ej: Llamar a Juan, subir historia..."
+                  value={titulo} onChange={e => setTitulo(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                  autoFocus
-                />
+                  autoFocus />
               </div>
+
               <div>
-                <label className="label">Frecuencia</label>
-                <div className="flex gap-2">
-                  {(Object.entries(FRECUENCIA_LABELS) as [TareaFrecuencia, string][]).map(([k, v]) => (
-                    <button
-                      key={k}
-                      onClick={() => setFrecuencia(k)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
-                        frecuencia === k ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'
-                      }`}
-                    >
-                      {v}
+                <label className="label">Tipo</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { k: 'diaria',  label: '🔄 Rutina diaria',  sub: 'Se resetea cada día' },
+                    { k: 'semanal', label: '📅 Rutina semanal', sub: 'Se resetea por semana' },
+                    { k: 'unica',   label: '⚡ Solo hoy',       sub: 'Desaparece al tildar' },
+                  ] as const).map(({ k, label, sub }) => (
+                    <button key={k} onClick={() => setFrecuencia(k)}
+                      className="flex flex-col items-center p-2.5 rounded-xl text-center transition-all"
+                      style={frecuencia === k
+                        ? { background: 'var(--brand)', border: '1.5px solid var(--brand)' }
+                        : { background: 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
+                      <span className={`text-xs font-semibold ${frecuencia === k ? 'text-white' : ''}`}
+                        style={frecuencia === k ? {} : { color: 'var(--text-primary)' }}>
+                        {label}
+                      </span>
+                      <span className={`text-[9px] mt-0.5 leading-tight ${frecuencia === k ? 'text-white/70' : ''}`}
+                        style={frecuencia === k ? {} : { color: 'var(--text-tertiary)' }}>
+                        {sub}
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
             </div>
+
             <div className="flex gap-2 mt-4">
               <button onClick={handleAdd} disabled={!titulo.trim() || saving} className="btn-primary flex-1">
-                {saving ? 'Guardando...' : 'Agregar tarea'}
+                {saving ? 'Guardando...' : 'Agregar'}
               </button>
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function TareaRow({ t, toggling, onToggle, onDelete, done = false }: {
+  t: Tarea
+  toggling: Set<string>
+  onToggle: (t: Tarea) => void
+  onDelete: (id: string) => void
+  done?: boolean
+}) {
+  const cfg = FRECUENCIA_CONFIG[t.frecuencia]
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <button onClick={() => onToggle(t)} disabled={toggling.has(t.id)}
+        className="flex-shrink-0 transition-colors disabled:opacity-40"
+        style={{ color: done ? 'var(--green)' : 'var(--text-tertiary)' }}>
+        {done ? <CheckSquare size={20} /> : <Square size={20} />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium ${done ? 'line-through' : ''}`}
+          style={{ color: done ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
+          {t.titulo}
+        </p>
+        <span className="text-[10px] font-semibold" style={{ color: cfg.color }}>
+          {cfg.label}
+        </span>
+      </div>
+      <button onClick={() => onDelete(t.id)}
+        className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}>
+        <Trash2 size={14} />
+      </button>
     </div>
   )
 }

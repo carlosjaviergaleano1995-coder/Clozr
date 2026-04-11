@@ -31,7 +31,7 @@ interface ExtraItem {
 
 interface Instalacion {
   id: number
-  nivelKit: NivelPrecio
+  nivelKit: NivelPrecio | null   // null = sin seleccionar
   usaPromo: boolean
   promoId: string
   conUpgrade: boolean
@@ -61,11 +61,15 @@ function calcInstalacion(inst: Instalacion, config: ConfigVerisure, tipoVenta: T
   const esJG = inst.nivelKit === 'jefe' || inst.nivelKit === 'gerente'
   const promoActual = config.promos.find(p => p.id === inst.promoId)
 
-  const upgPrecio = inst.nivelKit === 'catalogo' ? config.upgrades.catalogo
+  const upgPrecio = !inst.nivelKit ? 0
+    : inst.nivelKit === 'catalogo' ? config.upgrades.catalogo
     : inst.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo
+
   const kitSinIVA = inst.usaPromo && promoActual
     ? promoActual.precio
-    : config.kits[inst.nivelKit] + (inst.conUpgrade && !esJG ? upgPrecio : 0)
+    : inst.nivelKit
+      ? config.kits[inst.nivelKit] + (inst.conUpgrade && !esJG ? upgPrecio : 0)
+      : 0
   const kitConIVA = iva(kitSinIVA, config.ivaPct)
 
   const extrasData = inst.extras.map(e => {
@@ -85,7 +89,7 @@ function calcInstalacion(inst: Instalacion, config: ConfigVerisure, tipoVenta: T
   const cuotaTotalConIVA = iva(cuotaTotalSinIVA, config.ivaPct)
 
   const comisionKit = (() => {
-    if (inst.usaPromo || esJG) return 0
+    if (inst.usaPromo || esJG || !inst.nivelKit) return 0
     const key = `${inst.nivelKit}_${tipoVenta}` as keyof typeof config.comisiones
     return config.comisiones[key] ?? 0
   })()
@@ -119,7 +123,7 @@ export default function VerisurePage() {
 
   // Instalaciones
   const makeInstBase = (promoId = ''): Instalacion => ({
-    id: Date.now() + Math.random(), nivelKit: 'catalogo',
+    id: Date.now() + Math.random(), nivelKit: null,
     usaPromo: false, promoId, conUpgrade: false,
     extras: [], nivelExtras: 'alto', esExpress: false,
   })
@@ -237,7 +241,7 @@ export default function VerisurePage() {
       const c = calcs[idx]
       if (instalaciones.length > 1) t += `*Instalación #${idx + 1}*\n`
       t += `📦 Instalación: *${fmt(c.totalInsConIVA)}*${ins.usaPromo ? ' _(precio especial)_' : ''}\n`
-      if (ins.conUpgrade && !['jefe','gerente'].includes(ins.nivelKit)) t += `⬆️ Upgrade incluido\n`
+      if (ins.conUpgrade && ins.nivelKit && !['jefe','gerente'].includes(ins.nivelKit)) t += `⬆️ Upgrade incluido\n`
       const pagos  = c.extrasData.filter(e => !e.bonificado && e.disp.precios[e.idx] > 0)
       const bonifs = c.extrasData.filter(e => e.bonificado)
       if (pagos.length) {
@@ -275,9 +279,9 @@ export default function VerisurePage() {
       const c = calcs[idx]
       const promo = config.promos.find(p => p.id === ins.promoId)
       t += `\nINSTALACIÓN #${idx + 1}\n`
-      t += `Kit: ${ins.usaPromo ? `PROMO ${promo?.label}` : NIVEL_LABEL[ins.nivelKit]} ${fmt(c.kitSinIVA)} s/IVA > ${fmt(c.kitConIVA)} c/IVA\n`
+      t += `Kit: ${ins.usaPromo ? `PROMO ${promo?.label}` : ins.nivelKit ? NIVEL_LABEL[ins.nivelKit] : 'Sin kit'} ${fmt(c.kitSinIVA)} s/IVA > ${fmt(c.kitConIVA)} c/IVA\n`
       t += `Cuota base: ${fmt(config.cuotaBase)}/mes s/IVA > ${fmt(iva(config.cuotaBase, config.ivaPct))}/mes c/IVA\n`
-      if (ins.conUpgrade && !['jefe','gerente'].includes(ins.nivelKit)) {
+      if (ins.conUpgrade && ins.nivelKit && !['jefe','gerente'].includes(ins.nivelKit)) {
         const up = ins.nivelKit === 'catalogo' ? config.upgrades.catalogo : ins.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo
         t += `Upgrade: ${fmt(up)} s/IVA > ${fmt(iva(up, config.ivaPct))} c/IVA | +${fmt(config.upgrades.cuotaAdicional)}/mes\n`
       }
@@ -453,7 +457,7 @@ export default function VerisurePage() {
       {/* Nivel kit */}
       {!inst.usaPromo && (
         <div className="card">
-          <p className="text-xs font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wide">Nivel del kit</p>
+          <p className="text-xs font-semibold text-[var(--text-tertiary)] mb-3 uppercase tracking-wide">Nivel del kit</p>
           <div className="grid grid-cols-3 gap-2 mb-3">
             {(Object.keys(config.kits) as NivelPrecio[]).map(nivel => (
               <button key={nivel} onClick={() => setInst(i => ({ ...i, nivelKit: nivel }))}
@@ -464,7 +468,12 @@ export default function VerisurePage() {
               </button>
             ))}
           </div>
-          {!esJG && (
+          {!inst.nivelKit && (
+            <p className="text-xs text-center mb-2" style={{ color: 'var(--text-tertiary)' }}>
+              Seleccioná un nivel para continuar
+            </p>
+          )}
+          {inst.nivelKit && !esJG && (
             <button onClick={() => setInst(i => ({ ...i, conUpgrade: !i.conUpgrade }))}
               className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-50' : 'border-[var(--border)]'}`}>
               <div>
@@ -650,7 +659,7 @@ export default function VerisurePage() {
             <div key={idx}>
               {instalaciones.length > 1 && <p className="text-[10px] text-[var(--text-tertiary)] font-semibold uppercase tracking-wide mt-1">Inst. #{idx+1}</p>}
               <div className="flex justify-between text-xs text-[var(--text-secondary)]">
-                <span>{instalaciones[idx].usaPromo ? `Promo` : NIVEL_LABEL[instalaciones[idx].nivelKit]}{instalaciones[idx].conUpgrade ? ' + Upg' : ''}</span>
+                <span>{instalaciones[idx].usaPromo ? `Promo` : instalaciones[idx].nivelKit ? NIVEL_LABEL[instalaciones[idx].nivelKit!] : '—'}{instalaciones[idx].conUpgrade ? ' + Upg' : ''}</span>
                 <span>{fmt(c.kitSinIVA)}</span>
               </div>
               {c.extrasData.map(({ disp, idx: i, bonificado }) => (
@@ -768,13 +777,13 @@ export default function VerisurePage() {
         {showSugs && (
           <div className="mt-3 space-y-2">
             {/* Upsell */}
-            {!inst.usaPromo && inst.nivelKit !== 'catalogo' && (() => {
-              const idx = NIVELES_ORDEN.indexOf(inst.nivelKit)
+            {!inst.usaPromo && inst.nivelKit && inst.nivelKit !== 'catalogo' && (() => {
+              const idx = NIVELES_ORDEN.indexOf(inst.nivelKit!)
               const sup = idx > 0 ? NIVELES_ORDEN[idx - 1] : null
               if (!sup) return null
-              const difPrecio = iva(config.kits[sup], config.ivaPct) - iva(config.kits[inst.nivelKit], config.ivaPct)
+              const difPrecio = iva(config.kits[sup], config.ivaPct) - iva(config.kits[inst.nivelKit!], config.ivaPct)
               const comSup = config.comisiones[`${sup}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
-              const comAct = config.comisiones[`${inst.nivelKit}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
+              const comAct = config.comisiones[`${inst.nivelKit!}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
               return (
                 <div className="bg-[var(--amber-bg)] border border-amber-200 rounded-xl p-3">
                   <p className="text-xs font-semibold text-[var(--amber)]">🔼 Upsell a {NIVEL_LABEL[sup]}</p>
