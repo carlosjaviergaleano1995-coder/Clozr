@@ -2,22 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import {
-  LayoutDashboard, Users, Package, FileText,
-  CheckSquare, TrendingUp, ChevronLeft, Settings, Shield
-} from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
+import { ClozrIcon } from '@/components/ClozrLogo'
+import { Icon } from '@/components/Icon'
 import type { Workspace } from '@/types'
 
+// Ícono SVG inline para Settings (del componente Icon)
 const NAV_ITEMS_BASE = [
-  { id: 'resumen',     label: 'Resumen',  icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
-  { id: 'clientes',    label: 'Clientes', icon: Users,           tipos: ['servicios','productos','mixto'] },
-  { id: 'catalogo',    label: 'Catálogo', icon: Package,         tipos: ['productos','mixto'] },
-  { id: 'verisure',    label: 'Calc',     icon: Shield,          tipos: ['servicios'] },
-  { id: 'presupuesto', label: 'Cotizar',  icon: FileText,        tipos: ['productos','mixto'] },
-  { id: 'ventas',      label: 'Ventas',   icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
-  { id: 'tareas',      label: 'Tareas',   icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
+  { id: 'resumen',     label: 'Resumen',  iconName: 'home'     as const, tipos: ['servicios','productos','mixto'] },
+  { id: 'clientes',    label: 'Clientes', iconName: 'users'    as const, tipos: ['servicios','productos','mixto'] },
+  { id: 'catalogo',    label: 'Catálogo', iconName: 'cart'     as const, tipos: ['productos','mixto'] },
+  { id: 'verisure',    label: 'Calc',     iconName: 'shield'   as const, tipos: ['servicios'] },
+  { id: 'presupuesto', label: 'Cotizar',  iconName: 'document' as const, tipos: ['productos','mixto'] },
+  { id: 'ventas',      label: 'Ventas',   iconName: 'chart'    as const, tipos: ['servicios','productos','mixto'] },
+  { id: 'tareas',      label: 'Tareas',   iconName: 'filter'   as const, tipos: ['servicios','productos','mixto'] },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +31,6 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const [ws, setWs] = useState<Workspace | null>(null)
 
-  // Siempre sincronizado con la URL real
   const activeTab = NAV_ITEMS_BASE.find(item => pathname.endsWith(`/${item.id}`))?.id ?? 'resumen'
 
   useEffect(() => {
@@ -62,12 +61,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   if (!ws) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center animate-pulse"
-          style={{ background: '#141414', border: '1px solid #2a2a2e', boxShadow: '0 4px 24px rgba(232,0,29,0.2)' }}>
-          <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
-            <path d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z" fill="#E8001D"/>
-          </svg>
-        </div>
+        <ClozrIcon size={48} className="animate-pulse" />
       </div>
     )
   }
@@ -90,7 +84,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
             <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{ws.nombre}</span>
           </div>
           <button className="p-2 rounded-xl transition-colors" style={{ color: 'var(--text-tertiary)' }}>
-            <Settings size={16} />
+            <Icon name="settings" size={18} color="var(--text-tertiary)" />
           </button>
         </div>
       </header>
@@ -105,15 +99,18 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <div className="max-w-2xl mx-auto h-16 flex items-center">
           {NAV_ITEMS_BASE.filter(item => item.tipos.includes(ws.tipo)).map(item => {
-            const Icon = item.icon
             const isActive = activeTab === item.id
             return (
               <button key={item.id}
                 onClick={() => router.push(`/workspace/${workspaceId}/${item.id}`)}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 min-w-0 transition-all"
-                style={{ color: isActive ? '#E8001D' : 'var(--text-tertiary)' }}>
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-                <span className={`text-[9px] leading-tight truncate w-full text-center px-0.5 ${isActive ? 'font-semibold' : 'font-medium'}`}>
+                className="flex-1 flex flex-col items-center justify-center gap-1 py-1 min-w-0 transition-all">
+                <Icon
+                  name={item.iconName}
+                  size={20}
+                  color={isActive ? '#E8001D' : 'var(--text-tertiary)'}
+                />
+                <span className={`text-[9px] leading-tight truncate w-full text-center px-0.5 ${isActive ? 'font-semibold' : 'font-medium'}`}
+                  style={{ color: isActive ? '#E8001D' : 'var(--text-tertiary)' }}>
                   {item.label}
                 </span>
               </button>

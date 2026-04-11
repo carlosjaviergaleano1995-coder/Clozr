@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signInWithGoogle, signInWithEmail, signUpWithEmail } from '@/lib/services'
-import { ClozrLogo } from '@/components/ClozrLogo'
+import { ClozrLogo, ClozrIcon } from '@/components/ClozrLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -65,16 +65,11 @@ export default function LoginPage() {
       <div className="w-full max-w-sm animate-slide-up relative z-10">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5"
-            style={{ background: '#141414', border: '1px solid #2a2a2e', boxShadow: '0 4px 24px rgba(232,0,29,0.2)' }}>
-            <svg width="32" height="32" viewBox="0 0 100 100" fill="none">
-              <path d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z" fill="#E8001D"/>
-            </svg>
+          <div className="inline-flex items-center justify-center mb-5">
+            <ClozrIcon size={64} />
           </div>
-          <div className="flex items-center justify-center gap-1 mb-2">
-            <span className="text-3xl font-bold tracking-tight" style={{ color: '#f5f5f5' }}>clo</span>
-            <span className="text-3xl font-bold tracking-tight" style={{ color: '#E8001D' }}>Z</span>
-            <span className="text-3xl font-bold tracking-tight" style={{ color: '#f5f5f5' }}>r</span>
+          <div className="flex items-center justify-center mb-2">
+            <ClozrLogo height={32} />
           </div>
           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>La herramienta que entiende cómo vendés</p>
         </div>

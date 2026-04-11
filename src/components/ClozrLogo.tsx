@@ -1,89 +1,77 @@
+// Logo cloZr — SVG original
+// Paths extraídos del archivo SVG de diseño
+
 interface ClozrLogoProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  variant?: 'full' | 'icon'
+  height?: number
   className?: string
 }
 
-// Tamaños para el logo completo (full)
-const FULL_SIZES = {
-  sm: { height: 20, viewW: 420, viewH: 80 },
-  md: { height: 28, viewW: 420, viewH: 80 },
-  lg: { height: 40, viewW: 420, viewH: 80 },
-  xl: { height: 56, viewW: 420, viewH: 80 },
+interface ClozrIconProps {
+  size?: number
+  className?: string
 }
 
-// Tamaños para el ícono solo (Z)
-const ICON_SIZES = {
-  sm: 24,
-  md: 32,
-  lg: 44,
-  xl: 64,
-}
-
-export function ClozrLogo({ size = 'md', variant = 'full', className = '' }: ClozrLogoProps) {
-  if (variant === 'icon') {
-    const s = ICON_SIZES[size]
-    return (
-      <svg width={s} height={s} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-        <path
-          d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z"
-          fill="#E8001D"
-        />
-      </svg>
-    )
-  }
-
-  // Logo completo: clo Z r — reproducido fielmente al SVG original
-  const { height, viewW, viewH } = FULL_SIZES[size]
-  const ratio = viewW / viewH
-  const width = height * ratio
+// Logo completo "cloZr" — usa los paths reales del SVG
+export function ClozrLogo({ height = 28, className = '' }: ClozrLogoProps) {
+  // viewBox original: 0 0 2048 2048, pero el contenido está entre ~468-1590 x, ~814-1217 y
+  // Crop al área real del texto
+  const vb = '420 780 1220 450'
+  const width = height * (1220 / 450)
 
   return (
     <svg
       width={width}
       height={height}
-      viewBox={`0 0 ${viewW} ${viewH}`}
+      viewBox={vb}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* c */}
-      <path
-        d="M42 22 C26 22 14 34 14 50 C14 66 26 78 42 78 C53 78 62 72 67 63 L55 56 C52 61 48 64 42 64 C34 64 28 58 28 50 C28 42 34 36 42 36 C48 36 52 39 55 44 L67 37 C62 28 53 22 42 22 Z"
-        fill="#f5f5f5"
-      />
-      {/* l */}
-      <path d="M78 16 L78 78 L92 78 L92 16 Z" fill="#f5f5f5" />
-      {/* o */}
-      <path
-        d="M130 22 C113 22 100 35 100 50 C100 65 113 78 130 78 C147 78 160 65 160 50 C160 35 147 22 130 22 Z M130 64 C121 64 114 58 114 50 C114 42 121 36 130 36 C139 36 146 42 146 50 C146 58 139 64 130 64 Z"
-        fill="#f5f5f5"
-      />
       {/* Z — rojo */}
-      <path
-        d="M170 22 L170 34 L198 34 L168 66 L168 78 L214 78 L214 66 L186 66 L216 34 L216 22 Z"
-        fill="#E8001D"
+      <path fill="#E74848"
+        d="M 1418.35 829.153 C 1419.24 829.201 1418.66 829.093 1419.9 829.977 C 1418.01 836.826 1398.15 866.562 1392.94 874.921 C 1352.95 939.082 1309.16 1001.4 1271.65 1067.01 C 1270.52 1068.98 1272.14 1070.94 1273.18 1072.44 C 1282.75 1073.99 1305.74 1071.33 1316.15 1070.44 L 1378.75 1065.28 L 1378.96 1143.17 L 1098.72 1213.82 C 1094.88 1214.95 1088.92 1215.98 1084.85 1216.81 C 1089.69 1205.36 1104.05 1184.16 1111.16 1172.6 C 1139.51 1126.13 1168.32 1079.96 1197.6 1034.08 C 1205.58 1021.4 1225.75 992.779 1232.25 977.439 C 1232.63 976.554 1231.22 975.482 1230.46 974.648 C 1220.44 972.299 1151.81 978.717 1136.95 979.864 L 1137.06 901.753 C 1230.73 878.493 1324.92 851.761 1418.35 829.153 Z"
+      />
+      {/* o */}
+      <path fill="#F9F8F8"
+        d="M 965.095 894.04 C 1036.48 885.751 1101.03 936.983 1109.17 1008.38 C 1117.31 1079.78 1065.94 1144.23 994.525 1152.22 C 923.32 1160.18 859.107 1109 850.992 1037.81 C 842.877 966.624 893.924 902.304 965.095 894.04 Z"
+      />
+      {/* o inner hole */}
+      <path fill="#141414"
+        d="M 971.982 967.338 C 1002.85 963.097 1031.27 984.798 1035.3 1015.69 C 1039.34 1046.59 1017.45 1074.86 986.529 1078.69 C 955.897 1082.49 927.945 1060.85 923.946 1030.24 C 919.948 999.634 941.403 971.539 971.982 967.338 Z"
+      />
+      {/* c */}
+      <path fill="#F9F8F8"
+        d="M 589.161 894.403 C 638.309 888.805 681.516 915.049 708.615 954.439 L 647.754 994.709 C 644.074 990.482 640.267 985.909 636.115 982.135 C 612.914 961.043 575.909 962.434 555.256 986.745 C 535.548 1009.94 539.093 1047.59 562.671 1066.82 C 574.587 1076.54 589.368 1080.51 604.546 1078.78 C 623.115 1076.65 636.02 1067.3 647.45 1053.09 C 658.826 1059.5 673.459 1070.24 684.513 1077.93 C 692.488 1083.45 700.378 1089.1 708.179 1094.86 C 703.403 1100.64 698.557 1106.38 693.349 1111.78 C 617.405 1190.61 479.421 1148.46 468.693 1035.53 C 465.048 1000.78 475.771 966.06 498.372 939.422 C 521.888 911.384 553.278 897.625 589.161 894.403 Z"
       />
       {/* r */}
-      <path
-        d="M226 36 L226 78 L240 78 L240 54 C240 44 247 38 257 38 L264 38 L264 24 L258 24 C250 24 244 28 240 35 L240 36 Z"
-        fill="#f5f5f5"
+      <path fill="#F9F8F8"
+        d="M 1568.07 894.418 L 1579.21 894.105 L 1579.17 973.071 C 1575.95 972.814 1572.72 972.613 1569.5 972.469 C 1495.9 969.276 1489.16 1027.49 1492.34 1084.35 C 1493.39 1103.16 1492.86 1127.63 1492.19 1146.44 C 1470.87 1147.53 1440.01 1146.41 1418.13 1146.31 L 1418.1 1124.5 L 1417.81 899.623 C 1440.74 898.785 1468.81 899.665 1491.95 899.928 L 1492.05 936.706 C 1512.01 906.419 1531.81 896.717 1568.07 894.418 Z"
+      />
+      {/* l */}
+      <path fill="#F9F8F8"
+        d="M 744.107 814.405 C 769.057 814.17 794.008 814.171 818.958 814.41 L 818.909 1030.38 C 818.903 1068.07 819.718 1108.87 818.676 1146.32 C 794.893 1147.29 767.84 1146.5 743.901 1146.19 C 743.597 1036.49 742.782 924.012 744.107 814.405 Z"
       />
     </svg>
   )
 }
 
-// Ícono cuadrado para el app icon / favicon
-export function ClozrAppIcon({ size = 40, className = '' }: { size?: number; className?: string }) {
+// Ícono solo — la Z roja en un cuadrado oscuro
+export function ClozrIcon({ size = 32, className = '' }: ClozrIconProps) {
   return (
     <div
-      className={`flex items-center justify-center rounded-2xl ${className}`}
-      style={{ width: size, height: size, background: '#0a0a0a', border: '1px solid #2a2a2e' }}
+      className={`flex items-center justify-center rounded-xl flex-shrink-0 ${className}`}
+      style={{
+        width: size,
+        height: size,
+        background: '#141414',
+        border: '1px solid #2a2a2e',
+        boxShadow: '0 2px 12px rgba(232,0,29,0.2)',
+      }}
     >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 100 100" fill="none">
-        <path
-          d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z"
-          fill="#E8001D"
+      {/* Z path del logo original escalado a viewBox cuadrado */}
+      <svg width={size * 0.55} height={size * 0.55} viewBox="1084 820 345 415" fill="none">
+        <path fill="#E74848"
+          d="M 1418.35 829.153 C 1419.24 829.201 1418.66 829.093 1419.9 829.977 C 1418.01 836.826 1398.15 866.562 1392.94 874.921 C 1352.95 939.082 1309.16 1001.4 1271.65 1067.01 C 1270.52 1068.98 1272.14 1070.94 1273.18 1072.44 C 1282.75 1073.99 1305.74 1071.33 1316.15 1070.44 L 1378.75 1065.28 L 1378.96 1143.17 L 1098.72 1213.82 C 1094.88 1214.95 1088.92 1215.98 1084.85 1216.81 C 1089.69 1205.36 1104.05 1184.16 1111.16 1172.6 C 1139.51 1126.13 1168.32 1079.96 1197.6 1034.08 C 1205.58 1021.4 1225.75 992.779 1232.25 977.439 C 1232.63 976.554 1231.22 975.482 1230.46 974.648 C 1220.44 972.299 1151.81 978.717 1136.95 979.864 L 1137.06 901.753 C 1230.73 878.493 1324.92 851.761 1418.35 829.153 Z"
         />
       </svg>
     </div>
