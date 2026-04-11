@@ -1,5 +1,24 @@
 import type { ConfigVerisure, DispositivoExtra } from '@/types'
 
+// Mapa de imágenes por nombre de dispositivo
+export const DEVICE_IMAGES: Record<string, string> = {
+  'Shock Sensor':              '/devices/shock-sensor.png',
+  'Orion':                     '/devices/orion.png',
+  'Orion Close Pack':          '/devices/orion.png',
+  'Aquila Outdoor':            '/devices/fotodetector.png',
+  'Arlo Indoor':               '/devices/arlo-indoor.png',
+  'Arlo Outdoor':              '/devices/arlo-outdoor.png',
+  'Zerovision':                '/devices/zerovision.png',
+  'Botón emergencias':         '/devices/boton-emergencias.png',
+  'Control remoto':            '/devices/control-remoto.png',
+  'HUB Arlo':                  '/devices/arlo-outdoor.png',
+  'Panel de Control (SVK)':    '/devices/panel.png',
+  'Starkey Llaves extra (x3)': '/devices/starkey.png',
+  'Placa disuasoria':          '/devices/placa.png',
+  'Unidad Central':            '/devices/panel.png',
+  'Panel Solar':               '/devices/arlo-outdoor.png',
+}
+
 export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
 
   // ── SHOCK SENSOR ──────────────────────────────────────────────────────────

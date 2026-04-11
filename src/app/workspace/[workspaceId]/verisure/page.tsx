@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, TrendingUp } from 'lucide-react'
 import { getConfigVerisure, saveConfigVerisure } from '@/lib/services'
-import { CONFIG_VERISURE_DEFAULT } from '@/lib/verisure-defaults'
+import { CONFIG_VERISURE_DEFAULT, DEVICE_IMAGES } from '@/lib/verisure-defaults'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -567,13 +567,21 @@ export default function VerisurePage() {
             return (
               <button key={disp.id}
                 onClick={() => abrirModal(nombre)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                <span className="text-sm text-[var(--text-primary)]">{disp.nombre}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--text-tertiary)]">desde {fmt(disp.precios[0])} s/IVA</span>
-                  <span className="text-[var(--text-tertiary)] text-lg leading-none">+</span>
+                {/* Imagen miniatura */}
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  style={{ background: 'var(--surface-3)' }}>
+                  {DEVICE_IMAGES[disp.nombre]
+                    ? <img src={DEVICE_IMAGES[disp.nombre]} alt={disp.nombre} className="w-9 h-9 object-contain" />
+                    : <span className="text-lg">📦</span>
+                  }
                 </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-[var(--text-primary)]">{disp.nombre}</span>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
+                </div>
+                <span className="text-xl text-[var(--text-tertiary)] leading-none">+</span>
               </button>
             )
           })}
@@ -848,15 +856,25 @@ export default function VerisurePage() {
             onClick={e => e.stopPropagation()}>
 
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
+            <div className="flex items-center gap-4 mb-4">
+              {DEVICE_IMAGES[modalDisp.disp.nombre] && (
+                <div className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  style={{ background: 'var(--surface-3)' }}>
+                  <img
+                    src={DEVICE_IMAGES[modalDisp.disp.nombre]}
+                    alt={modalDisp.disp.nombre}
+                    className="w-14 h-14 object-contain"
+                  />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-[var(--text-primary)]">{modalDisp.disp.nombre}</h3>
                 <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
                   Nivel {inst.nivelExtras === 'alto' ? 'Alto' : 'Bajo'}
                 </p>
               </div>
               <button onClick={() => setModalDisp(null)}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--text-tertiary)]"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--text-tertiary)] flex-shrink-0"
                 style={{ background: 'var(--surface-2)' }}>✕</button>
             </div>
 
