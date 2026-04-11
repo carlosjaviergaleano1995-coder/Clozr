@@ -3,29 +3,28 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Smartphone, Watch, ShoppingBag, Calculator } from 'lucide-react'
-import dynamic from 'next/dynamic'
-
-// Lazy load cada sub-tab
-const StockiPhones   = dynamic(() => import('./_tabs/StockiPhones'))
-const StockOtros     = dynamic(() => import('./_tabs/StockOtros'))
-const StockAccesorios = dynamic(() => import('./_tabs/StockAccesorios'))
-const Cotizar        = dynamic(() => import('./_tabs/Cotizar'))
+import StockiPhones   from './_tabs/StockiPhones'
+import StockOtros     from './_tabs/StockOtros'
+import StockAccesorios from './_tabs/StockAccesorios'
+import Cotizar        from './_tabs/Cotizar'
 
 const TABS = [
-  { id: 'iphones',     label: 'iPhones',    icon: Smartphone },
-  { id: 'otros',       label: 'Otros',      icon: Watch },
-  { id: 'accesorios',  label: 'Accesorios', icon: ShoppingBag },
-  { id: 'cotizar',     label: 'Cotizar',    icon: Calculator },
+  { id: 'iphones',    label: 'iPhones',    icon: Smartphone },
+  { id: 'otros',      label: 'Otros',      icon: Watch },
+  { id: 'accesorios', label: 'Accesorios', icon: ShoppingBag },
+  { id: 'cotizar',    label: 'Cotizar',    icon: Calculator },
 ] as const
 
 type TabId = typeof TABS[number]['id']
 
 export default function StockPage() {
+  const params = useParams()
+  const workspaceId = params.workspaceId as string
   const [tab, setTab] = useState<TabId>('iphones')
 
   return (
     <div className="space-y-3 animate-fade-in">
-      {/* Sub-nav de tabs */}
+      {/* Sub-nav tabs */}
       <div className="flex gap-1 p-1 rounded-2xl sticky top-[57px] z-30"
         style={{ background: 'var(--surface-2)' }}>
         {TABS.map(t => {
@@ -44,13 +43,11 @@ export default function StockPage() {
         })}
       </div>
 
-      {/* Contenido del tab */}
-      <div>
-        {tab === 'iphones'    && <StockiPhones />}
-        {tab === 'otros'      && <StockOtros />}
-        {tab === 'accesorios' && <StockAccesorios />}
-        {tab === 'cotizar'    && <Cotizar />}
-      </div>
+      {/* Contenido — workspaceId pasado como prop para garantizar que esté disponible */}
+      {tab === 'iphones'    && <StockiPhones    workspaceId={workspaceId} />}
+      {tab === 'otros'      && <StockOtros      workspaceId={workspaceId} />}
+      {tab === 'accesorios' && <StockAccesorios workspaceId={workspaceId} />}
+      {tab === 'cotizar'    && <Cotizar         workspaceId={workspaceId} />}
     </div>
   )
 }

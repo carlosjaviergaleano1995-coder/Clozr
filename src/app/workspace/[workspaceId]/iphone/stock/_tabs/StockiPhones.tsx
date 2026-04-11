@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useParams } from 'next/navigation'
 import { Plus, Search, Pencil, Trash2, Check, X } from 'lucide-react'
 import {
   getStockiPhones, createStockiPhone, updateStockiPhone, deleteStockiPhone,
@@ -25,9 +24,7 @@ const EMPTY: FormData = {
   precioUSD:0, stock:1, bateria:undefined, ciclos:undefined, observaciones:'',
 }
 
-export default function StockiPhones() {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+export default function StockiPhones({ workspaceId }: { workspaceId: string }) {
   const { user } = useAuthStore()
 
   const [items, setItems]   = useState<StockIPhone[]>([])

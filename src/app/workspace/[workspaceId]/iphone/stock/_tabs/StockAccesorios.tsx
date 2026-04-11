@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { Plus, Pencil, Trash2, Search } from 'lucide-react'
 import {
   getStockAccesorios, createStockAccesorio,
@@ -109,9 +108,7 @@ const EMPTY_FORM: FormData = {
   moneda: 'ARS', stock: 0, preciosVolumen: [{ cantidad: 1, precio: 0 }],
 }
 
-export default function StockAccesorios() {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+export default function StockAccesorios({ workspaceId }: { workspaceId: string }) {
   const { user } = useAuthStore()
 
   const [items, setItems] = useState<StockAccesorio[]>([])

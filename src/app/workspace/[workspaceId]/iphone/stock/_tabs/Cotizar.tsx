@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useParams } from 'next/navigation'
 import { Copy, Check, Search } from 'lucide-react'
 import {
   getStockiPhones, getStockOtrosApple,
@@ -22,9 +21,7 @@ const FORMAS_PAGO: { id: FormaPagoIC | 'usd_efectivo'; label: string }[] = [
 const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR', { maximumFractionDigits: 1 })}`
 const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
 
-export default function Cotizar() {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+export default function Cotizar({ workspaceId }: { workspaceId: string }) {
 
   const [iphones, setIphones] = useState<StockIPhone[]>([])
   const [otros, setOtros] = useState<StockOtroApple[]>([])

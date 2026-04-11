@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import {
   getStockOtrosApple, createStockOtroApple,
@@ -33,9 +32,7 @@ const EMPTY = {
 const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
 const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
 
-export default function StockOtros() {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
+export default function StockOtros({ workspaceId }: { workspaceId: string }) {
   const { user } = useAuthStore()
 
   const [items, setItems] = useState<StockOtroApple[]>([])
