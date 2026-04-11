@@ -89,20 +89,20 @@ export default function PresupuestoPage() {
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-20 bg-surface-200 rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-20 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
     </div>
   )
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="pt-1">
-        <h2 className="text-lg font-semibold text-surface-900">Cotización rápida</h2>
-        <p className="text-surface-500 text-xs mt-0.5">Armá un presupuesto y envialo por WhatsApp</p>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Cotización rápida</h2>
+        <p className="text-[var(--text-secondary)] text-xs mt-0.5">Armá un presupuesto y envialo por WhatsApp</p>
       </div>
 
       {/* Cliente */}
       <div className="card">
-        <p className="text-sm font-semibold text-surface-700 mb-3">Cliente</p>
+        <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Cliente</p>
         {clientes.length > 0 ? (
           <select className="input" value={clienteId} onChange={e => setClienteId(e.target.value)}>
             <option value="">Seleccioná un cliente...</option>
@@ -113,8 +113,8 @@ export default function PresupuestoPage() {
             onChange={e => setClienteNombre(e.target.value)} />
         )}
         {clienteSeleccionado && (
-          <div className="mt-2 p-2 bg-surface-50 rounded-xl">
-            <p className="text-xs text-surface-500">
+          <div className="mt-2 p-2 bg-[var(--surface-2)] rounded-xl">
+            <p className="text-xs text-[var(--text-secondary)]">
               {clienteSeleccionado.tipo} · Precio sugerido: <strong>{tipoPrecioDefault}</strong>
               {clienteSeleccionado.telefono && ` · ${clienteSeleccionado.telefono}`}
             </p>
@@ -124,10 +124,10 @@ export default function PresupuestoPage() {
 
       {/* Items */}
       <div className="card">
-        <p className="text-sm font-semibold text-surface-700 mb-3">Productos</p>
+        <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Productos</p>
         <div className="space-y-3">
           {items.map((item, i) => (
-            <div key={i} className="space-y-2 pb-3 border-b border-surface-100 last:border-0 last:pb-0">
+            <div key={i} className="space-y-2 pb-3 border-b border-[var(--border)] last:border-0 last:pb-0">
               <div className="flex gap-2">
                 <select className="input flex-1" value={item.producto?.id ?? ''}
                   onChange={e => setItemProducto(i, e.target.value)}>
@@ -141,7 +141,7 @@ export default function PresupuestoPage() {
                 <input type="number" min="1" className="input w-16 text-center" value={item.cantidad}
                   onChange={e => setItems(prev => prev.map((it, idx) => idx === i ? {...it, cantidad: Number(e.target.value) || 1} : it))} />
                 {items.length > 1 && (
-                  <button onClick={() => removeItem(i)} className="btn-icon text-red-400 hover:bg-red-50 flex-shrink-0">
+                  <button onClick={() => removeItem(i)} className="btn-icon text-[var(--brand-light)] hover:bg-[var(--red-bg)] flex-shrink-0">
                     <Trash2 size={15} />
                   </button>
                 )}
@@ -157,7 +157,7 @@ export default function PresupuestoPage() {
                       return (
                         <button key={tipo}
                           onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? {...it, precioTipo: tipo} : it))}
-                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${item.precioTipo === tipo ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${item.precioTipo === tipo ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                           {tipo}: {fmt(precio, item.producto!.moneda)}
                         </button>
                       )
@@ -188,7 +188,7 @@ export default function PresupuestoPage() {
       {total > 0 && (
         <div className="card bg-surface-900 border-surface-800">
           <div className="flex items-center justify-between">
-            <span className="text-surface-300 text-sm font-medium">Total</span>
+            <span className="text-[var(--text-secondary)] text-sm font-medium">Total</span>
             <span className="text-white text-xl font-bold">{fmt(total, monedaPredom)}</span>
           </div>
         </div>

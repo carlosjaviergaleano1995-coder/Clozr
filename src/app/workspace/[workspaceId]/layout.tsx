@@ -61,35 +61,35 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   if (!ws) {
     return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
-        <div className="w-10 h-10 rounded-xl bg-brand-600 animate-pulse flex items-center justify-center">
-          <span className="text-white font-bold text-lg">C</span>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center animate-pulse"
+          style={{ background: '#141414', border: '1px solid #2a2a2e', boxShadow: '0 4px 24px rgba(232,0,29,0.2)' }}>
+          <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+            <path d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z" fill="#E8001D"/>
+          </svg>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
       {/* Header */}
-      <header className="bg-white border-b border-surface-200 sticky top-0 z-40">
+      <header className="sticky top-0 z-40" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="p-1.5 rounded-lg text-surface-400 hover:text-surface-700 hover:bg-surface-100 transition-colors"
-            >
+            <button onClick={() => router.push('/dashboard')}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--text-tertiary)' }}>
               <ChevronLeft size={18} />
             </button>
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-base"
-              style={{ background: ws.color + '15', border: `1.5px solid ${ws.color}25` }}
-            >
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base"
+              style={{ background: ws.color + '20', border: `1.5px solid ${ws.color}35` }}>
               {ws.emoji}
             </div>
-            <span className="font-semibold text-surface-900 text-sm">{ws.nombre}</span>
+            <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{ws.nombre}</span>
           </div>
-          <button className="p-2 rounded-xl text-surface-400 hover:text-surface-700 hover:bg-surface-100 transition-colors">
+          <button className="p-2 rounded-xl transition-colors" style={{ color: 'var(--text-tertiary)' }}>
             <Settings size={16} />
           </button>
         </div>
@@ -101,19 +101,17 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       </main>
 
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-200 z-40">
+      <nav className="fixed bottom-0 left-0 right-0 z-40"
+        style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <div className="max-w-2xl mx-auto h-16 flex items-center">
           {NAV_ITEMS_BASE.filter(item => item.tipos.includes(ws.tipo)).map(item => {
             const Icon = item.icon
             const isActive = activeTab === item.id
             return (
-              <button
-                key={item.id}
+              <button key={item.id}
                 onClick={() => router.push(`/workspace/${workspaceId}/${item.id}`)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1 min-w-0 transition-all ${
-                  isActive ? 'text-brand-600' : 'text-surface-400 hover:text-surface-700'
-                }`}
-              >
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 min-w-0 transition-all"
+                style={{ color: isActive ? '#E8001D' : 'var(--text-tertiary)' }}>
                 <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
                 <span className={`text-[9px] leading-tight truncate w-full text-center px-0.5 ${isActive ? 'font-semibold' : 'font-medium'}`}>
                   {item.label}

@@ -314,7 +314,7 @@ export default function VerisurePage() {
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3,4].map(i => <div key={i} className="h-24 bg-surface-200 rounded-2xl animate-pulse" />)}
+      {[1,2,3,4].map(i => <div key={i} className="h-24 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
     </div>
   )
 
@@ -327,8 +327,8 @@ export default function VerisurePage() {
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-surface-900">Calculadora Verisure</h2>
-          <p className="text-surface-500 text-xs mt-0.5">Precio · Comisión · Bonos</p>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Calculadora Verisure</h2>
+          <p className="text-[var(--text-secondary)] text-xs mt-0.5">Precio · Comisión · Bonos</p>
         </div>
         <div className="flex gap-2">
           <button onClick={reset} className="btn-ghost text-xs gap-1"><RefreshCw size={13} /> Reset</button>
@@ -339,11 +339,11 @@ export default function VerisurePage() {
       {/* Tipo venta + Cuotas */}
       <div className="card space-y-3">
         <div>
-          <p className="text-xs font-semibold text-surface-500 mb-2 uppercase tracking-wide">Tipo de venta</p>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2 uppercase tracking-wide">Tipo de venta</p>
           <div className="grid grid-cols-2 gap-2">
             {(['RP', 'RE'] as TipoVenta[]).map(t => (
               <button key={t} onClick={() => setTipoVenta(t)}
-                className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${tipoVenta === t ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${tipoVenta === t ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                 {t === 'RP' ? '🤝 RP — Recurso Propio' : '🏢 RE — Recurso Empresa'}
               </button>
             ))}
@@ -351,13 +351,13 @@ export default function VerisurePage() {
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Financiación instalación</p>
-            <span className="text-sm font-bold text-surface-900">{cuotas === 1 ? 'Contado' : `${cuotas}x`}</span>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Financiación instalación</p>
+            <span className="text-sm font-bold text-[var(--text-primary)]">{cuotas === 1 ? 'Contado' : `${cuotas}x`}</span>
           </div>
           <div className="flex gap-1.5">
             {[1,3,6,12].map(n => (
               <button key={n} onClick={() => setCuotas(n)}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${cuotas === n ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${cuotas === n ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                 {n === 1 ? 'Ctdo' : `${n}x`}
               </button>
             ))}
@@ -369,18 +369,18 @@ export default function VerisurePage() {
       <div className="flex gap-1.5 items-center">
         {instalaciones.map((ins, idx) => (
           <button key={ins.id} onClick={() => setInstActiva(idx)}
-            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all relative ${instActiva === idx ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all relative ${instActiva === idx ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
             Inst. #{idx + 1}
             {instalaciones.length > 1 && instActiva === idx && (
               <span onClick={e => { e.stopPropagation(); eliminarInst(idx) }}
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center leading-none">
+                className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[var(--red-bg)]0 rounded-full text-white text-[9px] flex items-center justify-center leading-none">
                 ✕
               </span>
             )}
           </button>
         ))}
         {instalaciones.length < 4 && (
-          <button onClick={agregarInst} className="px-3 py-2 rounded-xl bg-surface-100 text-surface-500 hover:bg-surface-200 transition-all">
+          <button onClick={agregarInst} className="px-3 py-2 rounded-xl bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)] transition-all">
             <Plus size={14} />
           </button>
         )}
@@ -389,25 +389,25 @@ export default function VerisurePage() {
       {/* Promos */}
       <div className="card">
         <button className="w-full flex items-center justify-between" onClick={() => setShowPromos(!showPromos)}>
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Promos del día</p>
-          {showPromos ? <ChevronUp size={16} className="text-surface-400" /> : <ChevronDown size={16} className="text-surface-400" />}
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Promos del día</p>
+          {showPromos ? <ChevronUp size={16} className="text-[var(--text-tertiary)]" /> : <ChevronDown size={16} className="text-[var(--text-tertiary)]" />}
         </button>
         {showPromos && (
           <div className="mt-3 space-y-2">
             <button onClick={() => setInst(i => ({ ...i, usaPromo: false }))}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${!inst.usaPromo ? 'border-surface-900 bg-surface-900 text-white' : 'border-surface-200'}`}>
+              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${!inst.usaPromo ? 'border-surface-900 bg-surface-900 text-white' : 'border-[var(--border)]'}`}>
               <span className="text-sm font-medium">Sin promo — Kit estándar</span>
             </button>
             {config.promos.filter(p => p.activa).map(promo => (
               <button key={promo.id} onClick={() => setInst(i => ({ ...i, usaPromo: true, promoId: promo.id }))}
-                className={`w-full flex items-start justify-between p-3 rounded-xl border transition-all text-left ${inst.usaPromo && inst.promoId === promo.id ? 'border-brand-600 bg-brand-50' : 'border-surface-200'}`}>
+                className={`w-full flex items-start justify-between p-3 rounded-xl border transition-all text-left ${inst.usaPromo && inst.promoId === promo.id ? 'border-brand-600 bg-brand-50' : 'border-[var(--border)]'}`}>
                 <div>
                   <p className={`text-sm font-semibold ${inst.usaPromo && inst.promoId === promo.id ? 'text-brand-700' : 'text-surface-800'}`}>{promo.label}</p>
-                  <p className="text-xs text-surface-500 mt-0.5">{promo.descripcion}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{promo.descripcion}</p>
                 </div>
                 <div className="text-right ml-3 flex-shrink-0">
-                  <p className={`text-sm font-bold ${inst.usaPromo && inst.promoId === promo.id ? 'text-brand-600' : 'text-surface-700'}`}>{fmt(promo.precio)}</p>
-                  <p className="text-[10px] text-surface-400">{fmt(iva(promo.precio, config.ivaPct))} c/IVA</p>
+                  <p className={`text-sm font-bold ${inst.usaPromo && inst.promoId === promo.id ? 'text-brand-600' : 'text-[var(--text-primary)]'}`}>{fmt(promo.precio)}</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)]">{fmt(iva(promo.precio, config.ivaPct))} c/IVA</p>
                 </div>
               </button>
             ))}
@@ -427,28 +427,28 @@ export default function VerisurePage() {
       {/* Nivel kit */}
       {!inst.usaPromo && (
         <div className="card">
-          <p className="text-xs font-semibold text-surface-500 mb-3 uppercase tracking-wide">Nivel del kit</p>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] mb-3 uppercase tracking-wide">Nivel del kit</p>
           <div className="grid grid-cols-3 gap-2 mb-3">
             {(Object.keys(config.kits) as NivelPrecio[]).map(nivel => (
               <button key={nivel} onClick={() => setInst(i => ({ ...i, nivelKit: nivel }))}
-                className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${inst.nivelKit === nivel ? 'border-brand-600 bg-brand-50' : 'border-surface-200 bg-white'}`}>
-                <span className={`text-xs font-semibold ${inst.nivelKit === nivel ? 'text-brand-700' : 'text-surface-700'}`}>{NIVEL_LABEL[nivel]}</span>
-                <span className={`text-[10px] font-medium mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-600' : 'text-surface-700'}`}>{fmt(config.kits[nivel])}</span>
-                <span className={`text-[9px] mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-400' : 'text-surface-400'}`}>{fmt(iva(config.kits[nivel], config.ivaPct))} c/IVA</span>
+                className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${inst.nivelKit === nivel ? 'border-brand-600 bg-brand-50' : 'border-[var(--border)] bg-[var(--surface)]'}`}>
+                <span className={`text-xs font-semibold ${inst.nivelKit === nivel ? 'text-brand-700' : 'text-[var(--text-primary)]'}`}>{NIVEL_LABEL[nivel]}</span>
+                <span className={`text-[10px] font-medium mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-600' : 'text-[var(--text-primary)]'}`}>{fmt(config.kits[nivel])}</span>
+                <span className={`text-[9px] mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-400' : 'text-[var(--text-tertiary)]'}`}>{fmt(iva(config.kits[nivel], config.ivaPct))} c/IVA</span>
               </button>
             ))}
           </div>
           {!esJG && (
             <button onClick={() => setInst(i => ({ ...i, conUpgrade: !i.conUpgrade }))}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-50' : 'border-surface-200'}`}>
+              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-50' : 'border-[var(--border)]'}`}>
               <div>
-                <p className={`text-sm font-medium ${inst.conUpgrade ? 'text-brand-700' : 'text-surface-700'}`}>⬆️ Con Upgrade</p>
-                <p className="text-xs text-surface-400 mt-0.5">
+                <p className={`text-sm font-medium ${inst.conUpgrade ? 'text-brand-700' : 'text-[var(--text-primary)]'}`}>⬆️ Con Upgrade</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
                   +{fmt(inst.nivelKit === 'catalogo' ? config.upgrades.catalogo : inst.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo)} ins.
-                  · +{fmt(config.upgrades.cuotaAdicional)}/mes <span className="text-surface-300">s/IVA</span>
+                  · +{fmt(config.upgrades.cuotaAdicional)}/mes <span className="text-[var(--text-secondary)]">s/IVA</span>
                 </p>
               </div>
-              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-600' : 'border-surface-300'}`}>
+              <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${inst.conUpgrade ? 'border-brand-600 bg-brand-600' : 'border-[var(--border-strong)]'}`}>
                 {inst.conUpgrade && <Check size={12} className="text-white" />}
               </div>
             </button>
@@ -459,11 +459,11 @@ export default function VerisurePage() {
       {/* Extras */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Dispositivos extras</p>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Dispositivos extras</p>
           <div className="flex gap-1">
             {(['alto', 'bajo'] as const).map(n => (
               <button key={n} onClick={() => setInst(i => ({ ...i, nivelExtras: n }))}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${inst.nivelExtras === n ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-500'}`}>
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${inst.nivelExtras === n ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                 {n === 'alto' ? 'Alto' : 'Bajo'}
               </button>
             ))}
@@ -475,7 +475,7 @@ export default function VerisurePage() {
             if (!disp) return null
             const activo = extraActivo(disp.id)
             return (
-              <div key={disp.id} className={`rounded-xl border transition-all ${activo ? 'border-brand-200 bg-brand-50' : 'border-surface-200'}`}>
+              <div key={disp.id} className={`rounded-xl border transition-all ${activo ? 'border-brand-200 bg-brand-50' : 'border-[var(--border)]'}`}>
                 <div className="flex items-center justify-between px-3 py-2.5">
                   <div className="flex-1 min-w-0 mr-2">
                     <p className={`text-sm font-medium ${activo ? 'text-brand-800' : 'text-surface-800'}`}>{disp.nombre}</p>
@@ -487,27 +487,27 @@ export default function VerisurePage() {
                             <p className="text-xs text-brand-500">{fmt(iva(disp.precios[activo.cantidadIdx], config.ivaPct))} <span className="text-brand-400">c/IVA</span></p>
                           </div>
                         ) : (
-                          <p className="text-xs font-semibold text-green-600">🎁 Bonificado — $0</p>
+                          <p className="text-xs font-semibold text-[var(--green)]">🎁 Bonificado — $0</p>
                         )}
                         {disp.cuotas[activo.cantidadIdx] > 0 && (
                           <p className="text-xs text-brand-500">+{fmt(iva(disp.cuotas[activo.cantidadIdx], config.ivaPct))}<span className="text-brand-400">/mes c/IVA</span></p>
                         )}
                       </div>
                     ) : (
-                      <p className="text-[10px] text-surface-400 mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {activo && (
                       <button onClick={() => toggleBonif(disp.id)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${activo.bonificado ? 'bg-green-100 border-green-300 text-green-700' : 'bg-surface-100 border-surface-200 text-surface-500'}`}>
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${activo.bonificado ? 'bg-green-100 border-green-300 text-[var(--green)]' : 'bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-secondary)]'}`}>
                         <Gift size={10} className="inline mr-0.5" />Bonif
                       </button>
                     )}
                     <div className="flex gap-1">
                       {disp.cantidades.map((cant, idx) => (
                         <button key={cant} onClick={() => toggleExtra(disp.id, idx)}
-                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${activo?.cantidadIdx === idx ? 'bg-brand-600 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${activo?.cantidadIdx === idx ? 'bg-brand-600 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                           {cant}
                         </button>
                       ))}
@@ -518,7 +518,7 @@ export default function VerisurePage() {
             )
           })}
         </div>
-        {inst.extras.length === 0 && <p className="text-xs text-surface-400 text-center py-2">Tocá una cantidad para agregar</p>}
+        {inst.extras.length === 0 && <p className="text-xs text-[var(--text-tertiary)] text-center py-2">Tocá una cantidad para agregar</p>}
       </div>
 
       {/* Express (solo RE) */}
@@ -526,71 +526,71 @@ export default function VerisurePage() {
         <button onClick={() => setInst(i => ({ ...i, esExpress: !i.esExpress }))}
           className={`card w-full flex items-center justify-between transition-all ${inst.esExpress ? 'border-brand-300 bg-brand-50' : ''}`}>
           <div>
-            <p className="text-sm font-medium text-surface-700">⚡ Venta Express</p>
-            <p className="text-xs text-surface-400 mt-0.5">Instalación el mismo día — suma al bono Express</p>
+            <p className="text-sm font-medium text-[var(--text-primary)]">⚡ Venta Express</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">Instalación el mismo día — suma al bono Express</p>
           </div>
-          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${inst.esExpress ? 'border-brand-600 bg-brand-600' : 'border-surface-300'}`}>
+          <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${inst.esExpress ? 'border-brand-600 bg-brand-600' : 'border-[var(--border-strong)]'}`}>
             {inst.esExpress && <Check size={12} className="text-white" />}
           </div>
         </button>
       )}
 
       {/* Resultado */}
-      <div className="rounded-2xl overflow-hidden border border-surface-200">
+      <div className="rounded-2xl overflow-hidden border border-[var(--border)]">
         <div className="bg-surface-900 px-4 py-4">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-surface-400 text-xs mb-1">Instalación{instalaciones.length > 1 ? ' total' : ''}</p>
+              <p className="text-[var(--text-tertiary)] text-xs mb-1">Instalación{instalaciones.length > 1 ? ' total' : ''}</p>
               <p className="text-white text-2xl font-bold">{fmt(totalInsSinIVA)}</p>
-              <p className="text-surface-500 text-xs mt-0.5">{fmt(totalInsConIVA)} c/IVA</p>
+              <p className="text-[var(--text-secondary)] text-xs mt-0.5">{fmt(totalInsConIVA)} c/IVA</p>
             </div>
             <div className="text-right">
-              <p className="text-surface-400 text-xs mb-1">Mensualidad</p>
+              <p className="text-[var(--text-tertiary)] text-xs mb-1">Mensualidad</p>
               <p className="text-white text-lg font-semibold">{fmt(cuotaTotalSinIVA)}</p>
-              <p className="text-surface-500 text-xs mt-0.5">{fmt(cuotaTotalConIVA)} c/IVA</p>
+              <p className="text-[var(--text-secondary)] text-xs mt-0.5">{fmt(cuotaTotalConIVA)} c/IVA</p>
             </div>
           </div>
           {cuotas > 1 && (
             <div className="mt-3 pt-3 border-t border-surface-700 space-y-1">
-              <p className="text-surface-300 text-xs text-center font-medium">
+              <p className="text-[var(--text-secondary)] text-xs text-center font-medium">
                 Financiación instalación: {cuotas}x de {fmt(Math.round(totalInsConIVA / cuotas))} c/IVA
               </p>
-              <p className="text-surface-500 text-[10px] text-center">
+              <p className="text-[var(--text-secondary)] text-[10px] text-center">
                 ≠ mensualidad del servicio · son conceptos separados
               </p>
             </div>
           )}
         </div>
 
-        <div className="bg-green-50 px-4 py-3">
+        <div className="bg-[var(--green-bg)] px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-700 text-xs font-medium">Comisión esta venta</p>
+              <p className="text-[var(--green)] text-xs font-medium">Comisión esta venta</p>
               <p className="text-green-500 text-[10px] mt-0.5">
                 Kit: {fmt(calcs.reduce((s,c)=>s+c.comisionKit,0))} · Extras: {fmt(calcs.reduce((s,c)=>s+c.comisionExtras,0))}
               </p>
             </div>
-            <p className="text-green-700 text-xl font-bold">{fmt(comisionVenta)}</p>
+            <p className="text-[var(--green)] text-xl font-bold">{fmt(comisionVenta)}</p>
           </div>
         </div>
 
-        <div className="bg-white px-4 py-3 space-y-1.5">
+        <div className="bg-[var(--surface)] px-4 py-3 space-y-1.5">
           {calcs.map((c, idx) => (
             <div key={idx}>
-              {instalaciones.length > 1 && <p className="text-[10px] text-surface-400 font-semibold uppercase tracking-wide mt-1">Inst. #{idx+1}</p>}
-              <div className="flex justify-between text-xs text-surface-500">
+              {instalaciones.length > 1 && <p className="text-[10px] text-[var(--text-tertiary)] font-semibold uppercase tracking-wide mt-1">Inst. #{idx+1}</p>}
+              <div className="flex justify-between text-xs text-[var(--text-secondary)]">
                 <span>{instalaciones[idx].usaPromo ? `Promo` : NIVEL_LABEL[instalaciones[idx].nivelKit]}{instalaciones[idx].conUpgrade ? ' + Upg' : ''}</span>
                 <span>{fmt(c.kitSinIVA)}</span>
               </div>
               {c.extrasData.map(({ disp, idx: i, bonificado }) => (
-                <div key={disp.id} className="flex justify-between text-xs text-surface-400">
+                <div key={disp.id} className="flex justify-between text-xs text-[var(--text-tertiary)]">
                   <span>{disp.cantidades[i]}x {disp.nombre}{bonificado ? ' 🎁' : ''}</span>
                   <span>{bonificado ? '$0' : fmt(disp.precios[i])}</span>
                 </div>
               ))}
             </div>
           ))}
-          <div className="flex justify-between text-xs text-surface-400 pt-1 border-t border-surface-100">
+          <div className="flex justify-between text-xs text-[var(--text-tertiary)] pt-1 border-t border-[var(--border)]">
             <span>Mensualidad del servicio</span><span>{fmt(cuotaTotalSinIVA)}/mes s/IVA</span>
           </div>
         </div>
@@ -600,10 +600,10 @@ export default function VerisurePage() {
       <div className="card">
         <button className="w-full flex items-center justify-between" onClick={() => setShowBonos(!showBonos)}>
           <div className="flex items-center gap-2">
-            <TrendingUp size={15} className="text-surface-500" />
-            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Panel de bonos del mes</p>
+            <TrendingUp size={15} className="text-[var(--text-secondary)]" />
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Panel de bonos del mes</p>
           </div>
-          {showBonos ? <ChevronUp size={16} className="text-surface-400" /> : <ChevronDown size={16} className="text-surface-400" />}
+          {showBonos ? <ChevronUp size={16} className="text-[var(--text-tertiary)]" /> : <ChevronDown size={16} className="text-[var(--text-tertiary)]" />}
         </button>
         {showBonos && (
           <div className="mt-3 space-y-3">
@@ -619,57 +619,57 @@ export default function VerisurePage() {
             </div>
 
             {/* Bono performance */}
-            <div className={`rounded-xl p-3 ${bonoPerf > bonoPerfAntes ? 'bg-green-50 border border-green-200' : 'bg-surface-50'}`}>
+            <div className={`rounded-xl p-3 ${bonoPerf > bonoPerfAntes ? 'bg-[var(--green-bg)] border border-green-200' : 'bg-[var(--surface-2)]'}`}>
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-xs font-semibold text-surface-700">🎯 Bono Performance</p>
-                  <p className="text-xs text-surface-500 mt-0.5">{ventasConEsta} ventas con esta operación
-                    {bonoPerf > bonoPerfAntes && <span className="text-green-600 font-semibold"> · ¡Subís escalón!</span>}
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">🎯 Bono Performance</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{ventasConEsta} ventas con esta operación
+                    {bonoPerf > bonoPerfAntes && <span className="text-[var(--green)] font-semibold"> · ¡Subís escalón!</span>}
                   </p>
-                  {sigEscPerf && <p className="text-[10px] text-surface-400 mt-0.5">Faltan {sigEscPerf.ventas - ventasConEsta} para {fmt(sigEscPerf.monto)}</p>}
+                  {sigEscPerf && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">Faltan {sigEscPerf.ventas - ventasConEsta} para {fmt(sigEscPerf.monto)}</p>}
                 </div>
-                <p className={`text-lg font-bold ${bonoPerf > 0 ? 'text-green-700' : 'text-surface-400'}`}>{fmt(bonoPerf)}</p>
+                <p className={`text-lg font-bold ${bonoPerf > 0 ? 'text-[var(--green)]' : 'text-[var(--text-tertiary)]'}`}>{fmt(bonoPerf)}</p>
               </div>
             </div>
 
             {/* Bono RP */}
-            <div className={`rounded-xl p-3 ${bonoRP > bonoRPAntes ? 'bg-green-50 border border-green-200' : 'bg-surface-50'}`}>
+            <div className={`rounded-xl p-3 ${bonoRP > bonoRPAntes ? 'bg-[var(--green-bg)] border border-green-200' : 'bg-[var(--surface-2)]'}`}>
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-xs font-semibold text-surface-700">🤝 Bono RP</p>
-                  <p className="text-xs text-surface-500 mt-0.5">{rpConEsta} RP con esta operación
-                    {bonoRP > bonoRPAntes && <span className="text-green-600 font-semibold"> · ¡Subís escalón!</span>}
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">🤝 Bono RP</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{rpConEsta} RP con esta operación
+                    {bonoRP > bonoRPAntes && <span className="text-[var(--green)] font-semibold"> · ¡Subís escalón!</span>}
                   </p>
-                  {sigEscRP && <p className="text-[10px] text-surface-400 mt-0.5">Faltan {sigEscRP.rp - rpConEsta} RP para {fmt(sigEscRP.monto)}</p>}
+                  {sigEscRP && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">Faltan {sigEscRP.rp - rpConEsta} RP para {fmt(sigEscRP.monto)}</p>}
                 </div>
-                <p className={`text-lg font-bold ${bonoRP > 0 ? 'text-green-700' : 'text-surface-400'}`}>{fmt(bonoRP)}</p>
+                <p className={`text-lg font-bold ${bonoRP > 0 ? 'text-[var(--green)]' : 'text-[var(--text-tertiary)]'}`}>{fmt(bonoRP)}</p>
               </div>
             </div>
 
             {/* Bono express */}
             {(tipoVenta === 'RE' || expressMes > 0) && (
-              <div className="rounded-xl p-3 bg-surface-50">
+              <div className="rounded-xl p-3 bg-[var(--surface-2)]">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-xs font-semibold text-surface-700">⚡ Bono Express</p>
-                    <p className="text-xs text-surface-500 mt-0.5">{expressConEsta} express este mes</p>
+                    <p className="text-xs font-semibold text-[var(--text-primary)]">⚡ Bono Express</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">{expressConEsta} express este mes</p>
                   </div>
-                  <p className={`text-lg font-bold ${bonoExpress > 0 ? 'text-green-700' : 'text-surface-400'}`}>{fmt(bonoExpress)}</p>
+                  <p className={`text-lg font-bold ${bonoExpress > 0 ? 'text-[var(--green)]' : 'text-[var(--text-tertiary)]'}`}>{fmt(bonoExpress)}</p>
                 </div>
               </div>
             )}
 
             {/* Bono instalación */}
             {bonoInstalacion > 0 && (
-              <div className="rounded-xl p-3 bg-green-50 border border-green-200">
+              <div className="rounded-xl p-3 bg-[var(--green-bg)] border border-green-200">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-xs font-semibold text-surface-700">🔧 Bono Instalación</p>
-                    <p className="text-xs text-surface-500 mt-0.5">
+                    <p className="text-xs font-semibold text-[var(--text-primary)]">🔧 Bono Instalación</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                       {instalaciones.map((ins, i) => `#${i+1}: ${fmt((ins.nivelKit === 'jefe' || ins.nivelKit === 'gerente') ? config.bonoInstalacionJefeGerente : config.bonoInstalacionRP)}`).join(' · ')}
                     </p>
                   </div>
-                  <p className="text-lg font-bold text-green-700">{fmt(bonoInstalacion)}</p>
+                  <p className="text-lg font-bold text-[var(--green)]">{fmt(bonoInstalacion)}</p>
                 </div>
               </div>
             )}
@@ -678,8 +678,8 @@ export default function VerisurePage() {
             <div className="bg-surface-900 rounded-xl px-4 py-3">
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-surface-300 text-xs">Comisión + bonos estimados</p>
-                  <p className="text-surface-400 text-[10px] mt-0.5">{fmt(comisionVenta)} + {fmt(totalBonos)} bonos</p>
+                  <p className="text-[var(--text-secondary)] text-xs">Comisión + bonos estimados</p>
+                  <p className="text-[var(--text-tertiary)] text-[10px] mt-0.5">{fmt(comisionVenta)} + {fmt(totalBonos)} bonos</p>
                 </div>
                 <p className="text-white text-xl font-bold">{fmt(gananciaTotal)}</p>
               </div>
@@ -691,8 +691,8 @@ export default function VerisurePage() {
       {/* Sugerencias */}
       <div className="card">
         <button className="w-full flex items-center justify-between" onClick={() => setShowSugs(!showSugs)}>
-          <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">💡 Sugerencias</p>
-          {showSugs ? <ChevronUp size={16} className="text-surface-400" /> : <ChevronDown size={16} className="text-surface-400" />}
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">💡 Sugerencias</p>
+          {showSugs ? <ChevronUp size={16} className="text-[var(--text-tertiary)]" /> : <ChevronDown size={16} className="text-[var(--text-tertiary)]" />}
         </button>
         {showSugs && (
           <div className="mt-3 space-y-2">
@@ -705,9 +705,9 @@ export default function VerisurePage() {
               const comSup = config.comisiones[`${sup}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
               const comAct = config.comisiones[`${inst.nivelKit}_${tipoVenta}` as keyof typeof config.comisiones] ?? 0
               return (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-amber-800">🔼 Upsell a {NIVEL_LABEL[sup]}</p>
-                  <p className="text-xs text-amber-700 mt-1">
+                <div className="bg-[var(--amber-bg)] border border-amber-200 rounded-xl p-3">
+                  <p className="text-xs font-semibold text-[var(--amber)]">🔼 Upsell a {NIVEL_LABEL[sup]}</p>
+                  <p className="text-xs text-[var(--amber)] mt-1">
                     Cliente paga <strong>{fmt(difPrecio)}</strong> más c/IVA
                     {comSup - comAct > 0 && <> · Tu comisión sube <strong>{fmt(comSup - comAct)}</strong></>}
                   </p>
@@ -716,18 +716,18 @@ export default function VerisurePage() {
             })()}
 
             {sigEscPerf && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <p className="text-xs font-semibold text-blue-800">🎯 Próximo bono Performance</p>
-                <p className="text-xs text-blue-700 mt-1">
+              <div className="bg-[var(--blue-bg)] border border-blue-200 rounded-xl p-3">
+                <p className="text-xs font-semibold text-[var(--blue)]">🎯 Próximo bono Performance</p>
+                <p className="text-xs text-[var(--blue)] mt-1">
                   Faltan <strong>{sigEscPerf.ventas - ventasConEsta} venta{sigEscPerf.ventas - ventasConEsta !== 1 ? 's' : ''}</strong> para el bono de <strong>{fmt(sigEscPerf.monto)}</strong>
                 </p>
               </div>
             )}
 
             {sigEscRP && tipoVenta === 'RP' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <p className="text-xs font-semibold text-blue-800">🤝 Próximo bono RP</p>
-                <p className="text-xs text-blue-700 mt-1">
+              <div className="bg-[var(--blue-bg)] border border-blue-200 rounded-xl p-3">
+                <p className="text-xs font-semibold text-[var(--blue)]">🤝 Próximo bono RP</p>
+                <p className="text-xs text-[var(--blue)] mt-1">
                   Faltan <strong>{sigEscRP.rp - rpConEsta} RP</strong> para el bono de <strong>{fmt(sigEscRP.monto)}</strong>
                 </p>
               </div>
@@ -736,9 +736,9 @@ export default function VerisurePage() {
             {!inst.conUpgrade && !inst.usaPromo && !esJG && (() => {
               const up = inst.nivelKit === 'catalogo' ? config.upgrades.catalogo : inst.nivelKit === 'alto' ? config.upgrades.alto : config.upgrades.medioBajo
               return (
-                <div className="bg-surface-50 border border-surface-200 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-surface-700">⬆️ Agregar Upgrade</p>
-                  <p className="text-xs text-surface-500 mt-1">
+                <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3">
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">⬆️ Agregar Upgrade</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
                     Cliente paga <strong>{fmt(iva(up, config.ivaPct))}</strong> más + <strong>{fmt(iva(config.upgrades.cuotaAdicional, config.ivaPct))}</strong>/mes. Tu comisión no cambia.
                   </p>
                 </div>
@@ -748,9 +748,9 @@ export default function VerisurePage() {
             {tipoVenta === 'RE' && !inst.esExpress && (() => {
               const sig = config.bonoExpress.filter(e => e.express > expressConEsta).sort((a,b) => a.express - b.express)[0]
               return sig ? (
-                <div className="bg-surface-50 border border-surface-200 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-surface-700">⚡ Activar Express</p>
-                  <p className="text-xs text-surface-500 mt-1">
+                <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-3">
+                  <p className="text-xs font-semibold text-[var(--text-primary)]">⚡ Activar Express</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">
                     Si instalás hoy, faltan <strong>{sig.express - expressConEsta}</strong> express para {fmt(sig.monto)}.
                   </p>
                 </div>
@@ -758,7 +758,7 @@ export default function VerisurePage() {
             })()}
 
             {!sigEscPerf && !sigEscRP && inst.conUpgrade && inst.usaPromo && (
-              <p className="text-xs text-surface-400 text-center py-2">Todo optimizado 🎯</p>
+              <p className="text-xs text-[var(--text-tertiary)] text-center py-2">Todo optimizado 🎯</p>
             )}
           </div>
         )}
@@ -770,7 +770,7 @@ export default function VerisurePage() {
           {copiedCliente ? <><Check size={15}/> Copiado</> : <><Copy size={15}/> Para cliente</>}
         </button>
         <button onClick={copiarInterno}
-          className={`py-3 text-sm gap-2 rounded-xl font-medium border flex items-center justify-center transition-all ${copiedInterno ? 'bg-green-100 text-green-700 border-green-200' : 'bg-surface-100 text-surface-700 border-surface-200 hover:bg-surface-200'}`}>
+          className={`py-3 text-sm gap-2 rounded-xl font-medium border flex items-center justify-center transition-all ${copiedInterno ? 'bg-green-100 text-[var(--green)] border-green-200' : 'bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--border)] hover:bg-[var(--surface-3)]'}`}>
           {copiedInterno ? <><Check size={15}/> Copiado</> : <><Copy size={15}/> Para equipo</>}
         </button>
       </div>
@@ -792,28 +792,28 @@ function ConfigPanel({ config, workspaceId, onSave }: { config: ConfigVerisure; 
   const handleSave = async () => { setSaving(true); try { await saveConfigVerisure(workspaceId, draft); onSave(draft) } finally { setSaving(false) } }
 
   return (
-    <div className="card border-amber-200 bg-amber-50">
-      <p className="text-sm font-semibold text-amber-800 mb-3">⚙️ Configuración de precios</p>
+    <div className="card border-amber-200 bg-[var(--amber-bg)]">
+      <p className="text-sm font-semibold text-[var(--amber)] mb-3">⚙️ Configuración de precios</p>
       <div className="flex gap-1 mb-4">
         {(['kits', 'promos', 'bonos'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${tab === t ? 'bg-amber-800 text-white' : 'bg-amber-100 text-amber-700'}`}>{t}</button>
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${tab === t ? 'bg-amber-800 text-white' : 'bg-amber-100 text-[var(--amber)]'}`}>{t}</button>
         ))}
       </div>
       {tab === 'kits' && (
         <div className="space-y-2">
-          <p className="text-xs text-amber-700 font-medium mb-1">Precios de instalación (sin IVA)</p>
+          <p className="text-xs text-[var(--amber)] font-medium mb-1">Precios de instalación (sin IVA)</p>
           {(Object.keys(draft.kits) as NivelPrecio[]).map(nivel => (
             <div key={nivel} className="flex items-center gap-3">
-              <span className="text-xs text-amber-800 w-20 font-medium">{NIVEL_LABEL[nivel]}</span>
-              <input type="number" value={draft.kits[nivel]} onChange={e => updateKit(nivel, Number(e.target.value))} className="input text-sm py-1.5 bg-white" />
+              <span className="text-xs text-[var(--amber)] w-20 font-medium">{NIVEL_LABEL[nivel]}</span>
+              <input type="number" value={draft.kits[nivel]} onChange={e => updateKit(nivel, Number(e.target.value))} className="input text-sm py-1.5 bg-[var(--surface)]" />
             </div>
           ))}
-          <p className="text-xs text-amber-700 font-medium mt-3 mb-1">Comisiones (sin IVA)</p>
+          <p className="text-xs text-[var(--amber)] font-medium mt-3 mb-1">Comisiones (sin IVA)</p>
           {(Object.keys(draft.comisiones) as (keyof ConfigVerisure['comisiones'])[]).map(k => (
             <div key={k} className="flex items-center gap-3">
-              <span className="text-xs text-amber-800 w-28 font-medium">{k.replace('_', ' ')}</span>
-              <input type="number" value={draft.comisiones[k]} onChange={e => updateCom(k, Number(e.target.value))} className="input text-sm py-1.5 bg-white" />
+              <span className="text-xs text-[var(--amber)] w-28 font-medium">{k.replace('_', ' ')}</span>
+              <input type="number" value={draft.comisiones[k]} onChange={e => updateCom(k, Number(e.target.value))} className="input text-sm py-1.5 bg-[var(--surface)]" />
             </div>
           ))}
         </div>
@@ -821,13 +821,13 @@ function ConfigPanel({ config, workspaceId, onSave }: { config: ConfigVerisure; 
       {tab === 'promos' && (
         <div className="space-y-3">
           {draft.promos.map(promo => (
-            <div key={promo.id} className="bg-white rounded-xl p-3 space-y-2">
+            <div key={promo.id} className="bg-[var(--surface)] rounded-xl p-3 space-y-2">
               <input value={promo.label} onChange={e => updatePromo(promo.id, 'label', e.target.value)} className="input text-sm py-1.5" placeholder="Nombre" />
               <input value={promo.descripcion} onChange={e => updatePromo(promo.id, 'descripcion', e.target.value)} className="input text-sm py-1.5" placeholder="Descripción" />
               <div className="flex gap-2 items-center">
                 <input type="number" value={promo.precio} onChange={e => updatePromo(promo.id, 'precio', Number(e.target.value))} className="input text-sm py-1.5 flex-1" placeholder="Precio sin IVA" />
                 <button onClick={() => updatePromo(promo.id, 'activa', !promo.activa)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium ${promo.activa ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-500'}`}>
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium ${promo.activa ? 'bg-green-100 text-[var(--green)]' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                   {promo.activa ? '✅ Activa' : '⏸ Pausada'}
                 </button>
               </div>
@@ -839,10 +839,10 @@ function ConfigPanel({ config, workspaceId, onSave }: { config: ConfigVerisure; 
         <div className="space-y-2">
           {[['Cuota base', 'cuotaBase'], ['Cuota upgrade', 'cuotaUpgrade'], ['Bono RP instalada', 'bonoInstalacionRP'], ['Bono Jefe/Gerente', 'bonoInstalacionJefeGerente']].map(([label, key]) => (
             <div key={key} className="flex items-center gap-3">
-              <span className="text-xs text-amber-800 w-32">{label}</span>
+              <span className="text-xs text-[var(--amber)] w-32">{label}</span>
               <input type="number" value={(draft as any)[key]}
                 onChange={e => setDraft(d => ({ ...d, [key]: Number(e.target.value) }))}
-                className="input text-sm py-1.5 bg-white" />
+                className="input text-sm py-1.5 bg-[var(--surface)]" />
             </div>
           ))}
         </div>

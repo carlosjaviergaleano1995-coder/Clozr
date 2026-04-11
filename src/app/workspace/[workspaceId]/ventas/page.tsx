@@ -84,7 +84,7 @@ export default function VentasPage() {
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-20 bg-surface-200 rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-20 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
     </div>
   )
 
@@ -93,8 +93,8 @@ export default function VentasPage() {
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-surface-900">Ventas</h2>
-          <p className="text-surface-500 text-xs mt-0.5">{ventasMes.length} cerradas este mes</p>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Ventas</h2>
+          <p className="text-[var(--text-secondary)] text-xs mt-0.5">{ventasMes.length} cerradas este mes</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn-primary">
           <Plus size={16} /> Registrar
@@ -104,12 +104,12 @@ export default function VentasPage() {
       {/* Métricas del mes */}
       <div className="grid grid-cols-2 gap-3">
         <div className="card">
-          <p className="text-xs text-surface-500 mb-1">Ventas del mes</p>
-          <p className="text-2xl font-bold text-surface-900">{ventasMes.length}</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-1">Ventas del mes</p>
+          <p className="text-2xl font-bold text-[var(--text-primary)]">{ventasMes.length}</p>
         </div>
         <div className="card">
-          <p className="text-xs text-surface-500 mb-1">Total facturado</p>
-          <p className="text-base font-bold text-surface-900 leading-tight">{fmt(totalMes)}</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-1">Total facturado</p>
+          <p className="text-base font-bold text-[var(--text-primary)] leading-tight">{fmt(totalMes)}</p>
         </div>
       </div>
 
@@ -117,9 +117,9 @@ export default function VentasPage() {
       <div className="space-y-2">
         {ventas.length === 0 ? (
           <div className="empty-state mt-6">
-            <div className="empty-icon"><TrendingUp size={22} className="text-surface-400" /></div>
-            <p className="text-surface-600 text-sm font-medium">Sin ventas registradas</p>
-            <p className="text-surface-400 text-xs mt-1">Registrá tu primera venta cuando cierres</p>
+            <div className="empty-icon"><TrendingUp size={22} className="text-[var(--text-tertiary)]" /></div>
+            <p className="text-[var(--text-secondary)] text-sm font-medium">Sin ventas registradas</p>
+            <p className="text-[var(--text-tertiary)] text-xs mt-1">Registrá tu primera venta cuando cierres</p>
           </div>
         ) : ventas.map(v => {
           const fecha = (v.createdAt as any)?.toDate?.() ?? new Date(v.createdAt)
@@ -127,26 +127,26 @@ export default function VentasPage() {
             <div key={v.id} className="card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${v.estado === 'cerrada' ? 'bg-green-50' : 'bg-amber-50'}`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${v.estado === 'cerrada' ? 'bg-[var(--green-bg)]' : 'bg-[var(--amber-bg)]'}`}>
                     {v.estado === 'cerrada'
-                      ? <CheckCircle size={16} className="text-green-600" />
-                      : <Clock size={16} className="text-amber-600" />}
+                      ? <CheckCircle size={16} className="text-[var(--green)]" />
+                      : <Clock size={16} className="text-[var(--amber)]" />}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-surface-900">{v.clienteNombre || 'Sin cliente'}</p>
-                    <p className="text-xs text-surface-400">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{v.clienteNombre || 'Sin cliente'}</p>
+                    <p className="text-xs text-[var(--text-tertiary)]">
                       {format(fecha, 'dd/MM/yyyy')} · {v.formaPago}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-surface-900">{fmt(v.total, v.moneda)}</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">{fmt(v.total, v.moneda)}</p>
                   <span className={`badge ${ESTADO_CONFIG[v.estado].class} mt-0.5`}>
                     {ESTADO_CONFIG[v.estado].label}
                   </span>
                 </div>
               </div>
-              {v.notas && <p className="text-xs text-surface-400 mt-2 pt-2 border-t border-surface-100">{v.notas}</p>}
+              {v.notas && <p className="text-xs text-[var(--text-tertiary)] mt-2 pt-2 border-t border-[var(--border)]">{v.notas}</p>}
             </div>
           )
         })}
@@ -155,10 +155,10 @@ export default function VentasPage() {
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
+          <div className="w-full max-w-md bg-[var(--surface)] rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-surface-900">Registrar venta</h3>
+                <h3 className="font-semibold text-[var(--text-primary)]">Registrar venta</h3>
                 <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
               </div>
               <div className="space-y-3">
@@ -203,7 +203,7 @@ export default function VentasPage() {
                   <div className="flex gap-2 flex-wrap">
                     {(['cerrada', 'pendiente', 'presupuesto'] as VentaEstado[]).map(est => (
                       <button key={est} onClick={() => setForm(f => ({...f, estado: est}))}
-                        className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${form.estado === est ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                        className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${form.estado === est ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                         {ESTADO_CONFIG[est].label}
                       </button>
                     ))}

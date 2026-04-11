@@ -115,7 +115,7 @@ export default function ClientesPage() {
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-20 bg-surface-200 rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-20 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
     </div>
   )
 
@@ -124,8 +124,8 @@ export default function ClientesPage() {
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-surface-900">Clientes</h2>
-          <p className="text-surface-500 text-xs mt-0.5">{clientes.length} en total</p>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Clientes</h2>
+          <p className="text-[var(--text-secondary)] text-xs mt-0.5">{clientes.length} en total</p>
         </div>
         <button onClick={openNew} className="btn-primary">
           <Plus size={16} /> Nuevo
@@ -134,7 +134,7 @@ export default function ClientesPage() {
 
       {/* Buscador */}
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
         <input
           type="text"
           value={search}
@@ -153,7 +153,7 @@ export default function ClientesPage() {
             className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
               filterTipo === t
                 ? 'bg-surface-900 text-white'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+                : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'
             }`}
           >
             {t === 'todos' ? 'Todos' : TIPO_LABELS[t]}
@@ -165,11 +165,11 @@ export default function ClientesPage() {
       <div className="space-y-2">
         {filtered.length === 0 ? (
           <div className="empty-state mt-6">
-            <div className="empty-icon"><User size={22} className="text-surface-400" /></div>
-            <p className="text-surface-600 text-sm font-medium">
+            <div className="empty-icon"><User size={22} className="text-[var(--text-tertiary)]" /></div>
+            <p className="text-[var(--text-secondary)] text-sm font-medium">
               {search ? 'Sin resultados' : 'Todavía no hay clientes'}
             </p>
-            <p className="text-surface-400 text-xs mt-1">
+            <p className="text-[var(--text-tertiary)] text-xs mt-1">
               {search ? 'Probá con otro término' : 'Tocá + Nuevo para agregar el primero'}
             </p>
           </div>
@@ -177,26 +177,26 @@ export default function ClientesPage() {
           <div key={c.id} className="card card-hover relative">
             <div className="flex items-start gap-3">
               {/* Avatar */}
-              <div className="w-10 h-10 rounded-xl bg-surface-100 flex items-center justify-center font-semibold text-surface-600 flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[var(--surface-2)] flex items-center justify-center font-semibold text-[var(--text-secondary)] flex-shrink-0">
                 {c.nombre.charAt(0).toUpperCase()}
               </div>
               {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-surface-900 text-sm">{c.nombre}</span>
+                  <span className="font-semibold text-[var(--text-primary)] text-sm">{c.nombre}</span>
                   <span className={`badge ${TIPO_COLORS[c.tipo]}`}>{TIPO_LABELS[c.tipo]}</span>
                 </div>
                 {c.telefono && (
-                  <p className="text-surface-500 text-xs mt-0.5">{c.telefono}</p>
+                  <p className="text-[var(--text-secondary)] text-xs mt-0.5">{c.telefono}</p>
                 )}
-                <p className="text-surface-400 text-xs mt-0.5">{ESTADO_LABELS[c.estado]}</p>
+                <p className="text-[var(--text-tertiary)] text-xs mt-0.5">{ESTADO_LABELS[c.estado]}</p>
               </div>
               {/* Acciones rápidas */}
               <div className="flex items-center gap-1 flex-shrink-0">
                 {c.telefono && (
                   <button
                     onClick={() => whatsapp(c.telefono!)}
-                    className="btn-icon text-green-600 hover:bg-green-50"
+                    className="btn-icon text-[var(--green)] hover:bg-[var(--green-bg)]"
                   >
                     <MessageCircle size={16} />
                   </button>
@@ -209,23 +209,23 @@ export default function ClientesPage() {
                     <MoreVertical size={16} />
                   </button>
                   {menuId === c.id && (
-                    <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-surface-200 rounded-xl shadow-modal z-50 overflow-hidden animate-scale-in">
-                      <button onClick={() => openEdit(c)} className="w-full text-left px-4 py-2.5 text-sm text-surface-700 hover:bg-surface-50">Editar</button>
-                      <div className="px-3 py-1.5 text-xs font-medium text-surface-400 bg-surface-50">Cambiar estado</div>
+                    <div className="absolute right-0 top-full mt-1 w-44 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-modal z-50 overflow-hidden animate-scale-in">
+                      <button onClick={() => openEdit(c)} className="w-full text-left px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-2)]">Editar</button>
+                      <div className="px-3 py-1.5 text-xs font-medium text-[var(--text-tertiary)] bg-[var(--surface-2)]">Cambiar estado</div>
                       {(['activo','dormido','potencial','perdido'] as ClienteEstado[]).map(est => (
-                        <button key={est} onClick={() => handleEstado(c, est)} className={`w-full text-left px-4 py-2 text-sm hover:bg-surface-50 ${c.estado === est ? 'font-semibold text-brand-600' : 'text-surface-700'}`}>
+                        <button key={est} onClick={() => handleEstado(c, est)} className={`w-full text-left px-4 py-2 text-sm hover:bg-[var(--surface-2)] ${c.estado === est ? 'font-semibold text-brand-600' : 'text-[var(--text-primary)]'}`}>
                           {ESTADO_LABELS[est]}
                         </button>
                       ))}
-                      <div className="border-t border-surface-100" />
-                      <button onClick={() => handleDelete(c.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">Eliminar</button>
+                      <div className="border-t border-[var(--border)]" />
+                      <button onClick={() => handleDelete(c.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-[var(--red-bg)]">Eliminar</button>
                     </div>
                   )}
                 </div>
               </div>
             </div>
             {c.notas && (
-              <p className="text-xs text-surface-400 mt-2 pl-13 border-t border-surface-100 pt-2">{c.notas}</p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-2 pl-13 border-t border-[var(--border)] pt-2">{c.notas}</p>
             )}
           </div>
         ))}
@@ -237,10 +237,10 @@ export default function ClientesPage() {
       {/* Modal formulario */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
+          <div className="w-full max-w-md bg-[var(--surface)] rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-surface-900">{editando ? 'Editar cliente' : 'Nuevo cliente'}</h3>
+                <h3 className="font-semibold text-[var(--text-primary)]">{editando ? 'Editar cliente' : 'Nuevo cliente'}</h3>
                 <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
               </div>
 

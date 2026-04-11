@@ -105,7 +105,7 @@ export default function TareasPage() {
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-16 bg-surface-200 rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-16 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
     </div>
   )
 
@@ -114,8 +114,8 @@ export default function TareasPage() {
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-surface-900">Tareas del día</h2>
-          <p className="text-surface-500 text-xs mt-0.5">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Tareas del día</h2>
+          <p className="text-[var(--text-secondary)] text-xs mt-0.5">
             {completadas.length} de {tareas.length} completadas
           </p>
         </div>
@@ -135,17 +135,17 @@ export default function TareasPage() {
       {tareas.length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-surface-700">Progreso de hoy</span>
+            <span className="text-sm font-medium text-[var(--text-primary)]">Progreso de hoy</span>
             <span className="text-sm font-bold text-brand-600">{progreso}%</span>
           </div>
-          <div className="h-2 bg-surface-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-[var(--surface-2)] rounded-full overflow-hidden">
             <div
               className="h-full bg-brand-600 rounded-full transition-all duration-500"
               style={{ width: `${progreso}%` }}
             />
           </div>
           {progreso === 100 && (
-            <p className="text-xs text-green-600 font-medium mt-2 text-center">
+            <p className="text-xs text-[var(--green)] font-medium mt-2 text-center">
               ✅ ¡Todo listo por hoy!
             </p>
           )}
@@ -160,17 +160,17 @@ export default function TareasPage() {
               <button
                 onClick={() => handleToggle(t)}
                 disabled={toggling.has(t.id)}
-                className="text-surface-300 hover:text-brand-600 transition-colors flex-shrink-0 disabled:opacity-40"
+                className="text-[var(--text-secondary)] hover:text-brand-600 transition-colors flex-shrink-0 disabled:opacity-40"
               >
                 <Square size={20} />
               </button>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-surface-900">{t.titulo}</p>
-                <p className="text-xs text-surface-400 mt-0.5">{FRECUENCIA_LABELS[t.frecuencia]}</p>
+                <p className="text-sm font-medium text-[var(--text-primary)]">{t.titulo}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{FRECUENCIA_LABELS[t.frecuencia]}</p>
               </div>
               <button
                 onClick={() => handleDelete(t.id)}
-                className="btn-icon text-surface-300 hover:text-red-400 flex-shrink-0"
+                className="btn-icon text-[var(--text-secondary)] hover:text-[var(--brand-light)] flex-shrink-0"
               >
                 <Trash2 size={15} />
               </button>
@@ -182,7 +182,7 @@ export default function TareasPage() {
       {/* Tareas completadas */}
       {completadas.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-surface-400 mb-2 px-1">Completadas</p>
+          <p className="text-xs font-medium text-[var(--text-tertiary)] mb-2 px-1">Completadas</p>
           <div className="space-y-2">
             {completadas.map(t => (
               <div key={t.id} className="card flex items-center gap-3 opacity-60">
@@ -194,9 +194,9 @@ export default function TareasPage() {
                   <CheckSquare size={20} />
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-surface-500 line-through">{t.titulo}</p>
+                  <p className="text-sm text-[var(--text-secondary)] line-through">{t.titulo}</p>
                 </div>
-                <button onClick={() => handleDelete(t.id)} className="btn-icon text-surface-300 hover:text-red-400 flex-shrink-0">
+                <button onClick={() => handleDelete(t.id)} className="btn-icon text-[var(--text-secondary)] hover:text-[var(--brand-light)] flex-shrink-0">
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -208,16 +208,16 @@ export default function TareasPage() {
       {/* Sugeridas si no hay tareas */}
       {tareas.length === 0 && (
         <div className="card">
-          <p className="text-sm font-semibold text-surface-700 mb-3">Tareas sugeridas para arrancar</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)] mb-3">Tareas sugeridas para arrancar</p>
           <div className="space-y-2">
             {TAREAS_SUGERIDAS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => handleSugerida(s)}
-                className="w-full flex items-center justify-between p-3 bg-surface-50 hover:bg-surface-100 rounded-xl transition-colors text-left"
+                className="w-full flex items-center justify-between p-3 bg-[var(--surface-2)] hover:bg-[var(--surface-2)] rounded-xl transition-colors text-left"
               >
-                <span className="text-sm text-surface-700">{s.titulo}</span>
-                <span className="text-xs text-surface-400">{FRECUENCIA_LABELS[s.frecuencia]}</span>
+                <span className="text-sm text-[var(--text-primary)]">{s.titulo}</span>
+                <span className="text-xs text-[var(--text-tertiary)]">{FRECUENCIA_LABELS[s.frecuencia]}</span>
               </button>
             ))}
           </div>
@@ -227,9 +227,9 @@ export default function TareasPage() {
       {/* Modal nueva tarea */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-modal animate-slide-up p-5">
+          <div className="w-full max-w-md bg-[var(--surface)] rounded-2xl shadow-modal animate-slide-up p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-surface-900">Nueva tarea</h3>
+              <h3 className="font-semibold text-[var(--text-primary)]">Nueva tarea</h3>
               <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
             </div>
             <div className="space-y-3">
@@ -252,7 +252,7 @@ export default function TareasPage() {
                       key={k}
                       onClick={() => setFrecuencia(k)}
                       className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
-                        frecuencia === k ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+                        frecuencia === k ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'
                       }`}
                     >
                       {v}

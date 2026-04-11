@@ -136,7 +136,7 @@ export default function CatalogoPage() {
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-20 bg-surface-200 rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-20 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
     </div>
   )
 
@@ -145,8 +145,8 @@ export default function CatalogoPage() {
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-surface-900">Catálogo</h2>
-          <p className="text-surface-500 text-xs mt-0.5">{productos.length} productos</p>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Catálogo</h2>
+          <p className="text-[var(--text-secondary)] text-xs mt-0.5">{productos.length} productos</p>
         </div>
         <div className="flex gap-2">
           {productos.length > 0 && (
@@ -162,7 +162,7 @@ export default function CatalogoPage() {
 
       {/* Buscador */}
       <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
         <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por modelo, color, storage..." className="input pl-9" />
       </div>
 
@@ -170,7 +170,7 @@ export default function CatalogoPage() {
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
         {(['todos', 'nuevo', 'usado', 'reacondicionado'] as const).map(c => (
           <button key={c} onClick={() => setFilterCond(c)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${filterCond === c ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'}`}>
+            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${filterCond === c ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'}`}>
             {c === 'todos' ? 'Todos' : CONDICION_LABELS[c]}
           </button>
         ))}
@@ -180,27 +180,27 @@ export default function CatalogoPage() {
       <div className="space-y-2">
         {filtered.length === 0 ? (
           <div className="empty-state mt-6">
-            <div className="empty-icon"><Package size={22} className="text-surface-400" /></div>
-            <p className="text-surface-600 text-sm font-medium">{search ? 'Sin resultados' : 'Catálogo vacío'}</p>
-            <p className="text-surface-400 text-xs mt-1">{search ? 'Probá con otro término' : 'Tocá + Nuevo para agregar productos'}</p>
+            <div className="empty-icon"><Package size={22} className="text-[var(--text-tertiary)]" /></div>
+            <p className="text-[var(--text-secondary)] text-sm font-medium">{search ? 'Sin resultados' : 'Catálogo vacío'}</p>
+            <p className="text-[var(--text-tertiary)] text-xs mt-1">{search ? 'Probá con otro término' : 'Tocá + Nuevo para agregar productos'}</p>
           </div>
         ) : filtered.map(p => (
           <div key={p.id} className="card card-hover">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-surface-100 flex items-center justify-center text-lg flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[var(--surface-2)] flex items-center justify-center text-lg flex-shrink-0">
                 {p.condicion === 'nuevo' ? '📱' : p.condicion === 'usado' ? '🔄' : '✨'}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-surface-900 text-sm">{p.nombre}</p>
-                    <p className="text-surface-500 text-xs mt-0.5">
+                    <p className="font-semibold text-[var(--text-primary)] text-sm">{p.nombre}</p>
+                    <p className="text-[var(--text-secondary)] text-xs mt-0.5">
                       {[p.storage, p.color, p.bateria ? `${p.bateria}%` : null, p.ciclos ? `${p.ciclos} ciclos` : null].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-surface-900 text-sm">{fmtPrecio(p.precioFinal, p.moneda)}</p>
-                    {p.precioRevendedor ? <p className="text-xs text-surface-400">Rev: {fmtPrecio(p.precioRevendedor, p.moneda)}</p> : null}
+                    <p className="font-bold text-[var(--text-primary)] text-sm">{fmtPrecio(p.precioFinal, p.moneda)}</p>
+                    {p.precioRevendedor ? <p className="text-xs text-[var(--text-tertiary)]">Rev: {fmtPrecio(p.precioRevendedor, p.moneda)}</p> : null}
                   </div>
                 </div>
               </div>
@@ -209,9 +209,9 @@ export default function CatalogoPage() {
                   <MoreVertical size={16} />
                 </button>
                 {menuId === p.id && (
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-surface-200 rounded-xl shadow-modal z-50 overflow-hidden animate-scale-in">
-                    <button onClick={() => openEdit(p)} className="w-full text-left px-4 py-2.5 text-sm text-surface-700 hover:bg-surface-50">Editar</button>
-                    <button onClick={() => handleDelete(p.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">Eliminar</button>
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-modal z-50 overflow-hidden animate-scale-in">
+                    <button onClick={() => openEdit(p)} className="w-full text-left px-4 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--surface-2)]">Editar</button>
+                    <button onClick={() => handleDelete(p.id)} className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-[var(--red-bg)]">Eliminar</button>
                   </div>
                 )}
               </div>
@@ -225,10 +225,10 @@ export default function CatalogoPage() {
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
+          <div className="w-full max-w-md bg-[var(--surface)] rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
             <div className="p-5">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-surface-900">{editando ? 'Editar producto' : 'Nuevo producto'}</h3>
+                <h3 className="font-semibold text-[var(--text-primary)]">{editando ? 'Editar producto' : 'Nuevo producto'}</h3>
                 <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
               </div>
               <div className="space-y-3">
@@ -279,7 +279,7 @@ export default function CatalogoPage() {
                   <div className="flex gap-2">
                     {(['USD', 'ARS'] as const).map(m => (
                       <button key={m} onClick={() => setForm(f => ({...f, moneda: m}))}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${form.moneda === m ? 'bg-surface-900 text-white' : 'bg-surface-100 text-surface-600'}`}>
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${form.moneda === m ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                         {m === 'USD' ? '🇺🇸 USD' : '🇦🇷 ARS'}
                       </button>
                     ))}

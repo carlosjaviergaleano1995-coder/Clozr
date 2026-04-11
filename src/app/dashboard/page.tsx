@@ -119,9 +119,12 @@ export default function DashboardPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
-        <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center mx-auto animate-pulse">
-          <span className="text-white font-bold text-lg">C</span>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center animate-pulse"
+          style={{ background: '#141414', border: '1px solid #2a2a2e', boxShadow: '0 4px 24px rgba(232,0,29,0.2)' }}>
+          <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
+            <path d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z" fill="#E8001D"/>
+          </svg>
         </div>
       </div>
     )
@@ -134,10 +137,17 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between pt-6 pb-8">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">C</span>
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{ background: '#141414', border: '1px solid #2a2a2e' }}>
+                <svg width="14" height="14" viewBox="0 0 100 100" fill="none">
+                  <path d="M78 18 L82 18 L82 25 L45 65 L48 65 L82 65 L82 82 L18 82 L18 75 L55 35 L52 35 L18 35 L18 18 Z" fill="#E8001D"/>
+                </svg>
               </div>
-              <span className="text-white font-semibold text-lg tracking-tight">Clozr</span>
+              <div className="flex items-center gap-0.5">
+                <span className="text-white font-bold text-lg tracking-tight">clo</span>
+                <span className="font-bold text-lg tracking-tight" style={{ color: '#E8001D' }}>Z</span>
+                <span className="text-white font-bold text-lg tracking-tight">r</span>
+              </div>
             </div>
             <p className="text-surface-500 text-sm">Hola, {user?.displayName?.split(' ')[0]} 👋</p>
           </div>
