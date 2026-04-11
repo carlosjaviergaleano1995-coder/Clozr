@@ -98,18 +98,26 @@ export default function StockiPhones({ workspaceId }: { workspaceId: string }) {
   }
 
   const handleSave = async () => {
-    if (!form.modelo||!form.color||!form.precioUSD||!user) return
+    if (!form.modelo || !form.color || !form.precioUSD || !user) {
+      console.warn('handleSave bloqueado:', { modelo: form.modelo, color: form.color, precioUSD: form.precioUSD, user: !!user })
+      return
+    }
     setSaving(true)
     try {
       if (editando) {
         await updateStockiPhone(workspaceId, editando.id, form)
-        setItems(prev => prev.map(i => i.id===editando.id ? {...i,...form} : i))
+        setItems(prev => prev.map(i => i.id === editando.id ? { ...i, ...form } : i))
       } else {
-        const id = await createStockiPhone(workspaceId, {...form, workspaceId, activo:true})
-        setItems(prev => [...prev, {id,...form,workspaceId,activo:true,createdAt:new Date(),updatedAt:new Date()}])
+        const id = await createStockiPhone(workspaceId, { ...form, workspaceId, activo: true })
+        setItems(prev => [...prev, { id, ...form, workspaceId, activo: true, createdAt: new Date(), updatedAt: new Date() }])
       }
       setShowForm(false)
-    } finally { setSaving(false) }
+    } catch (err) {
+      console.error('Error guardando iPhone:', err)
+      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDelete = async (item: StockIPhone) => {
