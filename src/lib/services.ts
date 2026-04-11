@@ -346,3 +346,150 @@ export const deleteStockAccesorio = async (workspaceId: string, id: string) => {
     activo: false, updatedAt: serverTimestamp(),
   })
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// INVENTARIO UNIFICADO (Producto2)
+// ════════════════════════════════════════════════════════════════════════════
+import type {
+  Producto2, MovimientoStock, Venta2, OrdenTrabajo, Turno
+} from '@/types'
+
+// ── Generador de códigos correlativos ─────────────────────────────────────────
+export const generarCodigo = async (
+  workspaceId: string,
+  prefijo: 'VTA' | 'OT' | 'T'
+): Promise<string> => {
+  const hoy = new Date()
+  const fecha = prefijo !== 'T'
+    ? hoy.toISOString().slice(0,10).replace(/-/g,'')
+    : hoy.toISOString().slice(0,10)
+  const colNombre = prefijo === 'VTA' ? 'ventas2'
+    : prefijo === 'OT' ? 'ordenes_trabajo'
+    : 'turnos'
+  const col = collection(db, 'workspaces', workspaceId, colNombre)
+  const snap = await getDocs(col)
+  // Contar los del día de hoy
+  const hoyStr = hoy.toISOString().slice(0,10).replace(/-/g,'')
+  const hoyCount = snap.docs.filter(d => {
+    const data = d.data()
+    return data.codigo?.includes(prefijo === 'T' ? hoy.toISOString().slice(0,10) : hoyStr)
+  }).length
+  const num = String(hoyCount + 1).padStart(3, '0')
+  return prefijo === 'T' ? `T-${num}` : `${prefijo}-${hoyStr}-${num}`
+}
+
+// ── Productos ─────────────────────────────────────────────────────────────────
+export const getProductos2 = async (workspaceId: string): Promise<Producto2[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'inventario'))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Producto2))
+    .filter(p => p.activo !== false)
+}
+
+export const createProducto2 = async (
+  workspaceId: string,
+  data: Omit<Producto2, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'inventario'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateProducto2 = async (
+  workspaceId: string, id: string, data: Partial<Producto2>
+) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'inventario', id), {
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
+  })
+}
+
+export const deleteProducto2 = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'inventario', id), {
+    activo: false, updatedAt: serverTimestamp(),
+  })
+}
+
+// ── Movimientos de stock ──────────────────────────────────────────────────────
+export const getMovimientos = async (workspaceId: string): Promise<MovimientoStock[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'workspaces', workspaceId, 'movimientos'),
+    where('workspaceId', '==', workspaceId))
+  )
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as MovimientoStock))
+}
+
+export const registrarMovimiento = async (
+  workspaceId: string,
+  data: Omit<MovimientoStock, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'movimientos'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+// ── Ventas2 ───────────────────────────────────────────────────────────────────
+export const getVentas2 = async (workspaceId: string): Promise<Venta2[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'ventas2'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Venta2))
+}
+
+export const createVenta2 = async (
+  workspaceId: string,
+  data: Omit<Venta2, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'ventas2'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+// ── Órdenes de trabajo ────────────────────────────────────────────────────────
+export const getOrdenesTrabajo = async (workspaceId: string): Promise<OrdenTrabajo[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'ordenes_trabajo'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as OrdenTrabajo))
+}
+
+export const createOrdenTrabajo = async (
+  workspaceId: string,
+  data: Omit<OrdenTrabajo, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'ordenes_trabajo'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateOrdenTrabajo = async (
+  workspaceId: string, id: string, data: Partial<OrdenTrabajo>
+) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'ordenes_trabajo', id), {
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
+  })
+}
+
+// ── Turnos ────────────────────────────────────────────────────────────────────
+export const getTurnosHoy = async (workspaceId: string): Promise<Turno[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'turnos'))
+  const hoy = new Date().toISOString().slice(0, 10)
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Turno))
+    .filter(t => t.createdAt?.toString().includes(hoy) || t.codigo?.includes('T-'))
+}
+
+export const createTurno = async (
+  workspaceId: string,
+  data: Omit<Turno, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'turnos'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateTurno = async (
+  workspaceId: string, id: string, data: Partial<Turno>
+) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'turnos', id), cleanForFirestore(data))
+}

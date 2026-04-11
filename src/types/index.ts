@@ -8,7 +8,7 @@ export interface User {
 }
 
 // ── WORKSPACE ──
-export type WorkspaceType = 'servicios' | 'productos' | 'mixto'
+export type WorkspaceType = 'servicios' | 'productos' | 'mixto' | 'tecnico'
 
 export interface Workspace {
   id: string
@@ -318,4 +318,200 @@ export interface ConfigIPhoneClub {
   pieTextoUsados: string  // texto fijo al pie del broadcast usados
   pieTextoNuevos: string  // texto fijo al pie del broadcast nuevos
   dolar: DolarConfig
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SISTEMA DE INVENTARIO UNIFICADO
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Categorías ───────────────────────────────────────────────────────────────
+export type CategoriaCodigo =
+  | 'smartphones'
+  | 'computadoras'
+  | 'gaming'
+  | 'wearables'
+  | 'tablets'
+  | 'audio'
+  | 'accesorios'
+  | 'repuestos'
+  | 'otros'
+
+export interface Categoria {
+  codigo: CategoriaCodigo
+  label: string
+  emoji: string
+}
+
+export const CATEGORIAS: Categoria[] = [
+  { codigo: 'smartphones',  label: 'Smartphones',  emoji: '📱' },
+  { codigo: 'computadoras', label: 'Computadoras', emoji: '💻' },
+  { codigo: 'gaming',       label: 'Gaming',       emoji: '🎮' },
+  { codigo: 'wearables',    label: 'Wearables',    emoji: '⌚' },
+  { codigo: 'tablets',      label: 'Tablets',      emoji: '🖥' },
+  { codigo: 'audio',        label: 'Audio',        emoji: '🔊' },
+  { codigo: 'accesorios',   label: 'Accesorios',   emoji: '🔌' },
+  { codigo: 'repuestos',    label: 'Repuestos',    emoji: '🔧' },
+  { codigo: 'otros',        label: 'Otros',        emoji: '📦' },
+]
+
+// ── Condición del producto ────────────────────────────────────────────────────
+export type Condicion = 'nuevo' | 'usado' | 'reacondicionado'
+
+// ── Campos extra para smartphones usados ─────────────────────────────────────
+export interface CamposSmartphone {
+  bateria?: number          // % batería
+  tieneCaja?: boolean
+  tieneAccesorios?: boolean
+  fuéReparado?: boolean
+  cambióPantalla?: boolean
+  cambióBateria?: boolean
+  detalles?: string         // observaciones libres
+}
+
+// ── Producto unificado ────────────────────────────────────────────────────────
+export interface Producto2 {
+  id: string
+  workspaceId: string
+  // Clasificación
+  categoria: CategoriaCodigo
+  marca: string             // ej: "Apple", "Samsung", "Sony", "JBL"
+  modelo: string            // ej: "iPhone 16 Pro", "PS5", "WH-1000XM5"
+  // Variante
+  color?: string
+  storage?: string          // ej: "128GB", "1TB"
+  // Precios
+  precioUSD: number         // precio base (mayorista/revendedor)
+  moneda: 'USD' | 'ARS'
+  // Stock
+  stock: number
+  condicion: Condicion
+  // Campos extra (smartphone usado)
+  smartphone?: CamposSmartphone
+  // Repuesto — compatible con
+  compatibleCon?: string    // ej: "iPhone 13 / 14"
+  // Meta
+  activo: boolean
+  creadoPor: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Movimiento de stock ───────────────────────────────────────────────────────
+export type MovimientoTipo = 'entrada' | 'salida' | 'venta' | 'ajuste'
+
+export interface MovimientoStock {
+  id: string
+  workspaceId: string
+  productoId: string
+  productoNombre: string    // snapshot del nombre al momento del movimiento
+  tipo: MovimientoTipo
+  cantidad: number
+  precioUnitario?: number
+  moneda?: 'USD' | 'ARS'
+  ventaId?: string          // si fue por una venta
+  otId?: string             // si fue por una OT
+  nota?: string
+  realizadoPor: string      // uid del usuario
+  createdAt: Date
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SISTEMA DE VENTAS
+// ════════════════════════════════════════════════════════════════════════════
+
+export type VentaEstado2 = 'pendiente' | 'cerrada' | 'cancelada'
+export type FormaPago2 = 'efectivo_usd' | 'efectivo_ars' | 'transferencia' | 'usdt' | 'tarjeta' | 'permuta' | 'otro'
+
+export interface VentaItem2 {
+  productoId: string
+  productoNombre: string    // snapshot
+  cantidad: number
+  precioUnitario: number
+  moneda: 'USD' | 'ARS'
+  fueraDeStock: boolean     // true si se vendió sin stock registrado
+}
+
+export interface Venta2 {
+  id: string
+  codigo: string            // ej: "VTA-20250411-001"
+  workspaceId: string
+  clienteId?: string
+  clienteNombre: string
+  items: VentaItem2[]
+  total: number
+  moneda: 'USD' | 'ARS'
+  formaPago: FormaPago2
+  estado: VentaEstado2
+  notas?: string
+  realizadoPor: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SERVICIO TÉCNICO
+// ════════════════════════════════════════════════════════════════════════════
+
+export type OTEstado =
+  | 'ingreso'
+  | 'diagnostico'
+  | 'presupuestado'
+  | 'aprobado'
+  | 'en_reparacion'
+  | 'listo'
+  | 'entregado'
+  | 'cancelado'
+
+export interface OTRepuesto {
+  productoId: string
+  productoNombre: string
+  cantidad: number
+  precioUnitario: number
+}
+
+export interface OrdenTrabajo {
+  id: string
+  codigo: string            // ej: "OT-20250411-001"
+  workspaceId: string
+  // Turno
+  turno: string             // ej: "T-001"
+  // Cliente y equipo
+  clienteId?: string
+  clienteNombre: string
+  clienteTelefono?: string
+  equipoMarca: string
+  equipoModelo: string
+  equipoImei?: string
+  equipoColor?: string
+  // Diagnóstico
+  problemaReportado: string
+  diagnostico?: string
+  // Económico
+  presupuesto?: number
+  moneda: 'USD' | 'ARS'
+  repuestosUsados: OTRepuesto[]
+  // Asignación
+  tecnicoId?: string
+  tecnicoNombre?: string
+  // Estado
+  estado: OTEstado
+  estadoHistorial: { estado: OTEstado; fecha: Date; nota?: string }[]
+  // Fechas
+  fechaEstimada?: Date
+  createdAt: Date
+  updatedAt: Date
+  realizadoPor: string
+}
+
+// ── Turno ─────────────────────────────────────────────────────────────────────
+export interface Turno {
+  id: string
+  codigo: string            // ej: "T-001"
+  workspaceId: string
+  clienteNombre?: string
+  clienteTelefono?: string
+  motivo?: string           // "consulta" | "reparación" | "presupuesto" | "retiro"
+  otId?: string             // si derivó a OT
+  atendido: boolean
+  createdAt: Date
 }
