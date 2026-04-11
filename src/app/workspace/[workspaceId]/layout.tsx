@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp, Package, History, ShoppingCart, Ticket } from 'lucide-react'
+import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp, Package, History, ShoppingCart, Ticket, Wallet } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import { ClozrIcon } from '@/components/ClozrLogo'
@@ -17,27 +17,27 @@ const NAV_SERVICIOS = [
 ]
 
 const NAV_PRODUCTOS = [
-  { id: 'inventario',          label: 'Inventario',   icon: Package },
-  { id: 'ventas2',             label: 'Ventas',       icon: ShoppingCart },
-  { id: 'historial',           label: 'Historial',    icon: History },
-  { id: 'iphone/broadcast',    label: 'Broadcast',    icon: Radio },
-  { id: 'iphone/revendedores', label: 'Revendedores', icon: Users },
+  { id: 'resumen',             label: 'Resumen',    icon: LayoutDashboard },
+  { id: 'inventario',          label: 'Inventario', icon: Package },
+  { id: 'ventas2',             label: 'Ventas',     icon: ShoppingCart },
+  { id: 'caja',                label: 'Caja',       icon: Wallet },
+  { id: 'iphone/broadcast',    label: 'Broadcast',  icon: Radio },
 ]
 
 const NAV_MIXTO = [
+  { id: 'resumen',          label: 'Resumen',    icon: LayoutDashboard },
   { id: 'inventario',       label: 'Inventario', icon: Package },
   { id: 'ventas2',          label: 'Ventas',     icon: ShoppingCart },
-  { id: 'historial',        label: 'Historial',  icon: History },
+  { id: 'caja',             label: 'Caja',       icon: Wallet },
   { id: 'iphone/broadcast', label: 'Broadcast',  icon: Radio },
-  { id: 'tareas',           label: 'Tareas',     icon: CheckSquare },
 ]
 
 const NAV_TECNICO = [
+  { id: 'resumen',    label: 'Resumen',   icon: LayoutDashboard },
   { id: 'turnos',     label: 'Turnos',    icon: Ticket },
   { id: 'ordenes',    label: 'Órdenes',   icon: Smartphone },
+  { id: 'caja',       label: 'Caja',      icon: Wallet },
   { id: 'inventario', label: 'Repuestos', icon: Package },
-  { id: 'clientes',   label: 'Clientes',  icon: Users },
-  { id: 'historial',  label: 'Historial', icon: History },
 ]
 
 function getNav(tipo: string) {

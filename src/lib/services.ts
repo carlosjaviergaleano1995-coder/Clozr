@@ -493,3 +493,80 @@ export const updateTurno = async (
 ) => {
   await updateDoc(doc(db, 'workspaces', workspaceId, 'turnos', id), cleanForFirestore(data))
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// CAJA
+// ════════════════════════════════════════════════════════════════════════════
+import type { MovimientoCaja, CajaDia } from '@/types'
+
+export const getCajaHoy = async (workspaceId: string): Promise<CajaDia | null> => {
+  const hoy = new Date().toISOString().slice(0, 10)
+  const snap = await getDocs(
+    query(collection(db, 'workspaces', workspaceId, 'cajas'),
+    where('fecha', '==', hoy))
+  )
+  if (snap.empty) return null
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as CajaDia
+}
+
+export const getCajasMes = async (workspaceId: string): Promise<CajaDia[]> => {
+  const hoy = new Date()
+  const desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`
+  const snap = await getDocs(
+    query(collection(db, 'workspaces', workspaceId, 'cajas'),
+    where('fecha', '>=', desde))
+  )
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as CajaDia))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+}
+
+export const abrirCaja = async (
+  workspaceId: string,
+  saldoInicialUSD: number,
+  saldoInicialARS: number,
+  uid: string
+): Promise<string> => {
+  const hoy = new Date().toISOString().slice(0, 10)
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'cajas'), {
+    workspaceId, fecha: hoy, abierta: true,
+    saldoInicialUSD, saldoInicialARS,
+    abiertaPor: uid, creadaAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const cerrarCaja = async (
+  workspaceId: string,
+  cajaId: string,
+  saldoCierreUSD: number,
+  saldoCierreARS: number,
+  notas: string,
+  uid: string
+) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'cajas', cajaId), {
+    abierta: false, saldoCierreUSD, saldoCierreARS,
+    notasCierre: notas || null, cerradaPor: uid, cerradaAt: serverTimestamp(),
+  })
+}
+
+export const getMovimientosCaja = async (
+  workspaceId: string, fecha?: string
+): Promise<MovimientoCaja[]> => {
+  const snap = await getDocs(
+    collection(db, 'workspaces', workspaceId, 'movimientos_caja')
+  )
+  const todos = snap.docs.map(d => ({ id: d.id, ...d.data() } as MovimientoCaja))
+  if (fecha) return todos.filter(m => toDate(m.createdAt).toISOString().slice(0,10) === fecha)
+    .sort((a,b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())
+  return todos.sort((a,b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())
+}
+
+export const agregarMovimientoCaja = async (
+  workspaceId: string,
+  data: Omit<MovimientoCaja, 'id' | 'createdAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'movimientos_caja'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(),
+  })
+  return ref.id
+}

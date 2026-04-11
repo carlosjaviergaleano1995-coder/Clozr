@@ -515,3 +515,48 @@ export interface Turno {
   atendido: boolean
   createdAt: Date
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// CAJA
+// ════════════════════════════════════════════════════════════════════════════
+
+export type MovCajaTipo =
+  | 'venta'        // ingreso por venta
+  | 'seña'         // ingreso parcial / anticipo
+  | 'cobro_ot'     // cobro de orden de trabajo
+  | 'gasto'        // egreso / gasto operativo
+  | 'retiro'       // retiro del dueño
+  | 'ingreso'      // ingreso manual (caja inicial, etc.)
+  | 'ajuste'       // corrección
+
+export type MonedaCaja = 'USD' | 'ARS'
+
+export interface MovimientoCaja {
+  id: string
+  workspaceId: string
+  tipo: MovCajaTipo
+  descripcion: string
+  monto: number
+  moneda: MonedaCaja
+  esIngreso: boolean       // true = entra plata, false = sale plata
+  ventaId?: string
+  otId?: string
+  creadoPor: string
+  createdAt: Date
+}
+
+export interface CajaDia {
+  id: string
+  workspaceId: string
+  fecha: string            // YYYY-MM-DD
+  abierta: boolean
+  saldoInicialUSD: number
+  saldoInicialARS: number
+  saldoCierreUSD?: number
+  saldoCierreARS?: number
+  notasCierre?: string
+  abiertaPor: string
+  cerradaPor?: string
+  creadaAt: Date
+  cerradaAt?: Date
+}
