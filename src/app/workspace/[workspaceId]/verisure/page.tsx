@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, Gift, TrendingUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, TrendingUp } from 'lucide-react'
 import { getConfigVerisure, saveConfigVerisure } from '@/lib/services'
 import { CONFIG_VERISURE_DEFAULT } from '@/lib/verisure-defaults'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
@@ -128,8 +128,9 @@ export default function VerisurePage() {
 
   // UI panels
   const [showPromos, setShowPromos] = useState(false)
-  const [showBonos, setShowBonos] = useState(true)
-  const [showSugs, setShowSugs] = useState(true)
+  const [showExtras, setShowExtras] = useState(false)
+  const [showBonos, setShowBonos] = useState(false)
+  const [showSugs, setShowSugs] = useState(false)
 
   useEffect(() => { load() }, [workspaceId])
 
@@ -337,28 +338,36 @@ export default function VerisurePage() {
       </div>
 
       {/* Tipo venta + Cuotas */}
+      {/* Tipo venta + Cuotas */}
       <div className="card space-y-3">
         <div>
-          <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2 uppercase tracking-wide">Tipo de venta</p>
+          <p className="text-xs font-semibold text-[var(--text-tertiary)] mb-2 uppercase tracking-wide">Tipo de venta</p>
           <div className="grid grid-cols-2 gap-2">
-            {(['RP', 'RE'] as TipoVenta[]).map(t => (
-              <button key={t} onClick={() => setTipoVenta(t)}
-                className={`py-2.5 rounded-xl text-sm font-semibold transition-all ${tipoVenta === t ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
-                {t === 'RP' ? '🤝 RP — Recurso Propio' : '🏢 RE — Recurso Empresa'}
-              </button>
-            ))}
+            <button onClick={() => setTipoVenta('RP')}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all border ${tipoVenta === 'RP' ? 'border-[#E8001D] bg-[rgba(232,0,29,0.1)]' : 'border-[var(--border)] bg-[var(--surface-2)]'}`}
+              style={{ color: tipoVenta === 'RP' ? '#E8001D' : 'var(--text-secondary)' }}>
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#E8001D' }} />
+              Recurso Propio
+            </button>
+            <button onClick={() => setTipoVenta('RE')}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all border ${tipoVenta === 'RE' ? 'border-[#0a84ff] bg-[rgba(10,132,255,0.1)]' : 'border-[var(--border)] bg-[var(--surface-2)]'}`}
+              style={{ color: tipoVenta === 'RE' ? '#0a84ff' : 'var(--text-secondary)' }}>
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: '#0a84ff' }} />
+              Recurso Empresa
+            </button>
           </div>
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Financiación instalación</p>
-            <span className="text-sm font-bold text-[var(--text-primary)]">{cuotas === 1 ? 'Contado' : `${cuotas}x`}</span>
+            <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide">Financiación instalación</p>
+            <span className="text-sm font-bold text-[var(--text-primary)]">x{cuotas}</span>
           </div>
-          <div className="flex gap-1.5">
-            {[1,3,6,12].map(n => (
+          <div className="flex gap-1.5 flex-wrap">
+            {[1,2,3,4,6,9,12].map(n => (
               <button key={n} onClick={() => setCuotas(n)}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${cuotas === n ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
-                {n === 1 ? 'Ctdo' : `${n}x`}
+                className={`flex-1 min-w-[32px] py-1.5 rounded-lg text-xs font-semibold transition-all ${cuotas === n ? 'text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}
+                style={cuotas === n ? { background: 'var(--brand)' } : {}}>
+                x{n}
               </button>
             ))}
           </div>
@@ -458,67 +467,115 @@ export default function VerisurePage() {
 
       {/* Extras */}
       <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Dispositivos extras</p>
-          <div className="flex gap-1">
-            {(['alto', 'bajo'] as const).map(n => (
-              <button key={n} onClick={() => setInst(i => ({ ...i, nivelExtras: n }))}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${inst.nivelExtras === n ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
-                {n === 'alto' ? 'Alto' : 'Bajo'}
-              </button>
-            ))}
+        <button className="w-full flex items-center justify-between" onClick={() => setShowExtras(!showExtras)}>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Dispositivos extras</p>
+            {inst.extras.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: 'var(--brand)' }}>
+                {inst.extras.length}
+              </span>
+            )}
           </div>
-        </div>
-        <div className="space-y-2">
-          {nombresUnicos.map(nombre => {
-            const disp = getDisp(nombre)
-            if (!disp) return null
-            const activo = extraActivo(disp.id)
-            return (
-              <div key={disp.id} className={`rounded-xl border transition-all ${activo ? 'border-brand-200 bg-brand-50' : 'border-[var(--border)]'}`}>
-                <div className="flex items-center justify-between px-3 py-2.5">
-                  <div className="flex-1 min-w-0 mr-2">
-                    <p className={`text-sm font-medium ${activo ? 'text-brand-800' : 'text-surface-800'}`}>{disp.nombre}</p>
-                    {activo ? (
-                      <div className="mt-1 space-y-0.5">
-                        {!activo.bonificado ? (
-                          <div className="flex gap-3">
-                            <p className="text-xs font-semibold text-brand-700">{fmt(disp.precios[activo.cantidadIdx])} <span className="font-normal text-brand-400">s/IVA</span></p>
-                            <p className="text-xs text-brand-500">{fmt(iva(disp.precios[activo.cantidadIdx], config.ivaPct))} <span className="text-brand-400">c/IVA</span></p>
-                          </div>
-                        ) : (
-                          <p className="text-xs font-semibold text-[var(--green)]">🎁 Bonificado — $0</p>
-                        )}
-                        {disp.cuotas[activo.cantidadIdx] > 0 && (
-                          <p className="text-xs text-brand-500">+{fmt(iva(disp.cuotas[activo.cantidadIdx], config.ivaPct))}<span className="text-brand-400">/mes c/IVA</span></p>
-                        )}
-                      </div>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {(['alto', 'bajo'] as const).map(n => (
+                <button key={n}
+                  onClick={e => { e.stopPropagation(); setInst(i => ({ ...i, nivelExtras: n })) }}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-all ${inst.nivelExtras === n ? 'text-white' : 'bg-[var(--surface-2)] text-[var(--text-tertiary)]'}`}
+                  style={inst.nivelExtras === n ? { background: 'var(--brand)' } : {}}>
+                  {n === 'alto' ? 'Alto' : 'Bajo'}
+                </button>
+              ))}
+            </div>
+            {showExtras ? <ChevronUp size={14} className="text-[var(--text-tertiary)]" /> : <ChevronDown size={14} className="text-[var(--text-tertiary)]" />}
+          </div>
+        </button>
+
+        {/* Extras activos — siempre visibles si hay alguno */}
+        {inst.extras.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            {inst.extras.map(ex => {
+              const disp = config.dispositivos.find(d => d.id === ex.dispositivoId)
+              if (!disp) return null
+              return (
+                <div key={ex.dispositivoId} className="flex items-center justify-between px-3 py-2 rounded-xl"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-[var(--text-primary)]">
+                        {disp.cantidades[ex.cantidadIdx]}x {disp.nombre}
+                      </span>
+                      {ex.bonificado && <span className="text-[10px] text-[var(--green)]">🎁</span>}
+                    </div>
+                    {!ex.bonificado ? (
+                      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                        {fmt(disp.precios[ex.cantidadIdx])} s/IVA
+                        {disp.cuotas[ex.cantidadIdx] > 0 && ` · +${fmt(disp.cuotas[ex.cantidadIdx])}/mes`}
+                      </p>
                     ) : (
-                      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
+                      <p className="text-[10px] text-[var(--green)] mt-0.5">Bonificado $0 · cuota {fmt(disp.cuotas[ex.cantidadIdx])}/mes</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {activo && (
-                      <button onClick={() => toggleBonif(disp.id)}
-                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${activo.bonificado ? 'bg-green-100 border-green-300 text-[var(--green)]' : 'bg-[var(--surface-2)] border-[var(--border)] text-[var(--text-secondary)]'}`}>
-                        <Gift size={10} className="inline mr-0.5" />Bonif
-                      </button>
-                    )}
-                    <div className="flex gap-1">
+                  <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                    <button onClick={() => toggleBonif(ex.dispositivoId)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${ex.bonificado ? 'border-[var(--green)] text-[var(--green)]' : 'border-[var(--border)] text-[var(--text-tertiary)]'}`}
+                      style={ex.bonificado ? { background: 'var(--green-bg)' } : { background: 'var(--surface-3)' }}>
+                      Bonif
+                    </button>
+                    <button onClick={() => toggleExtra(ex.dispositivoId, ex.cantidadIdx)}
+                      className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--brand-light)] transition-colors"
+                      style={{ background: 'var(--surface-3)' }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Lista para agregar — colapsable */}
+        {showExtras && (
+          <div className="mt-3 space-y-1">
+            {nombresUnicos.map(nombre => {
+              const disp = getDisp(nombre)
+              if (!disp) return null
+              const yaAgregado = inst.extras.some(e => e.dispositivoId === disp.id)
+              if (yaAgregado) return null  // ya está en la lista de arriba
+
+              return (
+                <div key={disp.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+                  <div className="flex items-center justify-between px-3 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text-primary)]">{disp.nombre}</p>
+                      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
+                    </div>
+                    {/* Selector cantidad — elige uno y agrega */}
+                    <div className="flex gap-1 flex-shrink-0">
                       {disp.cantidades.map((cant, idx) => (
-                        <button key={cant} onClick={() => toggleExtra(disp.id, idx)}
-                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${activo?.cantidadIdx === idx ? 'bg-brand-600 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
+                        <button key={cant}
+                          onClick={() => { toggleExtra(disp.id, idx); setShowExtras(false) }}
+                          className="w-7 h-7 rounded-lg text-xs font-bold transition-all bg-[var(--surface-2)] text-[var(--text-secondary)] hover:text-white"
+                          style={{ border: '1px solid var(--border)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--brand)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-2)')}>
                           {cant}
                         </button>
                       ))}
                     </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-        {inst.extras.length === 0 && <p className="text-xs text-[var(--text-tertiary)] text-center py-2">Tocá una cantidad para agregar</p>}
+              )
+            })}
+            {nombresUnicos.every(n => inst.extras.some(e => e.dispositivoId === getDisp(n)?.id)) && (
+              <p className="text-xs text-[var(--text-tertiary)] text-center py-2">Todos los dispositivos agregados</p>
+            )}
+          </div>
+        )}
+
+        {inst.extras.length === 0 && !showExtras && (
+          <p className="text-xs text-[var(--text-tertiary)] text-center mt-3">Tocá para ver dispositivos disponibles</p>
+        )}
       </div>
 
       {/* Express (solo RE) */}
