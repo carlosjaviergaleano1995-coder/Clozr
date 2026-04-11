@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp, Package } from 'lucide-react'
+import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp, Package, History, ShoppingCart } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import { ClozrIcon } from '@/components/ClozrLogo'
 import type { Workspace } from '@/types'
 
 const NAV_SERVICIOS = [
-  { id: 'resumen',    label: 'Resumen',   icon: LayoutDashboard },
+  { id: 'resumen',   label: 'Resumen',   icon: LayoutDashboard },
   { id: 'clientes',  label: 'Clientes',  icon: Users },
   { id: 'verisure',  label: 'Calc',      icon: Shield },
   { id: 'ventas',    label: 'Ventas',    icon: TrendingUp },
@@ -17,27 +17,27 @@ const NAV_SERVICIOS = [
 ]
 
 const NAV_PRODUCTOS = [
-  { id: 'resumen',             label: 'Resumen',      icon: LayoutDashboard },
   { id: 'inventario',          label: 'Inventario',   icon: Package },
+  { id: 'ventas2',             label: 'Ventas',       icon: ShoppingCart },
+  { id: 'historial',           label: 'Historial',    icon: History },
   { id: 'iphone/broadcast',    label: 'Broadcast',    icon: Radio },
   { id: 'iphone/revendedores', label: 'Revendedores', icon: Users },
-  { id: 'tareas',              label: 'Tareas',       icon: CheckSquare },
 ]
 
 const NAV_MIXTO = [
-  { id: 'resumen',          label: 'Resumen',    icon: LayoutDashboard },
-  { id: 'clientes',        label: 'Clientes',   icon: Users },
-  { id: 'inventario',      label: 'Inventario', icon: Package },
-  { id: 'iphone/broadcast',label: 'Broadcast',  icon: Radio },
-  { id: 'tareas',          label: 'Tareas',     icon: CheckSquare },
+  { id: 'inventario',       label: 'Inventario', icon: Package },
+  { id: 'ventas2',          label: 'Ventas',     icon: ShoppingCart },
+  { id: 'historial',        label: 'Historial',  icon: History },
+  { id: 'iphone/broadcast', label: 'Broadcast',  icon: Radio },
+  { id: 'tareas',           label: 'Tareas',     icon: CheckSquare },
 ]
 
 const NAV_TECNICO = [
-  { id: 'resumen',    label: 'Resumen',   icon: LayoutDashboard },
-  { id: 'ordenes',   label: 'Órdenes',   icon: Smartphone },
-  { id: 'inventario',label: 'Repuestos', icon: Package },
-  { id: 'clientes',  label: 'Clientes',  icon: Users },
-  { id: 'tareas',    label: 'Tareas',    icon: CheckSquare },
+  { id: 'ordenes',    label: 'Órdenes',   icon: Smartphone },
+  { id: 'inventario', label: 'Repuestos', icon: Package },
+  { id: 'clientes',   label: 'Clientes',  icon: Users },
+  { id: 'historial',  label: 'Historial', icon: History },
+  { id: 'tareas',     label: 'Tareas',    icon: CheckSquare },
 ]
 
 function getNav(tipo: string) {
