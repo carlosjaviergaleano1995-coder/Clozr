@@ -200,15 +200,32 @@ export default function VerisurePage() {
     config.dispositivos.find(d => d.nombre === nombre && (d.nivel === inst.nivelExtras || d.nivel === 'ambos'))
   const extraActivo = (dispId: string) => inst.extras.find(e => e.dispositivoId === dispId)
 
-  const toggleExtra = (dispId: string, cantidadIdx: number) =>
+  // Modal de dispositivo
+  const [modalDisp, setModalDisp] = useState<{ disp: DispositivoExtra; editando: boolean } | null>(null)
+  const [modalCantIdx, setModalCantIdx] = useState(0)
+  const [modalBonif, setModalBonif] = useState(false)
+
+  const abrirModal = (nombre: string, editar = false) => {
+    const disp = getDisp(nombre)
+    if (!disp) return
+    const activo = extraActivo(disp.id)
+    setModalDisp({ disp, editando: editar })
+    setModalCantIdx(activo?.cantidadIdx ?? 0)
+    setModalBonif(activo?.bonificado ?? false)
+  }
+
+  const confirmarModal = () => {
+    if (!modalDisp) return
+    const { disp } = modalDisp
     setInst(i => {
-      const ex = i.extras.find(e => e.dispositivoId === dispId)
-      if (ex) {
-        if (ex.cantidadIdx === cantidadIdx) return { ...i, extras: i.extras.filter(e => e.dispositivoId !== dispId) }
-        return { ...i, extras: i.extras.map(e => e.dispositivoId === dispId ? { ...e, cantidadIdx } : e) }
-      }
-      return { ...i, extras: [...i.extras, { dispositivoId: dispId, cantidadIdx, nivel: i.nivelExtras, bonificado: false }] }
+      const sinEste = i.extras.filter(e => e.dispositivoId !== disp.id)
+      return { ...i, extras: [...sinEste, { dispositivoId: disp.id, cantidadIdx: modalCantIdx, nivel: i.nivelExtras, bonificado: modalBonif }] }
     })
+    setModalDisp(null)
+  }
+
+  const quitarExtra = (dispId: string) =>
+    setInst(i => ({ ...i, extras: i.extras.filter(e => e.dispositivoId !== dispId) }))
 
   const toggleBonif = (dispId: string) =>
     setInst(i => ({ ...i, extras: i.extras.map(e => e.dispositivoId === dispId ? { ...e, bonificado: !e.bonificado } : e) }))
@@ -467,45 +484,48 @@ export default function VerisurePage() {
 
       {/* Extras */}
       <div className="card">
-        <button className="w-full flex items-center justify-between" onClick={() => setShowExtras(!showExtras)}>
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">Dispositivos extras</p>
+            <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide">Dispositivos extras</p>
             {inst.extras.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: 'var(--brand)' }}>
+              <span className="w-5 h-5 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                style={{ background: 'var(--brand)' }}>
                 {inst.extras.length}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              {(['alto', 'bajo'] as const).map(n => (
-                <button key={n}
-                  onClick={e => { e.stopPropagation(); setInst(i => ({ ...i, nivelExtras: n })) }}
-                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-all ${inst.nivelExtras === n ? 'text-white' : 'bg-[var(--surface-2)] text-[var(--text-tertiary)]'}`}
-                  style={inst.nivelExtras === n ? { background: 'var(--brand)' } : {}}>
-                  {n === 'alto' ? 'Alto' : 'Bajo'}
-                </button>
-              ))}
-            </div>
-            {showExtras ? <ChevronUp size={14} className="text-[var(--text-tertiary)]" /> : <ChevronDown size={14} className="text-[var(--text-tertiary)]" />}
+          <div className="flex gap-1">
+            {(['alto', 'bajo'] as const).map(n => (
+              <button key={n}
+                onClick={() => setInst(i => ({ ...i, nivelExtras: n }))}
+                className="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                style={inst.nivelExtras === n
+                  ? { background: 'var(--brand)', color: '#fff' }
+                  : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+                {n === 'alto' ? 'Alto' : 'Bajo'}
+              </button>
+            ))}
           </div>
-        </button>
+        </div>
 
-        {/* Extras activos — siempre visibles si hay alguno */}
+        {/* Extras ya agregados */}
         {inst.extras.length > 0 && (
-          <div className="mt-3 space-y-1.5">
+          <div className="space-y-2 mb-3">
             {inst.extras.map(ex => {
               const disp = config.dispositivos.find(d => d.id === ex.dispositivoId)
               if (!disp) return null
               return (
-                <div key={ex.dispositivoId} className="flex items-center justify-between px-3 py-2 rounded-xl"
+                <div key={ex.dispositivoId}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
                   style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-[var(--text-primary)]">
-                        {disp.cantidades[ex.cantidadIdx]}x {disp.nombre}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--brand-light)' }}>
+                        x{disp.cantidades[ex.cantidadIdx]}
                       </span>
-                      {ex.bonificado && <span className="text-[10px] text-[var(--green)]">🎁</span>}
+                      <span className="text-sm font-medium text-[var(--text-primary)]">{disp.nombre}</span>
+                      {ex.bonificado && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                        style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>🎁 Bonif</span>}
                     </div>
                     {!ex.bonificado ? (
                       <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
@@ -513,17 +533,19 @@ export default function VerisurePage() {
                         {disp.cuotas[ex.cantidadIdx] > 0 && ` · +${fmt(disp.cuotas[ex.cantidadIdx])}/mes`}
                       </p>
                     ) : (
-                      <p className="text-[10px] text-[var(--green)] mt-0.5">Bonificado $0 · cuota {fmt(disp.cuotas[ex.cantidadIdx])}/mes</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--green)' }}>
+                        $0 · cuota +{fmt(disp.cuotas[ex.cantidadIdx])}/mes
+                      </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                    <button onClick={() => toggleBonif(ex.dispositivoId)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all border ${ex.bonificado ? 'border-[var(--green)] text-[var(--green)]' : 'border-[var(--border)] text-[var(--text-tertiary)]'}`}
-                      style={ex.bonificado ? { background: 'var(--green-bg)' } : { background: 'var(--surface-3)' }}>
-                      Bonif
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button onClick={() => abrirModal(disp.nombre, true)}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                      style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      Editar
                     </button>
-                    <button onClick={() => toggleExtra(ex.dispositivoId, ex.cantidadIdx)}
-                      className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--brand-light)] transition-colors"
+                    <button onClick={() => quitarExtra(disp.id)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition-all text-[var(--text-tertiary)] hover:text-[var(--brand-light)]"
                       style={{ background: 'var(--surface-3)' }}>
                       ✕
                     </button>
@@ -534,47 +556,31 @@ export default function VerisurePage() {
           </div>
         )}
 
-        {/* Lista para agregar — colapsable */}
-        {showExtras && (
-          <div className="mt-3 space-y-1">
-            {nombresUnicos.map(nombre => {
-              const disp = getDisp(nombre)
-              if (!disp) return null
-              const yaAgregado = inst.extras.some(e => e.dispositivoId === disp.id)
-              if (yaAgregado) return null  // ya está en la lista de arriba
+        {/* Lista para agregar */}
+        <div className="space-y-1">
+          {nombresUnicos.map(nombre => {
+            const disp = getDisp(nombre)
+            if (!disp) return null
+            const yaAgregado = inst.extras.some(e => e.dispositivoId === disp.id)
+            if (yaAgregado) return null
 
-              return (
-                <div key={disp.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                  <div className="flex items-center justify-between px-3 py-2.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--text-primary)]">{disp.nombre}</p>
-                      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
-                    </div>
-                    {/* Selector cantidad — elige uno y agrega */}
-                    <div className="flex gap-1 flex-shrink-0">
-                      {disp.cantidades.map((cant, idx) => (
-                        <button key={cant}
-                          onClick={() => { toggleExtra(disp.id, idx); setShowExtras(false) }}
-                          className="w-7 h-7 rounded-lg text-xs font-bold transition-all bg-[var(--surface-2)] text-[var(--text-secondary)] hover:text-white"
-                          style={{ border: '1px solid var(--border)' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--brand)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-2)')}>
-                          {cant}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            return (
+              <button key={disp.id}
+                onClick={() => abrirModal(nombre)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-left"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <span className="text-sm text-[var(--text-primary)]">{disp.nombre}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--text-tertiary)]">desde {fmt(disp.precios[0])} s/IVA</span>
+                  <span className="text-[var(--text-tertiary)] text-lg leading-none">+</span>
                 </div>
-              )
-            })}
-            {nombresUnicos.every(n => inst.extras.some(e => e.dispositivoId === getDisp(n)?.id)) && (
-              <p className="text-xs text-[var(--text-tertiary)] text-center py-2">Todos los dispositivos agregados</p>
-            )}
-          </div>
-        )}
+              </button>
+            )
+          })}
+        </div>
 
-        {inst.extras.length === 0 && !showExtras && (
-          <p className="text-xs text-[var(--text-tertiary)] text-center mt-3">Tocá para ver dispositivos disponibles</p>
+        {inst.extras.length === nombresUnicos.length && inst.extras.length > 0 && (
+          <p className="text-xs text-[var(--text-tertiary)] text-center pt-2">Todos los dispositivos agregados</p>
         )}
       </div>
 
@@ -831,6 +837,129 @@ export default function VerisurePage() {
           {copiedInterno ? <><Check size={15}/> Copiado</> : <><Copy size={15}/> Para equipo</>}
         </button>
       </div>
+
+      {/* Modal dispositivo */}
+      {modalDisp && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setModalDisp(null)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-semibold text-[var(--text-primary)]">{modalDisp.disp.nombre}</h3>
+                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                  Nivel {inst.nivelExtras === 'alto' ? 'Alto' : 'Bajo'}
+                </p>
+              </div>
+              <button onClick={() => setModalDisp(null)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[var(--text-tertiary)]"
+                style={{ background: 'var(--surface-2)' }}>✕</button>
+            </div>
+
+            {/* Selector de pack */}
+            <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Pack</p>
+            <div className="grid grid-cols-5 gap-2 mb-4">
+              {modalDisp.disp.cantidades.map((cant, idx) => {
+                const isSelected = modalCantIdx === idx
+                const precioSinIVA = modalDisp.disp.precios[idx]
+                const cuota = modalDisp.disp.cuotas[idx]
+                return (
+                  <button key={cant} onClick={() => setModalCantIdx(idx)}
+                    className="flex flex-col items-center py-2.5 px-1 rounded-xl transition-all"
+                    style={isSelected
+                      ? { background: 'var(--brand)', border: '1.5px solid var(--brand)' }
+                      : { background: 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
+                    <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-[var(--text-primary)]'}`}>
+                      x{cant}
+                    </span>
+                    <span className={`text-[9px] mt-0.5 font-medium ${isSelected ? 'text-white/80' : 'text-[var(--text-tertiary)]'}`}>
+                      {fmt(precioSinIVA)}
+                    </span>
+                    {cuota > 0 && (
+                      <span className={`text-[8px] mt-0.5 ${isSelected ? 'text-white/60' : 'text-[var(--text-tertiary)]'}`}>
+                        +{fmt(cuota)}/m
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Desglose del pack seleccionado */}
+            <div className="rounded-xl px-3 py-2.5 mb-4 space-y-1"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <div className="flex justify-between text-xs">
+                <span className="text-[var(--text-tertiary)]">Precio s/IVA</span>
+                <span className="text-[var(--text-primary)] font-semibold">
+                  {modalBonif ? '$0 🎁' : fmt(modalDisp.disp.precios[modalCantIdx])}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-[var(--text-tertiary)]">Precio c/IVA</span>
+                <span className="text-[var(--text-primary)] font-semibold">
+                  {modalBonif ? '$0 🎁' : fmt(iva(modalDisp.disp.precios[modalCantIdx], config.ivaPct))}
+                </span>
+              </div>
+              {modalDisp.disp.cuotas[modalCantIdx] > 0 && (
+                <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                  <span className="text-[var(--text-tertiary)]">+Mensualidad</span>
+                  <span style={{ color: 'var(--amber)' }} className="font-semibold">
+                    +{fmt(iva(modalDisp.disp.cuotas[modalCantIdx], config.ivaPct))}/mes c/IVA
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                <span className="text-[var(--text-tertiary)]">Tu comisión</span>
+                <span style={{ color: 'var(--green)' }} className="font-semibold">
+                  {fmt(modalDisp.disp.comisiones[modalCantIdx])}
+                </span>
+              </div>
+            </div>
+
+            {/* Bonificado toggle */}
+            <button onClick={() => setModalBonif(!modalBonif)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl mb-4 transition-all"
+              style={modalBonif
+                ? { background: 'var(--green-bg)', border: '1px solid var(--green)' }
+                : { background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <div>
+                <p className="text-sm font-medium" style={{ color: modalBonif ? 'var(--green)' : 'var(--text-primary)' }}>
+                  🎁 Bonificado
+                </p>
+                <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                  Precio $0 — la mensualidad sigue sumando
+                </p>
+              </div>
+              <div className="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all"
+                style={modalBonif
+                  ? { borderColor: 'var(--green)', background: 'var(--green)' }
+                  : { borderColor: 'var(--border-strong)' }}>
+                {modalBonif && <Check size={12} className="text-white" />}
+              </div>
+            </button>
+
+            {/* Acciones */}
+            <div className="flex gap-2">
+              <button onClick={confirmarModal}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all active:scale-95"
+                style={{ background: 'var(--brand)' }}>
+                {modalDisp.editando ? 'Guardar cambios' : 'Agregar'}
+              </button>
+              {modalDisp.editando && (
+                <button onClick={() => { quitarExtra(modalDisp.disp.id); setModalDisp(null) }}
+                  className="px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                  style={{ background: 'var(--red-bg)', color: 'var(--brand-light)', border: '1px solid rgba(232,0,29,0.2)' }}>
+                  Quitar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showConfig && <ConfigPanel config={config} workspaceId={workspaceId} onSave={c => { setConfig(c); setShowConfig(false) }} />}
     </div>
