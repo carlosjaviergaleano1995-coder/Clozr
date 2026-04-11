@@ -173,7 +173,7 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     comisiones: [8000,  16000],
   },
 
-  // ── HUB ARLO — sin cuota ──────────────────────────────────────────────────
+  // ── HUB ARLO — sin cuota, sin comisión ───────────────────────────────────
   {
     id: 'hub_arlo_alto',
     nombre: 'HUB Arlo',
@@ -181,7 +181,7 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     cantidades: [1],
     precios:    [99999],
     cuotas:     [0],
-    comisiones: [20000],
+    comisiones: [0],
   },
   {
     id: 'hub_arlo_bajo',
@@ -190,7 +190,7 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     cantidades: [1],
     precios:    [61999],
     cuotas:     [0],
-    comisiones: [8000],
+    comisiones: [0],
   },
 
   // ── PANEL DE CONTROL (SVK) ────────────────────────────────────────────────
@@ -264,16 +264,7 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     comisiones: [0],
   },
 
-  // ── PANEL SOLAR — sin precio ni cuota (a confirmar) ───────────────────────
-  {
-    id: 'panel_solar',
-    nombre: 'Panel Solar',
-    nivel: 'ambos',
-    cantidades: [1],
-    precios:    [0],
-    cuotas:     [0],
-    comisiones: [0],
-  },
+
 ]
 
 export const CONFIG_VERISURE_DEFAULT: ConfigVerisure = {
