@@ -2,26 +2,42 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { ChevronLeft, LayoutDashboard, Users, Package, FileText, TrendingUp, CheckSquare, Shield, Settings, Smartphone, Radio, Watch, Calculator, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import { ClozrIcon } from '@/components/ClozrLogo'
 import type { Workspace } from '@/types'
 
-const NAV_ITEMS_BASE = [
-  { id: 'resumen',               label: 'Resumen',     icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
-  { id: 'clientes',              label: 'Clientes',    icon: Users,           tipos: ['servicios','productos','mixto'] },
-  { id: 'catalogo',              label: 'Catálogo',    icon: Package,         tipos: ['mixto'] },
-  { id: 'verisure',              label: 'Calc',        icon: Shield,          tipos: ['servicios'] },
-  { id: 'iphone/stock',          label: 'Stock',       icon: Smartphone,      tipos: ['productos','mixto'] },
-  { id: 'iphone/otros',          label: 'Otros',       icon: Watch,           tipos: ['productos','mixto'] },
-  { id: 'iphone/accesorios',     label: 'Accesorios',  icon: ShoppingBag,     tipos: ['productos','mixto'] },
-  { id: 'iphone/broadcast',      label: 'Broadcast',   icon: Radio,           tipos: ['productos','mixto'] },
-  { id: 'iphone/cotizar',        label: 'Cotizar',     icon: Calculator,      tipos: ['productos','mixto'] },
-  { id: 'iphone/revendedores',   label: 'Revendedores',icon: Users,           tipos: ['productos','mixto'] },
-  { id: 'ventas',                label: 'Ventas',      icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
-  { id: 'tareas',                label: 'Tareas',      icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
+// ── Nav limpio — máximo 5 ítems por tipo ──────────────────────────────────────
+const NAV_SERVICIOS = [
+  { id: 'resumen',  label: 'Resumen',   icon: LayoutDashboard },
+  { id: 'clientes', label: 'Clientes',  icon: Users },
+  { id: 'verisure', label: 'Calc',      icon: Shield },
+  { id: 'ventas',   label: 'Ventas',    icon: TrendingUp },
+  { id: 'tareas',   label: 'Tareas',    icon: CheckSquare },
 ]
+
+const NAV_PRODUCTOS = [
+  { id: 'resumen',            label: 'Resumen',      icon: LayoutDashboard },
+  { id: 'iphone/stock',       label: 'Stock',        icon: Smartphone },
+  { id: 'iphone/broadcast',   label: 'Broadcast',    icon: Radio },
+  { id: 'iphone/revendedores',label: 'Revendedores', icon: Users },
+  { id: 'tareas',             label: 'Tareas',       icon: CheckSquare },
+]
+
+const NAV_MIXTO = [
+  { id: 'resumen',            label: 'Resumen',   icon: LayoutDashboard },
+  { id: 'clientes',           label: 'Clientes',  icon: Users },
+  { id: 'iphone/stock',       label: 'Stock',     icon: Smartphone },
+  { id: 'iphone/broadcast',   label: 'Broadcast', icon: Radio },
+  { id: 'tareas',             label: 'Tareas',    icon: CheckSquare },
+]
+
+function getNav(tipo: string) {
+  if (tipo === 'servicios') return NAV_SERVICIOS
+  if (tipo === 'productos') return NAV_PRODUCTOS
+  return NAV_MIXTO
+}
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -31,12 +47,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const { user, loading: authLoading } = useAuthStore()
   const { workspaces, setWorkspaces, setActiveWorkspace } = useWorkspaceStore()
-
   const [ws, setWs] = useState<Workspace | null>(null)
-
-  const activeTab = NAV_ITEMS_BASE.find(item =>
-    pathname.endsWith(`/${item.id}`) || pathname.includes(`/${item.id}/`)
-  )?.id ?? 'resumen'
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth')
@@ -55,31 +66,32 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       setWorkspaces(allWs)
     }
     const found = allWs.find(w => w.id === workspaceId)
-    if (found) {
-      setWs(found)
-      setActiveWorkspace(workspaceId)
-    } else {
-      router.push('/dashboard')
-    }
+    if (found) { setWs(found); setActiveWorkspace(workspaceId) }
+    else router.push('/dashboard')
   }
 
-  if (!ws) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <ClozrIcon size={48} className="animate-pulse" />
-      </div>
-    )
-  }
+  const navItems = ws ? getNav(ws.tipo) : []
+
+  // Detecta tab activo — maneja rutas anidadas como iphone/stock
+  const activeTab = navItems.find(item =>
+    pathname.endsWith(`/${item.id}`) || pathname.includes(`/${item.id}`)
+  )?.id ?? navItems[0]?.id ?? 'resumen'
+
+  if (!ws) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <ClozrIcon size={48} className="animate-pulse" />
+    </div>
+  )
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
+
       {/* Header */}
       <header className="sticky top-0 z-40" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/dashboard')}
-              className="p-1.5 rounded-lg transition-colors"
-              style={{ color: 'var(--text-tertiary)' }}>
+              className="p-1.5 rounded-lg" style={{ color: 'var(--text-tertiary)' }}>
               <ChevronLeft size={18} />
             </button>
             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base"
@@ -88,22 +100,22 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
             </div>
             <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{ws.nombre}</span>
           </div>
-          <button className="p-2 rounded-xl transition-colors" style={{ color: 'var(--text-tertiary)' }}>
+          <button className="p-2 rounded-xl" style={{ color: 'var(--text-tertiary)' }}>
             <Settings size={16} />
           </button>
         </div>
       </header>
 
-      {/* Contenido principal */}
+      {/* Contenido */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-4 pb-24">
         {children}
       </main>
 
-      {/* Bottom Nav */}
+      {/* Bottom Nav — siempre 5 ítems, limpio */}
       <nav className="fixed bottom-0 left-0 right-0 z-40"
         style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <div className="max-w-2xl mx-auto h-16 flex items-center">
-          {NAV_ITEMS_BASE.filter(item => item.tipos.includes(ws.tipo)).map(item => {
+          {navItems.map(item => {
             const NavIcon = item.icon
             const isActive = activeTab === item.id
             return (
@@ -120,6 +132,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           })}
         </div>
       </nav>
+
     </div>
   )
 }
