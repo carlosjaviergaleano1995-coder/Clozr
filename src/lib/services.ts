@@ -237,7 +237,7 @@ export const getConfigIPhoneClub = async (workspaceId: string): Promise<ConfigIP
   if (snap.exists()) return snap.data() as ConfigIPhoneClub
   return {
     margenFinal: 20,
-    formasPago: { usdt: -0.5, transferenciaARS: 5, manchados: -10 },
+    formasPago: { usdt: -0.5, transferencia_ars: 5, manchados: -10 },
     pieTextoUsados: '🔹Entrega inmediata. 🔹Abonando la totalidad en USDT (-0,5%)\n🔹Transferencia en pesos (5%)\n🔹Garantía de 30 dias.\n❌ No aceptamos billetes rotos.\n❌ Billetes manchados o cara chica (-10%).',
     pieTextoNuevos: '🔹Entrega inmediata.\n🔹Abonando la totalidad en USDT (-0,5%)\n🔹Transferencia en pesos (5%)\n🔹Garantía oficial de Apple, sin excepción‼️\n❌ No aceptamos billetes rotos.\n❌ Billetes manchados o cara chica (-10%).',
     dolar: { valor: 1200, actualizadoAt: new Date(), modoManual: false },

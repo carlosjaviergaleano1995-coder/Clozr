@@ -1,4 +1,4 @@
-import type { StockIPhone, StockAccesorio, StockOtroApple, ConfigIPhoneClub } from '@/types'
+import type { StockIPhone, StockAccesorio, StockOtroApple, ConfigIPhoneClub, FormaPagoIC } from '@/types'
 
 // Orden de modelos para el broadcast (más reciente primero)
 const ORDEN_MODELOS = [
@@ -144,7 +144,7 @@ export function generarBroadcastOtrosApple(
 export function aplicarFormaPago(
   precioUSD: number,
   dolarValor: number,
-  formaPago: keyof ConfigIPhoneClub['formasPago'] | 'usd_efectivo',
+  formaPago: FormaPagoIC | 'usd_efectivo',
   config: ConfigIPhoneClub
 ): { precio: number; moneda: 'USD' | 'ARS'; label: string } {
   switch (formaPago) {
@@ -156,11 +156,11 @@ export function aplicarFormaPago(
         moneda: 'USD',
         label: `USDT (${config.formasPago.usdt}%)`,
       }
-    case 'transferenciaARS':
+    case 'transferencia_ars':
       return {
-        precio: Math.round(precioUSD * dolarValor * (1 + config.formasPago.transferenciaARS / 100)),
+        precio: Math.round(precioUSD * dolarValor * (1 + config.formasPago.transferencia_ars / 100)),
         moneda: 'ARS',
-        label: `Transferencia ARS (+${config.formasPago.transferenciaARS}%)`,
+        label: `Transferencia ARS (+${config.formasPago.transferencia_ars}%)`,
       }
     case 'manchados':
       return {

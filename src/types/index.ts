@@ -311,9 +311,9 @@ export interface Revendedor {
 export interface ConfigIPhoneClub {
   margenFinal: number     // USD sobre precio base para cliente final (default: 20)
   formasPago: {
-    usdt: number          // modificador % (default: -0.5)
-    transferenciaARS: number  // default: +5
-    manchados: number     // default: -10
+    usdt: number              // modificador % (default: -0.5)
+    transferencia_ars: number // default: +5
+    manchados: number         // default: -10
   }
   pieTextoUsados: string  // texto fijo al pie del broadcast usados
   pieTextoNuevos: string  // texto fijo al pie del broadcast nuevos
