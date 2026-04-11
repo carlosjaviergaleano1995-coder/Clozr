@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp, Package, History, ShoppingCart } from 'lucide-react'
+import { ChevronLeft, LayoutDashboard, Users, Shield, Radio, CheckSquare, Settings, Smartphone, TrendingUp, Package, History, ShoppingCart, Ticket } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import { ClozrIcon } from '@/components/ClozrLogo'
@@ -33,11 +33,11 @@ const NAV_MIXTO = [
 ]
 
 const NAV_TECNICO = [
+  { id: 'turnos',     label: 'Turnos',    icon: Ticket },
   { id: 'ordenes',    label: 'Órdenes',   icon: Smartphone },
   { id: 'inventario', label: 'Repuestos', icon: Package },
   { id: 'clientes',   label: 'Clientes',  icon: Users },
   { id: 'historial',  label: 'Historial', icon: History },
-  { id: 'tareas',     label: 'Tareas',    icon: CheckSquare },
 ]
 
 function getNav(tipo: string) {
