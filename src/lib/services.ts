@@ -86,7 +86,13 @@ export const deleteWorkspace = async (id: string) => {
   await deleteDoc(doc(db, 'workspaces', id))
 }
 
-// ── HELPER: convierte Timestamp o Date a Date nativo ──
+// ── HELPER: elimina undefined de un objeto antes de enviarlo a Firestore ──────
+// Firestore no acepta undefined — reemplaza por null
+export function cleanForFirestore<T extends object>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [k, v === undefined ? null : v])
+  ) as T
+}
 export const toDate = (value: Timestamp | Date | string | null | undefined): Date => {
   if (!value) return new Date()
   if (typeof (value as Timestamp).toDate === 'function') return (value as Timestamp).toDate()
@@ -256,14 +262,14 @@ export const getStockiPhones = async (workspaceId: string): Promise<StockIPhone[
 
 export const createStockiPhone = async (workspaceId: string, data: Omit<StockIPhone, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'stock_iphones'), {
-    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   })
   return ref.id
 }
 
 export const updateStockiPhone = async (workspaceId: string, id: string, data: Partial<StockIPhone>) => {
   await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_iphones', id), {
-    ...data, updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
   })
 }
 
@@ -281,14 +287,14 @@ export const getStockAccesorios = async (workspaceId: string): Promise<StockAcce
 
 export const createStockAccesorio = async (workspaceId: string, data: Omit<StockAccesorio, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'stock_accesorios'), {
-    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   })
   return ref.id
 }
 
 export const updateStockAccesorio = async (workspaceId: string, id: string, data: Partial<StockAccesorio>) => {
   await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_accesorios', id), {
-    ...data, updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
   })
 }
 
@@ -300,14 +306,14 @@ export const getStockOtrosApple = async (workspaceId: string): Promise<StockOtro
 
 export const createStockOtroApple = async (workspaceId: string, data: Omit<StockOtroApple, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'stock_otros'), {
-    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   })
   return ref.id
 }
 
 export const updateStockOtroApple = async (workspaceId: string, id: string, data: Partial<StockOtroApple>) => {
   await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_otros', id), {
-    ...data, updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
   })
 }
 
@@ -319,14 +325,14 @@ export const getRevendedores = async (workspaceId: string): Promise<Revendedor[]
 
 export const createRevendedor = async (workspaceId: string, data: Omit<Revendedor, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'revendedores'), {
-    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   })
   return ref.id
 }
 
 export const updateRevendedor = async (workspaceId: string, id: string, data: Partial<Revendedor>) => {
   await updateDoc(doc(db, 'workspaces', workspaceId, 'revendedores', id), {
-    ...data, updatedAt: serverTimestamp(),
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
   })
 }
 

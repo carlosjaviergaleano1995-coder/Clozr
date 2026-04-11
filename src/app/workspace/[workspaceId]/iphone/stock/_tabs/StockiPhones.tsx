@@ -98,10 +98,7 @@ export default function StockiPhones({ workspaceId }: { workspaceId: string }) {
   }
 
   const handleSave = async () => {
-    if (!form.modelo || !form.color || !form.precioUSD || !user) {
-      console.warn('handleSave bloqueado:', { modelo: form.modelo, color: form.color, precioUSD: form.precioUSD, user: !!user })
-      return
-    }
+    if (!form.modelo || !form.color || !form.precioUSD || !user) return
     setSaving(true)
     try {
       if (editando) {
@@ -114,7 +111,7 @@ export default function StockiPhones({ workspaceId }: { workspaceId: string }) {
       setShowForm(false)
     } catch (err) {
       console.error('Error guardando iPhone:', err)
-      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+      alert('Error: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setSaving(false)
     }
