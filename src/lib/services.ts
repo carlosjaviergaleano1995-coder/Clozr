@@ -203,3 +203,133 @@ export const saveConfigVerisure = async (workspaceId: string, config: ConfigVeri
   const ref = doc(db, 'workspaces', workspaceId, 'config', 'verisure')
   await setDoc(ref, config)
 }
+
+// ── IPHONE CLUB ──────────────────────────────────────────────────────────────
+import type {
+  StockIPhone, StockAccesorio, StockOtroApple,
+  Revendedor, ConfigIPhoneClub, DolarConfig
+} from '@/types'
+
+// Dólar
+export const getDolarConfig = async (workspaceId: string): Promise<DolarConfig> => {
+  const ref = doc(db, 'workspaces', workspaceId, 'config', 'dolar')
+  const snap = await getDoc(ref)
+  if (snap.exists()) return snap.data() as DolarConfig
+  return { valor: 1200, actualizadoAt: new Date(), modoManual: false }
+}
+
+export const saveDolarConfig = async (workspaceId: string, data: DolarConfig) => {
+  await setDoc(doc(db, 'workspaces', workspaceId, 'config', 'dolar'), data)
+}
+
+export const fetchDolarBlue = async (): Promise<number | null> => {
+  try {
+    const res = await fetch('https://dolarapi.com/v1/dolares/blue')
+    const data = await res.json()
+    return data.venta ?? null
+  } catch { return null }
+}
+
+// Config iPhone Club
+export const getConfigIPhoneClub = async (workspaceId: string): Promise<ConfigIPhoneClub> => {
+  const ref = doc(db, 'workspaces', workspaceId, 'config', 'iphone_club')
+  const snap = await getDoc(ref)
+  if (snap.exists()) return snap.data() as ConfigIPhoneClub
+  return {
+    margenFinal: 20,
+    formasPago: { usdt: -0.5, transferenciaARS: 5, manchados: -10 },
+    pieTextoUsados: '🔹Entrega inmediata. 🔹Abonando la totalidad en USDT (-0,5%)\n🔹Transferencia en pesos (5%)\n🔹Garantía de 30 dias.\n❌ No aceptamos billetes rotos.\n❌ Billetes manchados o cara chica (-10%).',
+    pieTextoNuevos: '🔹Entrega inmediata.\n🔹Abonando la totalidad en USDT (-0,5%)\n🔹Transferencia en pesos (5%)\n🔹Garantía oficial de Apple, sin excepción‼️\n❌ No aceptamos billetes rotos.\n❌ Billetes manchados o cara chica (-10%).',
+    dolar: { valor: 1200, actualizadoAt: new Date(), modoManual: false },
+  }
+}
+
+export const saveConfigIPhoneClub = async (workspaceId: string, config: ConfigIPhoneClub) => {
+  await setDoc(doc(db, 'workspaces', workspaceId, 'config', 'iphone_club'), config)
+}
+
+// Stock iPhones
+export const getStockiPhones = async (workspaceId: string): Promise<StockIPhone[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'stock_iphones'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockIPhone)).filter(s => s.activo !== false)
+}
+
+export const createStockiPhone = async (workspaceId: string, data: Omit<StockIPhone, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'stock_iphones'), {
+    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateStockiPhone = async (workspaceId: string, id: string, data: Partial<StockIPhone>) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_iphones', id), {
+    ...data, updatedAt: serverTimestamp(),
+  })
+}
+
+export const deleteStockiPhone = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_iphones', id), {
+    activo: false, updatedAt: serverTimestamp(),
+  })
+}
+
+// Stock Accesorios
+export const getStockAccesorios = async (workspaceId: string): Promise<StockAccesorio[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'stock_accesorios'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockAccesorio)).filter(s => s.activo !== false)
+}
+
+export const createStockAccesorio = async (workspaceId: string, data: Omit<StockAccesorio, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'stock_accesorios'), {
+    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateStockAccesorio = async (workspaceId: string, id: string, data: Partial<StockAccesorio>) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_accesorios', id), {
+    ...data, updatedAt: serverTimestamp(),
+  })
+}
+
+// Stock Otros Apple
+export const getStockOtrosApple = async (workspaceId: string): Promise<StockOtroApple[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'stock_otros'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockOtroApple)).filter(s => s.activo !== false)
+}
+
+export const createStockOtroApple = async (workspaceId: string, data: Omit<StockOtroApple, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'stock_otros'), {
+    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateStockOtroApple = async (workspaceId: string, id: string, data: Partial<StockOtroApple>) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_otros', id), {
+    ...data, updatedAt: serverTimestamp(),
+  })
+}
+
+// Revendedores
+export const getRevendedores = async (workspaceId: string): Promise<Revendedor[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'revendedores'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Revendedor))
+}
+
+export const createRevendedor = async (workspaceId: string, data: Omit<Revendedor, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'revendedores'), {
+    ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateRevendedor = async (workspaceId: string, id: string, data: Partial<Revendedor>) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'revendedores', id), {
+    ...data, updatedAt: serverTimestamp(),
+  })
+}
+
+export const deleteRevendedor = async (workspaceId: string, id: string) => {
+  await deleteDoc(doc(db, 'workspaces', workspaceId, 'revendedores', id))
+}

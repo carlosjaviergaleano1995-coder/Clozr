@@ -220,3 +220,102 @@ export interface ConfigVerisure {
   xvenConCertificado: number
   xvenSinCertificado: number
 }
+
+// ── IPHONE CLUB ──────────────────────────────────────────────────────────────
+
+export type AppleCategoria = 'iphone' | 'accesorio' | 'otro_apple'
+export type AppleCondicion = 'nuevo' | 'usado'
+export type FormaPagoIC = 'usd_efectivo' | 'usdt' | 'transferencia_ars' | 'manchados'
+
+// Dólar blue — guardado en Firestore, actualizable manualmente o por API
+export interface DolarConfig {
+  valor: number           // ej: 1200
+  actualizadoAt: Date
+  modoManual: boolean     // true = no auto-actualizar
+}
+
+// ── iPhone (nuevo y usado) ────────────────────────────────────────────────────
+export interface StockIPhone {
+  id: string
+  workspaceId: string
+  modelo: string          // ej: "iPhone 16"
+  storage: string         // ej: "128GB"
+  color: string           // ej: "BLACK"
+  condicion: AppleCondicion
+  precioUSD: number       // precio base (mayorista)
+  stock: number           // unidades disponibles
+  // Solo para usados
+  bateria?: number        // porcentaje
+  ciclos?: number
+  observaciones?: string  // ej: "Pantalla Cambiada"
+  activo: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Accesorio (cargadores, cables, fundas) ────────────────────────────────────
+export interface PrecioVolumen {
+  cantidad: number        // ej: 10
+  precio: number          // en ARS
+}
+
+export interface StockAccesorio {
+  id: string
+  workspaceId: string
+  nombre: string          // ej: "Cable USB a Lightning"
+  categoria: string       // ej: "cables" | "cargadores" | "fundas"
+  descripcion?: string    // ej: "C a C Mallado"
+  preciosVolumen: PrecioVolumen[]  // escala de precios
+  moneda: 'ARS' | 'USD'
+  stock: number
+  activo: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Otro Apple (Watch, iPad, AirPods, AirTag) ─────────────────────────────────
+export interface StockOtroApple {
+  id: string
+  workspaceId: string
+  tipo: 'watch' | 'ipad' | 'airpods' | 'airtag' | 'otro'
+  modelo: string          // ej: "Apple Watch SE2 44MM"
+  descripcion?: string    // ej: "Midnight"
+  precioUSD: number
+  stock: number
+  disponible: boolean     // false = "próximo ingreso"
+  activo: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Revendedor ────────────────────────────────────────────────────────────────
+export type RevendedorEstado = 'activo' | 'dormido' | 'potencial' | 'inactivo'
+
+export interface Revendedor {
+  id: string
+  workspaceId: string
+  nombre: string
+  telefono?: string
+  instagram?: string
+  zona?: string           // ej: "La Plata", "CABA"
+  estado: RevendedorEstado
+  notas?: string
+  ultimoContacto?: Date
+  volumenMensual?: number // USD estimado por mes
+  creadoPor: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ── Config iPhone Club ────────────────────────────────────────────────────────
+export interface ConfigIPhoneClub {
+  margenFinal: number     // USD sobre precio base para cliente final (default: 20)
+  formasPago: {
+    usdt: number          // modificador % (default: -0.5)
+    transferenciaARS: number  // default: +5
+    manchados: number     // default: -10
+  }
+  pieTextoUsados: string  // texto fijo al pie del broadcast usados
+  pieTextoNuevos: string  // texto fijo al pie del broadcast nuevos
+  dolar: DolarConfig
+}

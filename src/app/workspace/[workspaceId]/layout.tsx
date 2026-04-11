@@ -2,20 +2,23 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { ChevronLeft, LayoutDashboard, Users, Package, FileText, TrendingUp, CheckSquare, Shield, Settings } from 'lucide-react'
+import { ChevronLeft, LayoutDashboard, Users, Package, FileText, TrendingUp, CheckSquare, Shield, Settings, Smartphone, Radio } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import { ClozrIcon } from '@/components/ClozrLogo'
 import type { Workspace } from '@/types'
 
 const NAV_ITEMS_BASE = [
-  { id: 'resumen',     label: 'Resumen',  icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
-  { id: 'clientes',    label: 'Clientes', icon: Users,           tipos: ['servicios','productos','mixto'] },
-  { id: 'catalogo',    label: 'Catálogo', icon: Package,         tipos: ['productos','mixto'] },
-  { id: 'verisure',    label: 'Calc',     icon: Shield,          tipos: ['servicios'] },
-  { id: 'presupuesto', label: 'Cotizar',  icon: FileText,        tipos: ['productos','mixto'] },
-  { id: 'ventas',      label: 'Ventas',   icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
-  { id: 'tareas',      label: 'Tareas',   icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
+  { id: 'resumen',              label: 'Resumen',    icon: LayoutDashboard, tipos: ['servicios','productos','mixto'] },
+  { id: 'clientes',             label: 'Clientes',   icon: Users,           tipos: ['servicios','productos','mixto'] },
+  { id: 'catalogo',             label: 'Catálogo',   icon: Package,         tipos: ['productos','mixto'] },
+  { id: 'verisure',             label: 'Calc',       icon: Shield,          tipos: ['servicios'] },
+  { id: 'iphone/stock',         label: 'Stock',      icon: Smartphone,      tipos: ['productos','mixto'] },
+  { id: 'iphone/broadcast',     label: 'Broadcast',  icon: Radio,           tipos: ['productos','mixto'] },
+  { id: 'iphone/revendedores',  label: 'Revendedores', icon: Users,         tipos: ['productos','mixto'] },
+  { id: 'presupuesto',          label: 'Cotizar',    icon: FileText,        tipos: ['mixto'] },
+  { id: 'ventas',               label: 'Ventas',     icon: TrendingUp,      tipos: ['servicios','productos','mixto'] },
+  { id: 'tareas',               label: 'Tareas',     icon: CheckSquare,     tipos: ['servicios','productos','mixto'] },
 ]
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +32,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const [ws, setWs] = useState<Workspace | null>(null)
 
-  const activeTab = NAV_ITEMS_BASE.find(item => pathname.endsWith(`/${item.id}`))?.id ?? 'resumen'
+  const activeTab = NAV_ITEMS_BASE.find(item =>
+    pathname.endsWith(`/${item.id}`) || pathname.includes(`/${item.id}/`)
+  )?.id ?? 'resumen'
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth')
