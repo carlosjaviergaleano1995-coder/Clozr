@@ -196,14 +196,107 @@ export const getModeloInfo = (nombre: string): ModeloiPhone | undefined =>
 export const getColoresModelo = (nombre: string): string[] =>
   getModeloInfo(nombre)?.colores ?? []
 
+// Mapa de colores en español/display → sufijo del archivo
+// Ej: "BLACK" → "Black", "ROSE GOLD" → "Rosegold", "SPACE GRAY" → "Spacegray"
+const COLOR_FILE_MAP: Record<string, string> = {
+  'BLACK':             'Black',
+  'WHITE':             'White',
+  'SILVER':            'Silver',
+  'GOLD':              'Gold',
+  'ROSE GOLD':         'Rosegold',
+  'SPACE GRAY':        'Spacegray',
+  'SPACE BLACK':       'Spaceblack',
+  'BLUE':              'Blue',
+  'RED':               'Red',
+  'YELLOW':            'Yellow',
+  'GREEN':             'Green',
+  'PURPLE':            'Purple',
+  'PINK':              'Pink',
+  'CORAL':             'Coral',
+  'MIDNIGHT':          'Midnight',
+  'STARLIGHT':         'Starlight',
+  'MIDNIGHT GREEN':    'Midnightgreen',
+  'PACIFIC BLUE':      'Pacificblue',
+  'GRAPHITE':          'Graphite',
+  'ALPINE GREEN':      'Alpinegreen',
+  'SIERRA BLUE':       'Sierrablue',
+  'DEEP PURPLE':       'Deeppurple',
+  'NATURAL TITANIUM':  'Naturaltitanium',
+  'BLUE TITANIUM':     'Bluetitanium',
+  'WHITE TITANIUM':    'Whitetitanium',
+  'BLACK TITANIUM':    'Blacktitanium',
+  'DESERT TITANIUM':   'Deserttitanium',
+  'ULTRAMARINE':       'Ultramarine',
+  'TEAL':              'Teal',
+  'COSMIC ORANGE':     'Cosmicorange',
+  'DEEP BLUE':         'Deepblue',
+  'LAVANDER':          'Lavender',
+  'SAGE':              'Sage',
+  'MIST BLUE':         'Mistblue',
+  'SOFT PINK':         'Softpink',
+  'SKY BLUE':          'Skyblue',
+  'LIGHT GOLD':        'Lightgold',
+  'COLD WHITE':        'Coldwhite',
+}
+
+// Mapa de nombre de modelo → carpeta en public/
+// Sigue la convención "iPhone 7", "iPhone 8 Plus", etc.
+const MODELO_FOLDER_MAP: Record<string, string> = {
+  'iPhone 7':           'iPhone 7',
+  'iPhone 7 Plus':      'iPhone 7',   // misma carpeta, el archivo tiene "Plus" en el nombre
+  'iPhone 8':           'iPhone 8',
+  'iPhone 8 Plus':      'iPhone 8',
+  'iPhone X':           'iPhone X',
+  'iPhone XR':          'iPhone XR',
+  'iPhone XS':          'iPhone XS',
+  'iPhone XS Max':      'iPhone XS Max',
+  'iPhone SE 2da Gen':  'iPhone SE2',
+  'iPhone SE 3ra Gen':  'iPhone SE3',
+  'iPhone 11':          'iPhone 11',
+  'iPhone 11 Pro':      'iPhone 11 Pro',
+  'iPhone 11 Pro Max':  'iPhone 11 Pro Max',
+  'iPhone 12':          'iPhone 12',
+  'iPhone 12 Mini':     'iPhone 12 Mini',
+  'iPhone 12 Pro':      'iPhone 12 Pro',
+  'iPhone 12 Pro Max':  'iPhone 12 Pro Max',
+  'iPhone 13':          'iPhone 13',
+  'iPhone 13 Mini':     'iPhone 13 Mini',
+  'iPhone 13 Pro':      'iPhone 13 Pro',
+  'iPhone 13 Pro Max':  'iPhone 13 Pro Max',
+  'iPhone 14':          'iPhone 14',
+  'iPhone 14 Plus':     'iPhone 14 Plus',
+  'iPhone 14 Pro':      'iPhone 14 Pro',
+  'iPhone 14 Pro Max':  'iPhone 14 Pro Max',
+  'iPhone 15':          'iPhone 15',
+  'iPhone 15 Plus':     'iPhone 15 Plus',
+  'iPhone 15 Pro':      'iPhone 15 Pro',
+  'iPhone 15 Pro Max':  'iPhone 15 Pro Max',
+  'iPhone 16':          'iPhone 16',
+  'iPhone 16 Plus':     'iPhone 16 Plus',
+  'iPhone 16 Pro':      'iPhone 16 Pro',
+  'iPhone 16 Pro Max':  'iPhone 16 Pro Max',
+  'iPhone 16E':         'iPhone 16E',
+  'iPhone 17':          'iPhone 17',
+  'iPhone 17 Pro':      'iPhone 17 Pro',
+  'iPhone 17 Pro Max':  'iPhone 17 Pro Max',
+  'iPhone 17 E':        'iPhone 17E',
+  'iPhone Air':         'iPhone Air',
+}
+
 // Ruta de imagen para un modelo + color
-// Las imágenes se sirven desde /public/apple/{modelo-id}/{color-slug}.png
+// Convención de archivos: iPhone_7_Black.jpg, iPhone_7_Plus_Black.jpg
 export const getImagenModelo = (nombre: string, color?: string): string | null => {
-  const modelo = getModeloInfo(nombre)
-  if (!modelo) return null
-  if (!color) return `/apple/${modelo.id}/default.png`
-  const colorSlug = color.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-  return `/apple/${modelo.id}/${colorSlug}.png`
+  const folder = MODELO_FOLDER_MAP[nombre]
+  if (!folder) return null
+
+  if (!color) return null
+
+  const colorSuffix = COLOR_FILE_MAP[color.toUpperCase()]
+  if (!colorSuffix) return null
+
+  // Next.js sirve /public desde la raíz — no incluir "/public" en la URL
+  const modelSlug = nombre.replace(/\s+/g, '_')
+  return `/${folder}/${modelSlug}_${colorSuffix}.jpg`
 }
 
 // Todos los nombres de modelos para el selector
