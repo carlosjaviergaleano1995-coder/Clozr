@@ -3,9 +3,9 @@ import type { ConfigVerisure, DispositivoExtra } from '@/types'
 // Mapa de imágenes por nombre de dispositivo
 export const DEVICE_IMAGES: Record<string, string> = {
   'Shock Sensor':              '/devices/shock-sensor.png',
-  'Orion':                     '/devices/orion.png',
-  'Orion Close Pack':          '/devices/orion.png',
-  'Aquila Outdoor':            '/devices/fotodetector.png',
+  'Orion':                     '/devices/aquila.png',       // negro
+  'Orion Close Pack':          '/devices/fotodetector.png', // blanco
+  'Aquila Outdoor':            '/devices/aquila.png',       // negro
   'Arlo Indoor':               '/devices/arlo-indoor.png',
   'Arlo Outdoor':              '/devices/arlo-outdoor.png',
   'Zerovision':                '/devices/zerovision.png',
