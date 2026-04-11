@@ -5,7 +5,7 @@ import {
   onSnapshot, type Unsubscribe
 } from 'firebase/firestore'
 import {
-  signInWithPopup, signInWithRedirect, signInWithEmailAndPassword,
+  signInWithPopup, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, signOut,
   GoogleAuthProvider, onAuthStateChanged,
   type User as FirebaseUser
@@ -18,11 +18,16 @@ const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
 
 export const signInWithGoogle = async () => {
+  // Siempre popup — el redirect falla en Chrome mobile con storage particionado
   try {
     return await signInWithPopup(auth, googleProvider)
   } catch (error: any) {
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
-      return signInWithRedirect(auth, googleProvider)
+    // En popup bloqueado mostramos instrucción al usuario, no hacemos redirect
+    if (error.code === 'auth/popup-blocked') {
+      throw new Error('popup-blocked')
+    }
+    if (error.code === 'auth/popup-closed-by-user') {
+      throw new Error('popup-closed')
     }
     throw error
   }

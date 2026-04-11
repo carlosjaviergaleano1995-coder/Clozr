@@ -15,10 +15,17 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     try {
       setLoading(true)
+      setError('')
       await signInWithGoogle()
       router.push('/dashboard')
     } catch (e: any) {
-      setError('Error al iniciar con Google')
+      if (e.message === 'popup-blocked') {
+        setError('El popup fue bloqueado. Habilitá los popups para este sitio en tu navegador.')
+      } else if (e.message === 'popup-closed') {
+        // Usuario cerró el popup, no mostrar error
+      } else {
+        setError('Error al iniciar con Google. Intentá con email y contraseña.')
+      }
     } finally {
       setLoading(false)
     }

@@ -351,7 +351,7 @@ export default function VerisurePage() {
         </div>
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Cuotas instalación</p>
+            <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide">Financiación instalación</p>
             <span className="text-sm font-bold text-surface-900">{cuotas === 1 ? 'Contado' : `${cuotas}x`}</span>
           </div>
           <div className="flex gap-1.5">
@@ -545,15 +545,18 @@ export default function VerisurePage() {
               <p className="text-surface-500 text-xs mt-0.5">{fmt(totalInsConIVA)} c/IVA</p>
             </div>
             <div className="text-right">
-              <p className="text-surface-400 text-xs mb-1">Cuota mensual</p>
+              <p className="text-surface-400 text-xs mb-1">Mensualidad</p>
               <p className="text-white text-lg font-semibold">{fmt(cuotaTotalSinIVA)}</p>
               <p className="text-surface-500 text-xs mt-0.5">{fmt(cuotaTotalConIVA)} c/IVA</p>
             </div>
           </div>
           {cuotas > 1 && (
-            <div className="mt-3 pt-3 border-t border-surface-700">
-              <p className="text-surface-300 text-xs text-center">
-                En {cuotas} cuotas de {fmt(Math.round(totalInsSinIVA / cuotas))} s/IVA · sin interés
+            <div className="mt-3 pt-3 border-t border-surface-700 space-y-1">
+              <p className="text-surface-300 text-xs text-center font-medium">
+                Financiación instalación: {cuotas}x de {fmt(Math.round(totalInsConIVA / cuotas))} c/IVA
+              </p>
+              <p className="text-surface-500 text-[10px] text-center">
+                ≠ mensualidad del servicio · son conceptos separados
               </p>
             </div>
           )}
@@ -588,7 +591,7 @@ export default function VerisurePage() {
             </div>
           ))}
           <div className="flex justify-between text-xs text-surface-400 pt-1 border-t border-surface-100">
-            <span>Cuota total</span><span>{fmt(cuotaTotalSinIVA)}/mes s/IVA</span>
+            <span>Mensualidad del servicio</span><span>{fmt(cuotaTotalSinIVA)}/mes s/IVA</span>
           </div>
         </div>
       </div>
