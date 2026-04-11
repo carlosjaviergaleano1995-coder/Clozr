@@ -4,17 +4,18 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Copy, Check } from 'lucide-react'
 import {
-  getStockiPhones, getStockOtrosApple,
+  getStockiPhones, getStockOtrosApple, getStockAccesorios,
   getConfigIPhoneClub, getDolarConfig,
 } from '@/lib/services'
 import {
   generarBroadcastUsados,
   generarBroadcastNuevos,
   generarBroadcastOtrosApple,
+  generarBroadcastAccesorios,
 } from '@/lib/iphone-broadcast'
-import type { StockIPhone, StockOtroApple, ConfigIPhoneClub, DolarConfig } from '@/types'
+import type { StockIPhone, StockOtroApple, StockAccesorio, ConfigIPhoneClub, DolarConfig } from '@/types'
 
-type Seccion = 'usados' | 'nuevos' | 'otros'
+type Seccion = 'usados' | 'nuevos' | 'otros' | 'accesorios'
 
 export default function BroadcastPage() {
   const params = useParams()
@@ -22,6 +23,7 @@ export default function BroadcastPage() {
 
   const [iphones, setIphones] = useState<StockIPhone[]>([])
   const [otros, setOtros] = useState<StockOtroApple[]>([])
+  const [accesorios, setAccesorios] = useState<StockAccesorio[]>([])
   const [config, setConfig] = useState<ConfigIPhoneClub | null>(null)
   const [dolar, setDolar] = useState<DolarConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -33,14 +35,16 @@ export default function BroadcastPage() {
 
   const load = async () => {
     try {
-      const [iphonesData, otrosData, configData, dolarData] = await Promise.all([
+      const [iphonesData, otrosData, accesoriosData, configData, dolarData] = await Promise.all([
         getStockiPhones(workspaceId),
         getStockOtrosApple(workspaceId),
+        getStockAccesorios(workspaceId),
         getConfigIPhoneClub(workspaceId),
         getDolarConfig(workspaceId),
       ])
       setIphones(iphonesData)
       setOtros(otrosData)
+      setAccesorios(accesoriosData)
       setConfig(configData)
       setDolar(dolarData)
     } finally { setLoading(false) }
@@ -69,6 +73,10 @@ export default function BroadcastPage() {
       const txt = generarBroadcastOtrosApple(otros)
       if (txt) partes.push(txt)
     }
+    if (secciones.has('accesorios')) {
+      const txt = generarBroadcastAccesorios(accesorios)
+      if (txt) partes.push(txt)
+    }
     return partes.join('\n\n')
   })() : ''
 
@@ -78,9 +86,10 @@ export default function BroadcastPage() {
     setTimeout(() => setCopied(false), 2500)
   }
 
-  const usadosCount  = iphones.filter(i => i.condicion === 'usado' && i.stock > 0).length
-  const nuevosCount  = iphones.filter(i => i.condicion === 'nuevo' && i.stock > 0).length
-  const otrosCount   = otros.filter(o => o.disponible && o.stock > 0).length
+  const usadosCount     = iphones.filter(i => i.condicion === 'usado' && i.stock > 0).length
+  const nuevosCount     = iphones.filter(i => i.condicion === 'nuevo' && i.stock > 0).length
+  const otrosCount      = otros.filter(o => o.disponible && o.stock > 0).length
+  const accesoriosCount = accesorios.filter(a => a.stock > 0).length
 
   if (loading) return (
     <div className="space-y-3 mt-2">
@@ -106,7 +115,8 @@ export default function BroadcastPage() {
         {([
           { id: 'usados' as Seccion,  label: '🔥 Usados',      count: usadosCount },
           { id: 'nuevos' as Seccion,  label: '📦 Nuevos',      count: nuevosCount },
-          { id: 'otros'  as Seccion,  label: '⌚️ Otros Apple', count: otrosCount },
+          { id: 'otros'       as Seccion, label: '⌚️ Otros Apple', count: otrosCount },
+          { id: 'accesorios'  as Seccion, label: '🔌 Accesorios',   count: accesoriosCount },
         ]).map(({ id, label, count }) => (
           <button key={id} onClick={() => toggleSeccion(id)}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all"

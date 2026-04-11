@@ -172,3 +172,52 @@ export function aplicarFormaPago(
       return { precio: precioUSD, moneda: 'USD', label: 'USD efectivo' }
   }
 }
+
+export function generarBroadcastAccesorios(items: StockAccesorio[]): string {
+  const activos = items.filter(i => i.activo !== false && i.stock > 0)
+  if (activos.length === 0) return ''
+
+  // Agrupar por categoría
+  const porCategoria: Record<string, StockAccesorio[]> = {}
+  activos.forEach(item => {
+    const cat = item.categoria
+    if (!porCategoria[cat]) porCategoria[cat] = []
+    porCategoria[cat].push(item)
+  })
+
+  const CATEGORIA_LABELS: Record<string, string> = {
+    cargadores:        '⚡️CARGADORES⚡️',
+    cargadores_armar:  '‼️CARGADORES PARA ARMAR‼️',
+    cables:            '⚡️CABLES⚡️',
+    cables_armar:      '‼️CABLES PARA ARMAR‼️',
+    fundas:            'FUNDAS',
+    fuente_original:   '⚡️FUENTE 20W ORIGINAL⚡️',
+  }
+
+  const ORDEN_CATEGORIAS = [
+    'cargadores', 'cargadores_armar', 'cables', 'cables_armar',
+    'fundas', 'fuente_original',
+  ]
+
+  let msg = '*🇨🇳IMPORTACION DIRECTA🇨🇳*\n👉 *LA MEJOR CALIDAD*\n\n'
+
+  ORDEN_CATEGORIAS.forEach(cat => {
+    const catItems = porCategoria[cat]
+    if (!catItems?.length) return
+
+    msg += `\n*${CATEGORIA_LABELS[cat] ?? cat.toUpperCase()}*\n`
+    catItems.forEach(item => {
+      msg += `🔹*${item.nombre}*\n`
+      if (item.descripcion) msg += `\`\`\`${item.descripcion}\`\`\`\n`
+      item.preciosVolumen.forEach(pv => {
+        const precio = item.moneda === 'USD'
+          ? `USD ${pv.precio}`
+          : `$${pv.precio.toLocaleString('es-AR')}`
+        msg += `x${pv.cantidad} ${precio}\n`
+      })
+    })
+  })
+
+  msg += '\n`Tomo pedidos hoy, despacho mañana ✍🏼`'
+  return msg.trim()
+}

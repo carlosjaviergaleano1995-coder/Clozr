@@ -333,3 +333,10 @@ export const updateRevendedor = async (workspaceId: string, id: string, data: Pa
 export const deleteRevendedor = async (workspaceId: string, id: string) => {
   await deleteDoc(doc(db, 'workspaces', workspaceId, 'revendedores', id))
 }
+
+// Stock Accesorios (actualizar)
+export const deleteStockAccesorio = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'stock_accesorios', id), {
+    activo: false, updatedAt: serverTimestamp(),
+  })
+}
