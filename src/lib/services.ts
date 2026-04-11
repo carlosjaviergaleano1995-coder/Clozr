@@ -2,7 +2,7 @@ import {
   collection, doc, getDocs, getDoc,
   addDoc, setDoc, updateDoc, deleteDoc,
   query, where, serverTimestamp,
-  onSnapshot, type Unsubscribe
+  type Timestamp
 } from 'firebase/firestore'
 import {
   signInWithPopup, signInWithEmailAndPassword,
@@ -11,7 +11,8 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth'
 import { auth, db } from './firebase'
-import type { Workspace, Cliente, Producto, Venta, Tarea, User } from '@/types'
+import type { Workspace, Cliente, Producto, Venta, Tarea, User, ConfigVerisure } from '@/types'
+import { CONFIG_VERISURE_DEFAULT } from './verisure-defaults'
 
 // ── AUTH ──
 const googleProvider = new GoogleAuthProvider()
@@ -41,7 +42,7 @@ export const signUpWithEmail = (email: string, password: string) =>
 
 export const logOut = () => signOut(auth)
 
-export const onAuthChange = (cb: (user: FirebaseUser | null) => void): Unsubscribe =>
+export const onAuthChange = (cb: (user: FirebaseUser | null) => void) =>
   onAuthStateChanged(auth, cb)
 
 export const saveUserProfile = async (user: FirebaseUser) => {
@@ -86,11 +87,11 @@ export const deleteWorkspace = async (id: string) => {
 }
 
 // ── HELPER: convierte Timestamp o Date a Date nativo ──
-export const toDate = (value: any): Date => {
+export const toDate = (value: Timestamp | Date | string | null | undefined): Date => {
   if (!value) return new Date()
-  if (typeof value.toDate === 'function') return value.toDate()
+  if (typeof (value as Timestamp).toDate === 'function') return (value as Timestamp).toDate()
   if (value instanceof Date) return value
-  return new Date(value)
+  return new Date(value as string)
 }
 
 // ── CLIENTES ──
@@ -191,9 +192,6 @@ export const deleteTarea = async (workspaceId: string, tareaId: string) => {
 }
 
 // ── VERISURE CONFIG ──
-import type { ConfigVerisure } from '@/types'
-import { CONFIG_VERISURE_DEFAULT } from './verisure-defaults'
-
 export const getConfigVerisure = async (workspaceId: string): Promise<ConfigVerisure> => {
   const ref = doc(db, 'workspaces', workspaceId, 'config', 'verisure')
   const snap = await getDoc(ref)

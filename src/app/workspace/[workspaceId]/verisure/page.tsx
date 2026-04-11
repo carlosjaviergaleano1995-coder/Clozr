@@ -399,7 +399,7 @@ export default function VerisurePage() {
       <div className="flex gap-1.5 items-center">
         {instalaciones.map((ins, idx) => (
           <button key={ins.id} onClick={() => setInstActiva(idx)}
-            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all relative ${instActiva === idx ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all relative ${instActiva === idx ? 'bg-[var(--surface-3)] text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
             Inst. #{idx + 1}
             {instalaciones.length > 1 && instActiva === idx && (
               <span onClick={e => { e.stopPropagation(); eliminarInst(idx) }}
@@ -425,7 +425,7 @@ export default function VerisurePage() {
         {showPromos && (
           <div className="mt-3 space-y-2">
             <button onClick={() => setInst(i => ({ ...i, usaPromo: false }))}
-              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${!inst.usaPromo ? 'border-surface-900 bg-surface-900 text-white' : 'border-[var(--border)]'}`}>
+              className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${!inst.usaPromo ? 'border-surface-900 bg-[var(--surface-3)] text-white' : 'border-[var(--border)]'}`}>
               <span className="text-sm font-medium">Sin promo — Kit estándar</span>
             </button>
             {config.promos.filter(p => p.activa).map(promo => (
@@ -631,7 +631,7 @@ export default function VerisurePage() {
             </div>
           </div>
           {cuotas > 1 && (
-            <div className="mt-3 pt-3 border-t border-surface-700 space-y-1">
+            <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-1">
               <p className="text-[var(--text-secondary)] text-xs text-center font-medium">
                 Financiación instalación: {cuotas}x de {fmt(Math.round(totalInsConIVA / cuotas))} c/IVA
               </p>

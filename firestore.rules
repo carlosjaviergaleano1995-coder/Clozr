@@ -1,16 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
     }
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+    function isMember(workspaceId) {
+      return isAuth() &&
+        request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.miembros;
+    }
+    function isWorkspaceOwner(workspaceId) {
+      return isAuth() &&
+        request.auth.uid == get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId;
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read:  if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    // ── Workspaces ────────────────────────────────────────────────────────────
     match /workspaces/{workspaceId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid in resource.data.miembros;
-      allow create: if request.auth != null;
+      // Cualquier usuario autenticado puede crear un workspace
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      // Solo miembros pueden leer
+      allow read:   if isMember(workspaceId);
+      // Solo el owner puede editar o eliminar
+      allow update: if isWorkspaceOwner(workspaceId);
+      allow delete: if isWorkspaceOwner(workspaceId);
+
+      // ── Subcolecciones (clientes, catalogo, ventas, tareas, config) ─────────
       match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null &&
-          request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.miembros;
+        allow read:   if isMember(workspaceId);
+        allow create: if isMember(workspaceId);
+        allow update: if isMember(workspaceId);
+        // Solo el owner puede eliminar datos del workspace
+        allow delete: if isWorkspaceOwner(workspaceId) || isMember(workspaceId);
       }
     }
   }

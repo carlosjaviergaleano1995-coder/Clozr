@@ -170,7 +170,7 @@ export default function CatalogoPage() {
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
         {(['todos', 'nuevo', 'usado', 'reacondicionado'] as const).map(c => (
           <button key={c} onClick={() => setFilterCond(c)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${filterCond === c ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'}`}>
+            className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${filterCond === c ? 'bg-[var(--surface-3)] text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'}`}>
             {c === 'todos' ? 'Todos' : CONDICION_LABELS[c]}
           </button>
         ))}
@@ -279,7 +279,7 @@ export default function CatalogoPage() {
                   <div className="flex gap-2">
                     {(['USD', 'ARS'] as const).map(m => (
                       <button key={m} onClick={() => setForm(f => ({...f, moneda: m}))}
-                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${form.moneda === m ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${form.moneda === m ? 'bg-[var(--surface-3)] text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                         {m === 'USD' ? '🇺🇸 USD' : '🇦🇷 ARS'}
                       </button>
                     ))}

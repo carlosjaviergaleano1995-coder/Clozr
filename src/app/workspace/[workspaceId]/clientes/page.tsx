@@ -152,7 +152,7 @@ export default function ClientesPage() {
             onClick={() => setFilterTipo(t)}
             className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
               filterTipo === t
-                ? 'bg-surface-900 text-white'
+                ? 'bg-[var(--surface-3)] text-white'
                 : 'bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]'
             }`}
           >

@@ -122,7 +122,7 @@ export default function VentasPage() {
             <p className="text-[var(--text-tertiary)] text-xs mt-1">Registrá tu primera venta cuando cierres</p>
           </div>
         ) : ventas.map(v => {
-          const fecha = (v.createdAt as any)?.toDate?.() ?? new Date(v.createdAt)
+          const fecha = toDate(v.createdAt)
           return (
             <div key={v.id} className="card">
               <div className="flex items-center justify-between">
@@ -203,7 +203,7 @@ export default function VentasPage() {
                   <div className="flex gap-2 flex-wrap">
                     {(['cerrada', 'pendiente', 'presupuesto'] as VentaEstado[]).map(est => (
                       <button key={est} onClick={() => setForm(f => ({...f, estado: est}))}
-                        className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${form.estado === est ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
+                        className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${form.estado === est ? 'bg-[var(--surface-3)] text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                         {ESTADO_CONFIG[est].label}
                       </button>
                     ))}

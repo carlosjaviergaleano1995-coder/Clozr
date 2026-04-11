@@ -19,7 +19,7 @@ export default function Home() {
   }, [user, loading, router])
 
   return (
-    <div className="min-h-screen bg-surface-950 flex items-center justify-center">
+    <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
       <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center animate-pulse shadow-lg shadow-brand-600/30">
         <span className="text-white font-bold text-xl">C</span>
       </div>

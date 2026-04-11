@@ -1,116 +1,75 @@
 # Clozr — CRM para equipos de ventas
 
-La herramienta que entiende cómo vendés.
+**URL producción:** https://clozr.vercel.app  
+**Repositorio:** https://github.com/carlosjaviergaleano1995-coder/Clozr  
+**Firebase project:** clozr-77ee3
+
+---
 
 ## Stack
 
-- **Next.js 14** — framework React con App Router
-- **Firebase** — autenticación + Firestore
-- **Tailwind CSS** — estilos
-- **Zustand** — estado global
-- **Vercel** — hosting
+- Next.js 14 + TypeScript
+- Firebase (Auth + Firestore)
+- Tailwind CSS
+- Zustand (estado global)
+- Deploy: Vercel (auto-deploy en push a `main`)
 
-## Setup local
-
-### 1. Clonar el repo
-```bash
-git clone https://github.com/TU_USUARIO/clozr.git
-cd clozr
-npm install
-```
-
-### 2. Configurar Firebase
-
-1. Ir a [firebase.google.com](https://firebase.google.com) → crear proyecto `clozr`
-2. Agregar una app web
-3. Copiar las credenciales
-4. Crear el archivo `.env.local` basado en `.env.local.example`
-
-```bash
-cp .env.local.example .env.local
-# Completar con tus credenciales de Firebase
-```
-
-### 3. Configurar Firebase Auth y Firestore
-
-En la consola de Firebase:
-- **Authentication** → Sign-in method → habilitar Google y Email/Password
-- **Firestore Database** → Crear base de datos → modo producción
-
-### 4. Reglas de Firestore
-
-Ir a Firestore → Reglas y pegar:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Usuario solo puede leer/escribir sus propios datos
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    // Workspace accesible solo para miembros
-    match /workspaces/{workspaceId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid in resource.data.miembros;
-      allow create: if request.auth != null;
-      // Subcolecciones del workspace
-      match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null &&
-          request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.miembros;
-      }
-    }
-  }
-}
-```
-
-### 5. Correr en desarrollo
-```bash
-npm run dev
-```
-
-Abrir [http://localhost:3000](http://localhost:3000)
-
-## Deploy en Vercel
-
-1. Conectar el repo de GitHub en [vercel.com](https://vercel.com)
-2. Agregar las variables de entorno de Firebase en Vercel → Settings → Environment Variables
-3. Deploy automático en cada push a `main`
-
-## Estructura del proyecto
+## Estructura
 
 ```
 src/
 ├── app/
-│   ├── auth/           → Login / Registro
-│   ├── dashboard/      → Selector de workspaces
-│   └── workspace/
-│       └── [workspaceId]/
-│           ├── resumen/     → Métricas y resumen del día
-│           ├── clientes/    → Gestión de clientes
-│           ├── catalogo/    → Productos y precios
-│           ├── presupuesto/ → Cotización rápida + WA
-│           ├── ventas/      → Registro de ventas
-│           └── tareas/      → Checklist diario
-├── components/         → Componentes reutilizables
+│   ├── auth/               Login con Google y email
+│   ├── dashboard/          Selector de workspaces
+│   └── workspace/[id]/
+│       ├── layout.tsx      Nav + header del workspace
+│       ├── resumen/        Métricas del mes
+│       ├── clientes/       CRUD clientes
+│       ├── catalogo/       Productos (tipo Productos/Mixto)
+│       ├── presupuesto/    Cotización WhatsApp (tipo Productos/Mixto)
+│       ├── verisure/       Calculadora Verisure (tipo Servicios)
+│       ├── ventas/         Registro de ventas
+│       └── tareas/         Rutina diaria + tareas puntuales
+├── components/
+│   ├── AuthProvider.tsx    Manejo de sesión Firebase
+│   ├── ClozrLogo.tsx       Logo SVG + ícono Z
+│   └── Icon.tsx            Iconos custom SVG
 ├── lib/
-│   ├── firebase.ts     → Inicialización Firebase
-│   └── services.ts     → Funciones CRUD
-├── store/              → Estado global (Zustand)
-└── types/              → TypeScript types
+│   ├── firebase.ts         Inicialización Firebase
+│   ├── services.ts         Todas las operaciones Firestore/Auth
+│   └── verisure-defaults.ts Precios y config default Verisure
+├── store/index.ts          Zustand: auth + workspace state
+└── types/index.ts          Tipos TypeScript globales
 ```
 
-## Módulos
+## Tipos de workspace
 
-| Módulo | Descripción |
-|--------|-------------|
-| Workspaces | Múltiples negocios en una sola app |
-| Clientes | Final, revendedor, mayorista — con estados |
-| Catálogo | Nuevos y usados — precios por tipo de cliente |
-| Cotización | Generador de presupuesto + mensaje WhatsApp |
-| Ventas | Registro y métricas del mes |
-| Tareas | Checklist diario con frecuencias |
+| Tipo | Módulos activos |
+|------|----------------|
+| Servicios | Resumen, Clientes, Calc (Verisure), Ventas, Tareas |
+| Productos | Resumen, Clientes, Catálogo, Cotizar, Ventas, Tareas |
+| Mixto | Todos |
 
----
+## Variables de entorno
 
-Construido con ❤️ para equipos de ventas que trabajan en serio.
+En Vercel y `.env.local`:
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
+
+## Assets
+
+- `/public/devices/` — Imágenes de dispositivos Verisure (sin fondo)
+- `/public/icons/` — Iconos SVG custom
+
+## Fases de desarrollo
+
+- ✅ **Fase 1** — Core CRM (auth, workspaces, clientes, catálogo, ventas, tareas, resumen)
+- ✅ **Fase 2A** — Calculadora Verisure (kits, promos, extras, bonos, mensajes)
+- 🔜 **Fase 2B** — iPhone Club (lista USD, broadcast WhatsApp, revendedores)
+- 🔜 **Fase 2C** — Multi-usuario (owner + miembros por workspace)

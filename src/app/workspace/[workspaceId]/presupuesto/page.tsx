@@ -157,7 +157,7 @@ export default function PresupuestoPage() {
                       return (
                         <button key={tipo}
                           onClick={() => setItems(prev => prev.map((it, idx) => idx === i ? {...it, precioTipo: tipo} : it))}
-                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${item.precioTipo === tipo ? 'bg-surface-900 text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
+                          className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${item.precioTipo === tipo ? 'bg-[var(--surface-3)] text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
                           {tipo}: {fmt(precio, item.producto!.moneda)}
                         </button>
                       )
@@ -186,7 +186,7 @@ export default function PresupuestoPage() {
 
       {/* Total */}
       {total > 0 && (
-        <div className="card bg-surface-900 border-surface-800">
+        <div className="card bg-[var(--surface)] border-[var(--border)]">
           <div className="flex items-center justify-between">
             <span className="text-[var(--text-secondary)] text-sm font-medium">Total</span>
             <span className="text-white text-xl font-bold">{fmt(total, monedaPredom)}</span>

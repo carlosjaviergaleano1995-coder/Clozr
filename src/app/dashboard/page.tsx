@@ -127,7 +127,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-950 p-4">
+    <div className="min-h-screen bg-[var(--bg)] p-4">
       <div className="max-w-md mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between pt-6 pb-8">
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-surface-500 text-sm">Hola, {user?.displayName?.split(' ')[0]} 👋</p>
           </div>
-          <button onClick={handleLogout} className="p-2 rounded-xl text-surface-500 hover:text-surface-300 hover:bg-surface-800 transition-colors">
+          <button onClick={handleLogout} className="p-2 rounded-xl text-surface-500 hover:text-[var(--text-secondary)] hover:bg-[var(--surface-3)] transition-colors">
             <LogOut size={18} />
           </button>
         </div>
@@ -154,13 +154,13 @@ export default function DashboardPage() {
             <div key={ws.id} className="relative">
               {editingId === ws.id ? (
                 /* Modo edición */
-                <div className="bg-surface-800 border border-surface-700 rounded-2xl p-4 animate-scale-in">
+                <div className="bg-[var(--surface-2)] border border-[var(--border)] rounded-2xl p-4 animate-scale-in">
                   <input
                     autoFocus
                     value={editNombre}
                     onChange={e => setEditNombre(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleSaveEdit(ws)}
-                    className="w-full bg-surface-700 border border-surface-600 rounded-xl px-3 py-2 text-white text-sm mb-3 focus:outline-none focus:border-brand-600"
+                    className="w-full bg-surface-700 border border-surface-600 rounded-xl px-3 py-2 text-white text-sm mb-3 focus:outline-none focus:border-[var(--brand)]"
                   />
                   <div className="flex gap-2 mb-3">
                     {COLORS.map(c => (
@@ -174,7 +174,7 @@ export default function DashboardPage() {
                     <button onClick={() => handleSaveEdit(ws)} className="flex-1 bg-brand-600 text-white text-sm font-semibold py-2 rounded-xl flex items-center justify-center gap-1">
                       <Check size={14} /> Guardar
                     </button>
-                    <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-surface-700 text-surface-300 text-sm rounded-xl">
+                    <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-surface-700 text-[var(--text-secondary)] text-sm rounded-xl">
                       <X size={14} />
                     </button>
                   </div>
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                 /* Modo normal */
                 <button
                   onClick={() => handleSelect(ws)}
-                  className="w-full flex items-center gap-4 bg-surface-900 hover:bg-surface-800 border border-surface-800 hover:border-surface-700 rounded-2xl p-4 transition-all text-left group"
+                  className="w-full flex items-center gap-4 bg-surface-900 hover:bg-[var(--surface-3)] border border-surface-800 hover:border-[var(--border)] rounded-2xl p-4 transition-all text-left group"
                 >
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                     style={{ background: ws.color + '20', border: `1.5px solid ${ws.color}30` }}>
@@ -198,19 +198,19 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={e => { e.stopPropagation(); setMenuId(menuId === ws.id ? null : ws.id) }}
-                      className="p-1.5 rounded-lg text-surface-600 hover:text-surface-300 hover:bg-surface-700 transition-colors"
+                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors"
                     >
                       ···
                     </button>
-                    <ChevronRight size={16} className="text-surface-600 group-hover:text-surface-400 transition-colors" />
+                    <ChevronRight size={16} className="text-[var(--text-tertiary)] group-hover:text-surface-400 transition-colors" />
                   </div>
                 </button>
               )}
 
               {/* Menú contextual */}
               {menuId === ws.id && (
-                <div className="absolute right-10 top-3 bg-surface-800 border border-surface-700 rounded-xl shadow-modal z-50 overflow-hidden animate-scale-in w-36">
-                  <button onClick={() => handleEdit(ws)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-surface-300 hover:bg-surface-700">
+                <div className="absolute right-10 top-3 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl shadow-modal z-50 overflow-hidden animate-scale-in w-36">
+                  <button onClick={() => handleEdit(ws)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-2)]">
                     <Pencil size={13} /> Editar
                   </button>
                   <button onClick={() => handleDelete(ws)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10">
@@ -228,7 +228,7 @@ export default function DashboardPage() {
         {/* Nuevo workspace */}
         {!showNew ? (
           <button onClick={() => setShowNew(true)}
-            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-surface-800 hover:border-surface-600 rounded-2xl p-4 text-surface-500 hover:text-surface-300 transition-all text-sm font-medium">
+            className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-surface-800 hover:border-surface-600 rounded-2xl p-4 text-surface-500 hover:text-[var(--text-secondary)] transition-all text-sm font-medium">
             <Plus size={16} /> Agregar negocio
           </button>
         ) : (
@@ -237,14 +237,14 @@ export default function DashboardPage() {
             <div className="mb-4">
               <label className="block text-xs font-medium text-surface-400 mb-1.5">Nombre *</label>
               <input type="text" value={newNombre} onChange={e => setNewNombre(e.target.value)} placeholder="Ej: iPhone Club, Verisure..." autoFocus
-                className="w-full px-3 py-2.5 text-sm bg-surface-800 border border-surface-700 rounded-xl text-white placeholder:text-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-600/40 focus:border-brand-600 transition-colors" />
+                className="w-full px-3 py-2.5 text-sm bg-[var(--surface-2)] border border-[var(--border)] rounded-xl text-white placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-brand-600/40 focus:border-[var(--brand)] transition-colors" />
             </div>
             <div className="mb-4">
               <label className="block text-xs font-medium text-surface-400 mb-2">Tipo</label>
               <div className="space-y-2">
                 {WORKSPACE_TYPES.map(t => (
                   <button key={t.tipo} onClick={() => setNewTipo(t.tipo)}
-                    className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${newTipo === t.tipo ? 'border-brand-600 bg-brand-600/10' : 'border-surface-700 hover:border-surface-600'}`}>
+                    className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${newTipo === t.tipo ? 'border-brand-600 bg-brand-600/10' : 'border-[var(--border)] hover:border-surface-600'}`}>
                     <span className="text-lg">{t.emoji}</span>
                     <div>
                       <div className="text-white text-sm font-medium">{t.label}</div>
@@ -270,7 +270,7 @@ export default function DashboardPage() {
                 {creating ? 'Creando...' : 'Crear negocio'}
               </button>
               <button onClick={() => { setShowNew(false); setNewNombre('') }}
-                className="px-4 py-2.5 bg-surface-800 hover:bg-surface-700 text-surface-300 text-sm font-medium rounded-xl transition-all">
+                className="px-4 py-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-2)] text-[var(--text-secondary)] text-sm font-medium rounded-xl transition-all">
                 Cancelar
               </button>
             </div>
@@ -279,7 +279,7 @@ export default function DashboardPage() {
 
         {workspaces.length === 0 && !showNew && (
           <div className="text-center mt-12">
-            <p className="text-surface-600 text-sm">Todavía no tenés ningún negocio.<br/>Creá el primero para empezar.</p>
+            <p className="text-[var(--text-tertiary)] text-sm">Todavía no tenés ningún negocio.<br/>Creá el primero para empezar.</p>
           </div>
         )}
       </div>
