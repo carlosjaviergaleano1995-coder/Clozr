@@ -8,21 +8,11 @@ import {
   getConfigIPhoneClub, getDolarConfig, fetchDolarBlue, saveDolarConfig,
 } from '@/lib/services'
 import { useAuthStore } from '@/store'
+import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
 import type { StockIPhone, AppleCondicion, ConfigIPhoneClub, DolarConfig } from '@/types'
 
-const MODELOS_COMUNES = [
-  'iPhone 17 Pro Max','iPhone 17 Pro','iPhone 17','iPhone 16 Pro Max',
-  'iPhone 16 Pro','iPhone 16 Plus','iPhone 16','iPhone 16E',
-  'iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15',
-  'iPhone 14 Pro Max','iPhone 14 Pro','iPhone 14',
-  'iPhone 13 Pro Max','iPhone 13',
-]
 const STORAGES = ['64GB','128GB','256GB','512GB','1TB']
-const COLORES = [
-  'BLACK','WHITE','PINK','BLUE','ULTRAMARINE','TEAL',
-  'STARLIGHT','MIDNIGHT','RED','GOLD','SILVER','DESERT',
-  'PURPLE','YELLOW','GREEN','NATURAL',
-]
+const NOMBRES_MODELOS = MODELOS_IPHONE.map(m => m.nombre)
 
 const fmtUSD = (n: number) => `U$S ${n}`
 const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
@@ -53,7 +43,17 @@ export default function StockiPhones() {
   const [editDolar, setEditDolar] = useState(false)
   const [dolarInput, setDolarInput] = useState('')
 
+  // Colores disponibles para el modelo seleccionado
+  const coloresModelo = useMemo(() => getColoresModelo(form.modelo), [form.modelo])
+
   useEffect(() => { load() }, [workspaceId])
+
+  // Cuando cambia el modelo, resetear el color si el actual no está disponible
+  useEffect(() => {
+    if (form.modelo && coloresModelo.length > 0 && !coloresModelo.includes(form.color)) {
+      setForm(f => ({ ...f, color: '' }))
+    }
+  }, [form.modelo])
 
   const load = async () => {
     try {
@@ -188,51 +188,63 @@ export default function StockiPhones() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(item=>(
-            <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-              style={{background:'var(--surface)',border:'1px solid var(--border)'}}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{item.modelo}</span>
-                  <span className="text-xs" style={{color:'var(--text-tertiary)'}}>{item.color} · {item.storage}</span>
-                  {item.condicion==='usado'&&item.bateria&&(
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                      style={{
-                        background: item.bateria>=85?'var(--green-bg)':item.bateria>=75?'var(--amber-bg)':'var(--red-bg)',
-                        color: item.bateria>=85?'var(--green)':item.bateria>=75?'var(--amber)':'var(--brand-light)',
-                      }}>
-                      {item.bateria}%
+          {filtered.map(item=>{
+            const imgSrc = getImagenModelo(item.modelo, item.color)
+            return (
+              <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                style={{background:'var(--surface)',border:'1px solid var(--border)'}}>
+                {/* Imagen del modelo */}
+                {imgSrc && (
+                  <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center"
+                    style={{background:'var(--surface-2)'}}>
+                    <img src={imgSrc} alt={`${item.modelo} ${item.color}`}
+                      className="w-9 h-9 object-contain"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{item.modelo}</span>
+                    <span className="text-xs" style={{color:'var(--text-tertiary)'}}>{item.color} · {item.storage}</span>
+                    {item.condicion==='usado'&&item.bateria&&(
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                        style={{
+                          background: item.bateria>=85?'var(--green-bg)':item.bateria>=75?'var(--amber-bg)':'var(--red-bg)',
+                          color: item.bateria>=85?'var(--green)':item.bateria>=75?'var(--amber)':'var(--brand-light)',
+                        }}>
+                        {item.bateria}%
+                      </span>
+                    )}
+                    {item.ciclos!==undefined&&item.ciclos!==null&&(
+                      <span className="text-[10px]" style={{color:'var(--text-tertiary)'}}>{item.ciclos}c</span>
+                    )}
+                    {item.observaciones&&(
+                      <span className="text-[10px] italic" style={{color:'var(--amber)'}}>{item.observaciones}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <span className="text-sm font-bold" style={{color:'var(--brand-light)'}}>{fmtUSD(item.precioUSD)}</span>
+                    {config&&<span className="text-xs" style={{color:'var(--text-tertiary)'}}>Final: {fmtUSD(item.precioUSD+config.margenFinal)}</span>}
+                    {dolar&&<span className="text-xs" style={{color:'var(--text-tertiary)'}}>= {fmtARS(item.precioUSD*dolar.valor)}</span>}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                      style={{background:item.stock>0?'var(--green-bg)':'var(--red-bg)',color:item.stock>0?'var(--green)':'var(--brand-light)'}}>
+                      {item.stock} u
                     </span>
-                  )}
-                  {item.ciclos!==undefined&&item.ciclos!==null&&(
-                    <span className="text-[10px]" style={{color:'var(--text-tertiary)'}}>{item.ciclos} ciclos</span>
-                  )}
-                  {item.observaciones&&(
-                    <span className="text-[10px] italic" style={{color:'var(--amber)'}}>{item.observaciones}</span>
-                  )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="text-sm font-bold" style={{color:'var(--brand-light)'}}>{fmtUSD(item.precioUSD)}</span>
-                  {config&&<span className="text-xs" style={{color:'var(--text-tertiary)'}}>Final: {fmtUSD(item.precioUSD+config.margenFinal)}</span>}
-                  {dolar&&<span className="text-xs" style={{color:'var(--text-tertiary)'}}>= {fmtARS(item.precioUSD*dolar.valor)}</span>}
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                    style={{background:item.stock>0?'var(--green-bg)':'var(--red-bg)',color:item.stock>0?'var(--green)':'var(--brand-light)'}}>
-                    {item.stock} u
-                  </span>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <button onClick={()=>openEdit(item)} className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{background:'var(--surface-2)',color:'var(--text-tertiary)'}}>
+                    <Pencil size={13}/>
+                  </button>
+                  <button onClick={()=>handleDelete(item)} className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{background:'var(--surface-2)',color:'var(--text-tertiary)'}}>
+                    <Trash2 size={13}/>
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-1.5 flex-shrink-0">
-                <button onClick={()=>openEdit(item)} className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{background:'var(--surface-2)',color:'var(--text-tertiary)'}}>
-                  <Pencil size={13}/>
-                </button>
-                <button onClick={()=>handleDelete(item)} className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{background:'var(--surface-2)',color:'var(--text-tertiary)'}}>
-                  <Trash2 size={13}/>
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -249,39 +261,56 @@ export default function StockiPhones() {
               <button onClick={()=>setShowForm(false)} className="btn-icon">✕</button>
             </div>
             <div className="space-y-3">
+
+              {/* Modelo — selector con todos los modelos */}
               <div>
                 <label className="label">Modelo</label>
-                <select className="input text-sm" value={form.modelo} onChange={e=>setForm(f=>({...f,modelo:e.target.value}))}>
-                  <option value="">Seleccioná...</option>
-                  {MODELOS_COMUNES.map(m=><option key={m} value={m}>{m}</option>)}
+                <select className="input text-sm" value={form.modelo}
+                  onChange={e=>setForm(f=>({...f,modelo:e.target.value,color:''}))}>
+                  <option value="">Seleccioná modelo...</option>
+                  {NOMBRES_MODELOS.map(m=><option key={m} value={m}>{m}</option>)}
                 </select>
-                <input className="input text-sm mt-1.5" placeholder="O escribí un modelo..."
-                  value={form.modelo} onChange={e=>setForm(f=>({...f,modelo:e.target.value}))}/>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="label">Storage</label>
-                  <select className="input text-sm" value={form.storage} onChange={e=>setForm(f=>({...f,storage:e.target.value}))}>
-                    {STORAGES.map(s=><option key={s} value={s}>{s}</option>)}
-                  </select>
+
+              {/* Storage */}
+              <div>
+                <label className="label">Storage</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {STORAGES.map(s=>(
+                    <button key={s} onClick={()=>setForm(f=>({...f,storage:s}))}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      style={form.storage===s
+                        ? {background:'var(--brand)',color:'#fff'}
+                        : {background:'var(--surface-2)',color:'var(--text-secondary)',border:'1px solid var(--border)'}}>
+                      {s}
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="label">Color</label>
-                  <input className="input text-sm" placeholder="BLACK"
-                    value={form.color} onChange={e=>setForm(f=>({...f,color:e.target.value.toUpperCase()}))}/>
-                </div>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {COLORES.map(c=>(
-                  <button key={c} onClick={()=>setForm(f=>({...f,color:c}))}
-                    className="px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all"
-                    style={form.color===c
-                      ? {background:'var(--brand)',color:'#fff'}
-                      : {background:'var(--surface-2)',color:'var(--text-secondary)',border:'1px solid var(--border)'}}>
-                    {c}
-                  </button>
-                ))}
+
+              {/* Color — muestra los colores del modelo seleccionado */}
+              <div>
+                <label className="label">Color</label>
+                {coloresModelo.length > 0 ? (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {coloresModelo.map(c=>(
+                      <button key={c} onClick={()=>setForm(f=>({...f,color:c}))}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                        style={form.color===c
+                          ? {background:'var(--brand)',color:'#fff'}
+                          : {background:'var(--surface-2)',color:'var(--text-secondary)',border:'1px solid var(--border)'}}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <input className="input text-sm" placeholder="Seleccioná un modelo primero"
+                    value={form.color} onChange={e=>setForm(f=>({...f,color:e.target.value.toUpperCase()}))}
+                    disabled={coloresModelo.length===0&&form.modelo!==''}/>
+                )}
               </div>
+
+              {/* Precio + Stock */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Precio USD</label>
@@ -297,6 +326,8 @@ export default function StockiPhones() {
                     onChange={e=>setForm(f=>({...f,stock:Number(e.target.value)}))}/>
                 </div>
               </div>
+
+              {/* Campos de usados */}
               {form.condicion==='usado'&&(
                 <>
                   <div className="grid grid-cols-2 gap-2">
