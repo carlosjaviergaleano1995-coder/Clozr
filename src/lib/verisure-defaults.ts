@@ -1,124 +1,126 @@
 import type { ConfigVerisure, DispositivoExtra } from '@/types'
 
-// Cantidades disponibles por dispositivo
-const QTY = [1, 2, 3, 4, 6]
-
 export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
+
+  // ── SHOCK SENSOR ──────────────────────────────────────────────────────────
   {
     id: 'shock_alto',
     nombre: 'Shock Sensor',
     nivel: 'alto',
-    cantidades: [1,2,3,4,6],
+    cantidades: [1, 2, 3, 4, 6],
     precios:    [59999, 79999, 99999, 129999, 189999],
-    cuotas:     [5999,  11998, 17997, 23996,  35994],
+    cuotas:     [1999,  2999,  3999,  4999,   5999],
     comisiones: [20000, 30000, 40000, 50000,  70000],
   },
   {
     id: 'shock_bajo',
     nombre: 'Shock Sensor',
     nivel: 'bajo',
-    cantidades: [1,2,3,4,6],
+    cantidades: [1, 2, 3, 4, 6],
     precios:    [39999, 59999, 79999, 99999, 149999],
-    cuotas:     [5999,  11998, 17997, 23996, 35994],
+    cuotas:     [1999,  2999,  3999,  4999,  5999],
     comisiones: [8000,  12000, 16000, 20000, 28000],
   },
+
+  // ── ORION ─────────────────────────────────────────────────────────────────
   {
     id: 'orion_alto',
     nombre: 'Orion',
     nivel: 'alto',
-    cantidades: [1,2],
-    precios:    [169999, 319999],
-    cuotas:     [9999,   19998],
-    comisiones: [56000,  112000],
+    cantidades: [1, 2, 3],
+    precios:    [169999, 319999, 459999],
+    cuotas:     [3999,   4999,   5999],
+    comisiones: [56000,  112000, 168000],
   },
   {
     id: 'orion_bajo',
     nombre: 'Orion',
     nivel: 'bajo',
-    cantidades: [1,2],
-    precios:    [99999,  219999],
-    cuotas:     [9999,   19998],
-    comisiones: [20000,  40000],
+    cantidades: [1, 2, 3],
+    precios:    [99999, 219999, 319999],
+    cuotas:     [3999,  4999,   5999],
+    comisiones: [20000, 40000,  60000],
   },
+
+  // ── ORION CLOSE PACK — solo existe en Bajo (69.999 confirmado) ────────────
   {
-    id: 'orion_close_alto',
+    id: 'orion_close',
     nombre: 'Orion Close Pack',
-    nivel: 'alto',
+    nivel: 'ambos',
     cantidades: [1],
     precios:    [69999],
-    cuotas:     [5999],
+    cuotas:     [3999],
     comisiones: [20000],
   },
-  {
-    id: 'orion_close_bajo',
-    nombre: 'Orion Close Pack',
-    nivel: 'bajo',
-    cantidades: [1],
-    precios:    [49999],
-    cuotas:     [5999],
-    comisiones: [8000],
-  },
+
+  // ── AQUILA OUTDOOR ────────────────────────────────────────────────────────
   {
     id: 'aquila_alto',
     nombre: 'Aquila Outdoor',
     nivel: 'alto',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [299999, 499999],
-    cuotas:     [14999,  29998],
+    cuotas:     [4999,   5999],
     comisiones: [100000, 200000],
   },
   {
     id: 'aquila_bajo',
     nombre: 'Aquila Outdoor',
     nivel: 'bajo',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [216999, 449999],
-    cuotas:     [14999,  29998],
+    cuotas:     [4999,   5999],
     comisiones: [50000,  100000],
   },
+
+  // ── ARLO INDOOR ───────────────────────────────────────────────────────────
   {
     id: 'arlo_indoor_alto',
     nombre: 'Arlo Indoor',
     nivel: 'alto',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [149999, 299998],
-    cuotas:     [9999,   19998],
+    cuotas:     [6999,   13998],
     comisiones: [50000,  100000],
   },
   {
     id: 'arlo_indoor_bajo',
     nombre: 'Arlo Indoor',
     nivel: 'bajo',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [110999, 221998],
-    cuotas:     [9999,   19998],
+    cuotas:     [6999,   13998],
     comisiones: [20000,  40000],
   },
+
+  // ── ARLO OUTDOOR ──────────────────────────────────────────────────────────
   {
     id: 'arlo_outdoor_alto',
     nombre: 'Arlo Outdoor',
     nivel: 'alto',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [179999, 359998],
-    cuotas:     [12999,  25998],
+    cuotas:     [6999,   13998],
     comisiones: [60000,  120000],
   },
   {
     id: 'arlo_outdoor_bajo',
     nombre: 'Arlo Outdoor',
     nivel: 'bajo',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [119999, 239998],
-    cuotas:     [12999,  25998],
+    cuotas:     [6999,   13998],
     comisiones: [24000,  48000],
   },
+
+  // ── ZEROVISION ────────────────────────────────────────────────────────────
   {
     id: 'zerovision_alto',
     nombre: 'Zerovision',
     nivel: 'alto',
     cantidades: [1],
     precios:    [349999],
-    cuotas:     [19999],
+    cuotas:     [11999],
     comisiones: [112000],
   },
   {
@@ -127,81 +129,111 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     nivel: 'bajo',
     cantidades: [1],
     precios:    [141999],
-    cuotas:     [19999],
+    cuotas:     [11999],
     comisiones: [40000],
   },
+
+  // ── BOTÓN DE EMERGENCIAS ──────────────────────────────────────────────────
   {
     id: 'boton_alto',
     nombre: 'Botón emergencias',
     nivel: 'alto',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [59999, 119999],
-    cuotas:     [3999,  7998],
+    cuotas:     [1999,  2999],
     comisiones: [20000, 40000],
   },
   {
     id: 'boton_bajo',
     nombre: 'Botón emergencias',
     nivel: 'bajo',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [39999, 79999],
-    cuotas:     [3999,  7998],
+    cuotas:     [1999,  2999],
     comisiones: [8000,  16000],
   },
+
+  // ── CONTROL REMOTO ────────────────────────────────────────────────────────
   {
     id: 'control_alto',
     nombre: 'Control remoto',
     nivel: 'alto',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [59999, 119999],
-    cuotas:     [3999,  7998],
+    cuotas:     [1999,  2999],
     comisiones: [20000, 40000],
   },
   {
     id: 'control_bajo',
     nombre: 'Control remoto',
     nivel: 'bajo',
-    cantidades: [1,2],
+    cantidades: [1, 2],
     precios:    [39999, 79999],
-    cuotas:     [3999,  7998],
+    cuotas:     [1999,  2999],
     comisiones: [8000,  16000],
   },
+
+  // ── HUB ARLO — sin cuota ──────────────────────────────────────────────────
+  {
+    id: 'hub_arlo_alto',
+    nombre: 'HUB Arlo',
+    nivel: 'alto',
+    cantidades: [1],
+    precios:    [99999],
+    cuotas:     [0],
+    comisiones: [20000],
+  },
+  {
+    id: 'hub_arlo_bajo',
+    nombre: 'HUB Arlo',
+    nivel: 'bajo',
+    cantidades: [1],
+    precios:    [61999],
+    cuotas:     [0],
+    comisiones: [8000],
+  },
+
+  // ── PANEL DE CONTROL (SVK) ────────────────────────────────────────────────
   {
     id: 'panel_alto',
-    nombre: 'Panel de control',
+    nombre: 'Panel de Control (SVK)',
     nivel: 'alto',
     cantidades: [1],
     precios:    [169999],
-    cuotas:     [9999],
+    cuotas:     [2999],
     comisiones: [56000],
   },
   {
     id: 'panel_bajo',
-    nombre: 'Panel de control',
+    nombre: 'Panel de Control (SVK)',
     nivel: 'bajo',
     cantidades: [1],
     precios:    [99999],
-    cuotas:     [9999],
+    cuotas:     [2999],
     comisiones: [20000],
   },
+
+  // ── STARKEY LLAVES EXTRA (pack x3) — sin cuota ───────────────────────────
   {
     id: 'starkey_alto',
-    nombre: 'Starkey',
+    nombre: 'Starkey Llaves extra (x3)',
     nivel: 'alto',
     cantidades: [1],
     precios:    [49999],
-    cuotas:     [2999],
+    cuotas:     [0],
     comisiones: [20000],
   },
   {
     id: 'starkey_bajo',
-    nombre: 'Starkey',
+    nombre: 'Starkey Llaves extra (x3)',
     nivel: 'bajo',
     cantidades: [1],
     precios:    [19999],
-    cuotas:     [2999],
+    cuotas:     [0],
     comisiones: [8000],
   },
+
+  // ── PLACA DISUASORIA — gratis ─────────────────────────────────────────────
   {
     id: 'placa',
     nombre: 'Placa disuasoria',
@@ -211,6 +243,8 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     cuotas:     [0],
     comisiones: [0],
   },
+
+  // ── UNIDAD CENTRAL — sin cuota ────────────────────────────────────────────
   {
     id: 'unidad_alto',
     nombre: 'Unidad Central',
@@ -226,6 +260,17 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     nivel: 'bajo',
     cantidades: [1],
     precios:    [129999],
+    cuotas:     [0],
+    comisiones: [0],
+  },
+
+  // ── PANEL SOLAR — sin precio ni cuota (a confirmar) ───────────────────────
+  {
+    id: 'panel_solar',
+    nombre: 'Panel Solar',
+    nivel: 'ambos',
+    cantidades: [1],
+    precios:    [0],
     cuotas:     [0],
     comisiones: [0],
   },
@@ -264,9 +309,9 @@ export const CONFIG_VERISURE_DEFAULT: ConfigVerisure = {
   },
 
   promos: [
-    { id: 'p1', label: 'Básico',                precio: 249999, descripcion: '6/12 cuotas',                        activa: true },
-    { id: 'p2', label: 'Básico + 3 ShockSensor', precio: 299999, descripcion: '3 ShockSensors de regalo',           activa: true },
-    { id: 'p3', label: 'Básico + Upgrade',        precio: 349999, descripcion: 'Con upgrade incluido',              activa: true },
+    { id: 'p1', label: 'Básico',                 precio: 249999, descripcion: '6/12 cuotas',               activa: true },
+    { id: 'p2', label: 'Básico + 3 ShockSensors', precio: 299999, descripcion: '3 ShockSensors de regalo',  activa: true },
+    { id: 'p3', label: 'Básico + Upgrade',         precio: 349999, descripcion: 'Con upgrade incluido',     activa: true },
   ],
 
   dispositivos: DISPOSITIVOS_DEFAULT,
@@ -290,8 +335,8 @@ export const CONFIG_VERISURE_DEFAULT: ConfigVerisure = {
     { express: 8, monto: 250000 },
   ],
 
-  bonoInstalacionRP:           10000,
-  bonoInstalacionJefeGerente:  40000,
-  xvenConCertificado:          -60000,
-  xvenSinCertificado:          -80000,
+  bonoInstalacionRP:          10000,
+  bonoInstalacionJefeGerente: 40000,
+  xvenConCertificado:         -60000,
+  xvenSinCertificado:         -80000,
 }
