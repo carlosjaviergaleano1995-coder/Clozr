@@ -7,11 +7,23 @@ export interface User {
   createdAt: Date
 }
 
-// ── WORKSPACE ──
+// ── NEGOCIO (agrupa workspaces) ──────────────────────────────────────────────
+export interface Negocio {
+  id: string
+  nombre: string
+  emoji: string
+  color: string
+  ownerId: string
+  miembros: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+
 export type WorkspaceType = 'servicios' | 'productos' | 'mixto' | 'tecnico'
 
 export interface Workspace {
   id: string
+  negocioId?: string
   nombre: string
   tipo: WorkspaceType
   emoji: string

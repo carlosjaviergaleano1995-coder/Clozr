@@ -588,3 +588,32 @@ export const agregarMovimientoCaja = async (
   })
   return ref.id
 }
+
+// ── NEGOCIOS ──────────────────────────────────────────────────────────────────
+import type { Negocio } from '@/types'
+
+export const getNegocios = async (userId: string): Promise<Negocio[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'negocios'), where('ownerId', '==', userId))
+  )
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Negocio))
+}
+
+export const createNegocio = async (
+  data: Omit<Negocio, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'negocios'), {
+    ...cleanForFirestore(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateNegocio = async (id: string, data: Partial<Negocio>) => {
+  await updateDoc(doc(db, 'negocios', id), {
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
+  })
+}
+
+export const deleteNegocio = async (id: string) => {
+  await deleteDoc(doc(db, 'negocios', id))
+}
