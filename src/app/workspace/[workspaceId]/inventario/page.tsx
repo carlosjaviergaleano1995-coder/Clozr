@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
-import { useParams } from 'next/navigation'
-import { Plus, Search, Pencil, Trash2, ChevronDown } from 'lucide-react'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
+import { Plus, Search, Pencil, Trash2, ChevronDown, Camera, X } from 'lucide-react'
 import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getConfigIPhoneClub, getDolarConfig } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import { CATEGORIAS, type Producto2, type CategoriaCodigo, type Condicion, type CamposSmartphone } from '@/types'
@@ -32,6 +32,8 @@ type FormData = {
   modelo: string
   color: string
   storage: string
+  imei: string
+  serie: string
   precioUSD: number
   moneda: 'USD' | 'ARS'
   stock: number
@@ -43,6 +45,7 @@ type FormData = {
 const EMPTY_FORM: FormData = {
   categoria: 'smartphones',
   marca: 'Apple', modelo: '', color: '', storage: '',
+  imei: '', serie: '',
   precioUSD: 0, moneda: 'USD', stock: 1, condicion: 'nuevo',
   smartphone: {},
   compatibleCon: '',
@@ -50,8 +53,13 @@ const EMPTY_FORM: FormData = {
 
 export default function InventarioPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const workspaceId = params.workspaceId as string
   const { user } = useAuthStore()
+
+  // Si viene desde un turno de compra
+  const fromTurno = searchParams.get('from') === 'turno'
+  const clienteFromTurno = searchParams.get('cliente') ?? ''
 
   const [productos, setProductos] = useState<Producto2[]>([])
   const [dolar, setDolar] = useState<number>(1200)
@@ -65,8 +73,20 @@ export default function InventarioPage() {
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
   const [showCamposExtra, setShowCamposExtra] = useState(false)
+  const [scanningImei, setScanningImei] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => { load() }, [workspaceId])
+
+  // Si viene de turno de compra → abrir formulario directamente
+  useEffect(() => {
+    if (fromTurno && !loading) {
+      setForm({ ...EMPTY_FORM, condicion: 'usado' })
+      setShowCamposExtra(true)
+      setShowForm(true)
+    }
+  }, [fromTurno, loading])
 
   const load = async () => {
     try {
@@ -79,6 +99,46 @@ export default function InventarioPage() {
       setMargenFinal(config.margenFinal)
       setDolar(dolarData.valor)
     } finally { setLoading(false) }
+  }
+
+  // ── Escáner de cámara para IMEI ───────────────────────────────────────────
+  const startScanner = async () => {
+    setScanningImei(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      })
+      streamRef.current = stream
+      if (videoRef.current) videoRef.current.srcObject = stream
+
+      // Usamos BarcodeDetector API (Chrome/Android nativo)
+      if ('BarcodeDetector' in window) {
+        const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'code_128', 'qr_code'] })
+        const interval = setInterval(async () => {
+          if (!videoRef.current) return
+          try {
+            const codes = await detector.detect(videoRef.current)
+            if (codes.length > 0) {
+              const imei = codes[0].rawValue
+              setForm(f => ({ ...f, imei }))
+              stopScanner()
+              clearInterval(interval)
+            }
+          } catch {}
+        }, 500)
+      }
+    } catch {
+      setScanningImei(false)
+      alert('No se pudo acceder a la cámara')
+    }
+  }
+
+  const stopScanner = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    setScanningImei(false)
   }
 
   const filtered = useMemo(() => {
@@ -121,6 +181,7 @@ export default function InventarioPage() {
     setForm({
       categoria: p.categoria, marca: p.marca, modelo: p.modelo,
       color: p.color ?? '', storage: p.storage ?? '',
+      imei: p.imei ?? '', serie: p.serie ?? '',
       precioUSD: p.precioUSD, moneda: p.moneda,
       stock: p.stock, condicion: p.condicion,
       smartphone: p.smartphone ?? {},
@@ -141,6 +202,8 @@ export default function InventarioPage() {
         modelo: form.modelo,
         color: form.color || undefined,
         storage: form.storage || undefined,
+        imei: form.imei || undefined,
+        serie: form.serie || undefined,
         precioUSD: form.precioUSD,
         moneda: form.moneda,
         stock: form.stock,
@@ -309,12 +372,21 @@ export default function InventarioPage() {
                       }}>
                       {p.stock} u
                     </span>
-                    {p.compatibleCon && (
-                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        compat: {p.compatibleCon}
-                      </span>
-                    )}
-                  </div>
+                    {p.imei && (
+                    <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                      IMEI: {p.imei}
+                    </span>
+                  )}
+                  {p.serie && (
+                    <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                      S/N: {p.serie}
+                    </span>
+                  )}
+                  {p.compatibleCon && (
+                    <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                      compat: {p.compatibleCon}
+                    </span>
+                  )}                  </div>
                   {p.smartphone?.detalles && (
                     <p className="text-[10px] mt-0.5 italic" style={{ color: 'var(--amber)' }}>
                       {p.smartphone.detalles}
@@ -485,6 +557,36 @@ export default function InventarioPage() {
                 </div>
               </div>
 
+              {/* IMEI / Serie — para smartphones y tablets */}
+              {(form.categoria === 'smartphones' || form.categoria === 'tablets' || form.categoria === 'computadoras' || form.categoria === 'gaming') && (
+                <div>
+                  <label className="label">
+                    {form.categoria === 'smartphones' ? 'IMEI' : 'Número de serie'}
+                  </label>
+                  <div className="flex gap-2">
+                    <input className="input text-sm flex-1 font-mono"
+                      placeholder={form.categoria === 'smartphones' ? '15 dígitos' : 'Número de serie'}
+                      value={form.categoria === 'smartphones' ? form.imei : form.serie}
+                      onChange={e => setForm(f => form.categoria === 'smartphones'
+                        ? { ...f, imei: e.target.value }
+                        : { ...f, serie: e.target.value }
+                      )} />
+                    {'BarcodeDetector' in window && (
+                      <button onClick={startScanner}
+                        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
+                        style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        <Camera size={18} />
+                      </button>
+                    )}
+                  </div>
+                  {form.imei && form.categoria === 'smartphones' && form.imei.length !== 15 && (
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--amber)' }}>
+                      El IMEI debería tener 15 dígitos ({form.imei.length} ingresados)
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Compatible con (repuestos) */}
               {esRepuesto && (
                 <div>
@@ -569,6 +671,28 @@ export default function InventarioPage() {
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Scanner de cámara para IMEI */}
+      {scanningImei && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.95)' }}>
+          <div className="relative w-full max-w-sm">
+            <video ref={videoRef} autoPlay playsInline
+              className="w-full rounded-2xl" style={{ maxHeight: '60vh', objectFit: 'cover' }} />
+            {/* Guía visual */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-64 h-20 rounded-lg"
+                style={{ border: '2px solid var(--brand)', boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)' }} />
+            </div>
+          </div>
+          <p className="text-white text-sm mt-4 opacity-70">Apuntá el código de barras del IMEI</p>
+          <button onClick={stopScanner}
+            className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+            style={{ background: 'var(--red-bg)', color: 'var(--brand-light)' }}>
+            <X size={16} /> Cancelar
+          </button>
         </div>
       )}
     </div>

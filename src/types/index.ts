@@ -374,21 +374,24 @@ export interface Producto2 {
   workspaceId: string
   // Clasificación
   categoria: CategoriaCodigo
-  marca: string             // ej: "Apple", "Samsung", "Sony", "JBL"
-  modelo: string            // ej: "iPhone 16 Pro", "PS5", "WH-1000XM5"
+  marca: string
+  modelo: string
+  // Identificador único de unidad
+  imei?: string             // smartphones
+  serie?: string            // Mac, iPad, consolas
   // Variante
   color?: string
-  storage?: string          // ej: "128GB", "1TB"
+  storage?: string
   // Precios
-  precioUSD: number         // precio base (mayorista/revendedor)
+  precioUSD: number
   moneda: 'USD' | 'ARS'
   // Stock
   stock: number
   condicion: Condicion
   // Campos extra (smartphone usado)
   smartphone?: CamposSmartphone
-  // Repuesto — compatible con
-  compatibleCon?: string    // ej: "iPhone 13 / 14"
+  // Repuesto
+  compatibleCon?: string
   // Meta
   activo: boolean
   creadoPor: string
