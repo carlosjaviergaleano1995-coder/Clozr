@@ -8,7 +8,7 @@ export default function WorkspacePage() {
   const router = useRouter()
 
   useEffect(() => {
-    router.replace(`/workspace/${params.workspaceId}/resumen`)
+    router.replace(`/workspace/${params.workspaceId}/hoy`)
   }, [params.workspaceId, router])
 
   return null
