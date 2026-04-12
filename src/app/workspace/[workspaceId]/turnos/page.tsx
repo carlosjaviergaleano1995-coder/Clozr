@@ -59,6 +59,7 @@ export default function TurnosPage() {
         clienteTelefono: telefono || undefined,
         motivo: motivo || undefined,
         atendido: false,
+        esAgendado: false,
       })
       await load()
       setShowForm(false)

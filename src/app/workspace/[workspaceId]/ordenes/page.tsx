@@ -14,14 +14,15 @@ import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
 
 const ESTADOS: { id: OTEstado; label: string; color: string; bg: string; icon: any }[] = [
-  { id: 'ingreso',        label: 'Ingreso',        color: 'var(--text-tertiary)', bg: 'var(--surface-3)',  icon: Package },
-  { id: 'diagnostico',    label: 'Diagnóstico',    color: 'var(--blue)',          bg: 'var(--blue-bg)',    icon: Search },
-  { id: 'presupuestado',  label: 'Presupuestado',  color: 'var(--amber)',         bg: 'var(--amber-bg)',   icon: Clock },
-  { id: 'aprobado',       label: 'Aprobado',       color: 'var(--green)',         bg: 'var(--green-bg)',   icon: CheckCircle },
+  { id: 'ingreso',        label: 'Ingreso',        color: 'var(--text-tertiary)', bg: 'var(--surface-3)',       icon: Package },
+  { id: 'diagnostico',    label: 'Diagnóstico',    color: 'var(--blue)',          bg: 'var(--blue-bg)',         icon: Search },
+  { id: 'presupuestado',  label: 'Presupuestado',  color: 'var(--amber)',         bg: 'var(--amber-bg)',        icon: Clock },
+  { id: 'aprobado',       label: 'Aprobado',       color: 'var(--green)',         bg: 'var(--green-bg)',        icon: CheckCircle },
   { id: 'en_reparacion',  label: 'En reparación',  color: '#a855f7',              bg: 'rgba(168,85,247,0.12)', icon: Wrench },
-  { id: 'listo',          label: 'Listo',          color: 'var(--green)',         bg: 'var(--green-bg)',   icon: CheckCircle },
-  { id: 'entregado',      label: 'Entregado',      color: 'var(--text-tertiary)', bg: 'var(--surface-3)',  icon: CheckCircle },
-  { id: 'cancelado',      label: 'Cancelado',      color: 'var(--brand-light)',   bg: 'var(--red-bg)',     icon: XCircle },
+  { id: 'en_laboratorio', label: 'En laboratorio', color: 'var(--blue)',          bg: 'var(--blue-bg)',         icon: Package },
+  { id: 'listo',          label: 'Listo',          color: 'var(--green)',         bg: 'var(--green-bg)',        icon: CheckCircle },
+  { id: 'entregado',      label: 'Entregado',      color: 'var(--text-tertiary)', bg: 'var(--surface-3)',       icon: CheckCircle },
+  { id: 'cancelado',      label: 'Cancelado',      color: 'var(--brand-light)',   bg: 'var(--red-bg)',          icon: XCircle },
 ]
 
 const getEstadoInfo = (id: OTEstado) => ESTADOS.find(e => e.id === id) ?? ESTADOS[0]

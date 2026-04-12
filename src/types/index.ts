@@ -461,6 +461,7 @@ export type OTEstado =
   | 'presupuestado'
   | 'aprobado'
   | 'en_reparacion'
+  | 'en_laboratorio'   // enviado a laboratorio tercero
   | 'listo'
   | 'entregado'
   | 'cancelado'
@@ -496,7 +497,12 @@ export interface OrdenTrabajo {
   // Asignación
   tecnicoId?: string
   tecnicoNombre?: string
-  // Estado
+  // Laboratorio tercero
+  laboratorio?: string      // nombre del laboratorio
+  laboratorioFechaEnvio?: Date
+  laboratorioFechaEstimada?: Date
+  laboratorioNotas?: string
+  // Estado actual
   estado: OTEstado
   estadoHistorial: { estado: OTEstado; fecha: Date; nota?: string }[]
   // Fechas
@@ -509,13 +515,16 @@ export interface OrdenTrabajo {
 // ── Turno ─────────────────────────────────────────────────────────────────────
 export interface Turno {
   id: string
-  codigo: string            // ej: "T-001"
+  codigo: string
   workspaceId: string
   clienteNombre?: string
   clienteTelefono?: string
-  motivo?: string           // "consulta" | "reparación" | "presupuesto" | "retiro"
-  otId?: string             // si derivó a OT
+  motivo?: string
+  otId?: string
   atendido: boolean
+  esAgendado: boolean       // false = walk-in, true = tiene hora reservada
+  fechaHora?: Date          // fecha y hora del turno agendado
+  notas?: string
   createdAt: Date
 }
 

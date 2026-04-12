@@ -475,7 +475,25 @@ export const getTurnosHoy = async (workspaceId: string): Promise<Turno[]> => {
   const hoy = new Date().toISOString().slice(0, 10)
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() } as Turno))
-    .filter(t => t.createdAt?.toString().includes(hoy) || t.codigo?.includes('T-'))
+    .filter(t => {
+      // Walk-ins de hoy
+      const creadoHoy = toDate(t.createdAt).toISOString().slice(0, 10) === hoy
+      // Agendados para hoy
+      const agendadoHoy = t.esAgendado && t.fechaHora
+        ? toDate(t.fechaHora).toISOString().slice(0, 10) === hoy
+        : false
+      return creadoHoy || agendadoHoy
+    })
+}
+
+export const getTurnosFuturos = async (workspaceId: string): Promise<Turno[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'turnos'))
+  const hoy = new Date()
+  hoy.setHours(23, 59, 59, 999)
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Turno))
+    .filter(t => t.esAgendado && t.fechaHora && toDate(t.fechaHora) > hoy && !t.atendido)
+    .sort((a, b) => toDate(a.fechaHora!).getTime() - toDate(b.fechaHora!).getTime())
 }
 
 export const createTurno = async (
