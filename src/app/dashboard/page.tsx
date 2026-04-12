@@ -9,9 +9,10 @@ import type { Workspace, WorkspaceType } from '@/types'
 import { ClozrLogo, ClozrIcon } from '@/components/ClozrLogo'
 
 const WORKSPACE_TYPES: { tipo: WorkspaceType; label: string; desc: string; emoji: string }[] = [
-  { tipo: 'servicios', label: 'Servicios', desc: 'Alarmas, seguros, internet', emoji: '🛡️' },
-  { tipo: 'productos', label: 'Productos', desc: 'Electrónica, ropa, accesorios', emoji: '📦' },
-  { tipo: 'mixto',     label: 'Mixto',     desc: 'Productos y servicios', emoji: '⚡' },
+  { tipo: 'servicios', label: 'Servicios',       desc: 'Alarmas, seguros, internet',    emoji: '🛡️' },
+  { tipo: 'productos', label: 'Productos',        desc: 'Electrónica, ropa, accesorios', emoji: '📦' },
+  { tipo: 'mixto',     label: 'Mixto',            desc: 'Productos y servicios',         emoji: '⚡' },
+  { tipo: 'tecnico',   label: 'Servicio Técnico', desc: 'Reparaciones, OTs, turnos',     emoji: '🔧' },
 ]
 
 const COLORS = ['#E8001D','#2563eb','#7c3aed','#059669','#d97706','#0891b2']
