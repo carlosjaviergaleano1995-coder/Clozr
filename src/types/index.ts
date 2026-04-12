@@ -36,19 +36,17 @@ export interface Workspace {
 }
 
 export interface WorkspaceConfig {
-  // Servicios (ej: Verisure)
-  tieneComisiones?: boolean
-  tieneBonos?: boolean
-  tieneCuotas?: boolean
-  tieneIVA?: boolean
-  // Productos (ej: iPhone Club)
-  tieneStock?: boolean
-  tieneUsados?: boolean
-  tieneVolumen?: boolean
+  // Respuestas del onboarding — determinan qué módulos se activan
+  vendeProductos?: boolean      // ¿vendés productos físicos?
+  vendeServicios?: boolean      // ¿vendés servicios / trabajos?
+  tieneStock?: boolean          // ¿manejás stock?
+  tieneOrdenes?: boolean        // ¿hacés reparaciones / OTs?
+  // Módulos opcionales activables
+  moduloVerisure?: boolean      // calculadora Verisure
+  moduloBroadcast?: boolean     // broadcast WhatsApp
+  moduloRevendedores?: boolean  // CRM revendedores
+  // Preferencias
   moneda?: 'ARS' | 'USD' | 'ambas'
-  // Shared
-  tieneWhatsApp?: boolean
-  tieneTareas?: boolean
 }
 
 // ── CLIENTE ──

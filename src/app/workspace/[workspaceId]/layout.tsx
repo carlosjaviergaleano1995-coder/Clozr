@@ -2,35 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { Sun, Package, Users, Wallet, Settings, ChevronLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
+import { derivarNav } from '@/lib/workspace-config'
 import { ClozrIcon } from '@/components/ClozrLogo'
 import type { Workspace } from '@/types'
-
-// Nav unificado — 5 ítems iguales para todos los tipos
-// La diferencia está en el contenido de cada pantalla, no en la nav
-const NAV = [
-  { id: 'hoy',        label: 'Hoy',       icon: Sun },
-  { id: 'inventario', label: 'Stock',     icon: Package },
-  { id: 'clientes',   label: 'Clientes',  icon: Users },
-  { id: 'caja',       label: 'Caja',      icon: Wallet },
-  { id: 'ajustes',    label: 'Ajustes',   icon: Settings },
-]
-
-// Para Verisure — nav específico
-const NAV_SERVICIOS = [
-  { id: 'hoy',      label: 'Hoy',      icon: Sun },
-  { id: 'clientes', label: 'Clientes', icon: Users },
-  { id: 'verisure', label: 'Calc',     icon: Package },
-  { id: 'caja',     label: 'Caja',     icon: Wallet },
-  { id: 'ajustes',  label: 'Ajustes',  icon: Settings },
-]
-
-function getNav(tipo: string) {
-  if (tipo === 'servicios') return NAV_SERVICIOS
-  return NAV
-}
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -63,7 +40,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     else router.push('/dashboard')
   }
 
-  const navItems = ws ? getNav(ws.tipo) : NAV
+  const navItems = ws ? derivarNav(ws.config ?? {}) : []
 
   const activeTab = navItems.find(item =>
     pathname.endsWith(`/${item.id}`) || pathname.includes(`/${item.id}/`)
