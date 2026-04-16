@@ -9,8 +9,8 @@ import { useModuloGuard } from '@/hooks/useModuloGuard'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const iva = (n: number, pct = 21) => Math.round(n * (1 + pct / 100))
-const fmt = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+const iva = (n: number, pct = 21) => n * (1 + pct / 100)
+const fmt = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 const nowStr = () => {
   const d = new Date()
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
