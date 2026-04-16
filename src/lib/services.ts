@@ -802,3 +802,41 @@ export const initPlantillasVerisure = async (workspaceId: string) => {
     await createPlantilla(workspaceId, { ...p, workspaceId, activa: true })
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// PIPELINE VERISURE
+// ════════════════════════════════════════════════════════════════════════════
+import type { PipelineCliente, NotaVisita, EstadoPipeline } from '@/types'
+
+export const getPipeline = async (workspaceId: string): Promise<PipelineCliente[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'pipeline'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as PipelineCliente))
+    .sort((a, b) => toDate(b.updatedAt).getTime() - toDate(a.updatedAt).getTime())
+}
+
+export const getPipelineByCliente = async (workspaceId: string, clienteId: string): Promise<PipelineCliente | null> => {
+  const snap = await getDocs(
+    query(collection(db, 'workspaces', workspaceId, 'pipeline'),
+    where('clienteId', '==', clienteId))
+  )
+  if (snap.empty) return null
+  return { id: snap.docs[0].id, ...snap.docs[0].data() } as PipelineCliente
+}
+
+export const createPipeline = async (
+  workspaceId: string,
+  data: Omit<PipelineCliente, 'id' | 'creadoAt' | 'updatedAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'pipeline'), {
+    ...cleanForFirestore(data), creadoAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updatePipeline = async (
+  workspaceId: string, id: string, data: Partial<PipelineCliente>
+) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'pipeline', id), {
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
+  })
+}

@@ -668,3 +668,39 @@ export interface UbicacionCliente {
 // Se guarda en el cliente como campo extra
 // El tipo Cliente ya existe — agregamos campos opcionales via notas estructuradas
 // Para no romper la estructura, guardamos la ubicación como JSON en un campo dedicado
+
+// ════════════════════════════════════════════════════════════════════════════
+// PIPELINE VERISURE — Historial de visitas + seguimiento instalación
+// ════════════════════════════════════════════════════════════════════════════
+
+export type EstadoPipeline =
+  | 'prospecto'      // primer contacto
+  | 'contactado'     // se habló, hay interés
+  | 'visita_agendada'// turno confirmado
+  | 'presupuestado'  // se entregó presupuesto
+  | 'aprobado'       // aceptó, pendiente instalación
+  | 'instalado'      // sistema instalado
+  | 'cobrado'        // cobro completado
+  | 'perdido'        // no cerró
+
+export interface NotaVisita {
+  fecha: Date
+  texto: string
+  resultado: 'positivo' | 'neutro' | 'negativo'
+  proximoPaso?: string
+}
+
+export interface PipelineCliente {
+  id: string
+  workspaceId: string
+  clienteId: string
+  clienteNombre: string
+  estado: EstadoPipeline
+  kitInteres?: string         // kit que le interesa
+  presupuesto?: number        // monto presupuestado
+  fechaInstalacion?: Date
+  fechaCobro?: Date
+  notas: NotaVisita[]
+  creadoAt: Date
+  updatedAt: Date
+}

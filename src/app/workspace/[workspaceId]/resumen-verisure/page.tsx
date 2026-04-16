@@ -2,105 +2,100 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { TrendingUp, DollarSign, Star, Award, ChevronDown, ChevronUp } from 'lucide-react'
-import { getVentas2, getClientes } from '@/lib/services'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { getVentas, getClientes, getPipeline } from '@/lib/services'
 import { toDate } from '@/lib/services'
-import type { Venta2, Cliente } from '@/types'
+import type { Cliente, PipelineCliente } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { fmtARS } from '@/lib/format'
 
-// ── Plan comisiones VET / N6 ──────────────────────────────────────────────────
-// Directa por venta
+// ── Plan comisiones VET ───────────────────────────────────────────────────────
 const COMISION_KIT: Record<string, { re: number; rp: number }> = {
-  'catalogo':   { re: 140000, rp: 200000 },
-  'alto':       { re: 70000,  rp: 100000  },
-  'medio':      { re: 35000,  rp: 50000   },
-  'bajo':       { re: 0,      rp: 0        },
-  'catalogo_2': { re: 175000, rp: 250000  },
-  'alto_2':     { re: 140000, rp: 200000  },
-  'medio_bajo': { re: 56000,  rp: 80000   },
+  'Catálogo':     { re: 140000, rp: 200000 },
+  'Alto':         { re: 70000,  rp: 100000  },
+  'Medio':        { re: 35000,  rp: 50000   },
+  'Bajo':         { re: 0,      rp: 0        },
+  'Catálogo +':   { re: 175000, rp: 250000  },
+  'Alto +':       { re: 140000, rp: 200000  },
+  'Medio/Bajo +': { re: 56000,  rp: 80000   },
 }
 
-// Instalación Vet/N4-N6
 const INSTALACION_VET = {
   min:     { cargo: 300000, cantidad: 5 },
   express: { cargo: 500000, cantidad: 7 },
 }
 
-// Performance Vet/N6
-const PERFORMANCE = {
-  escalaBase: 8, // cantidad de ventas netas totales para empezar a cobrar
-  bonoPorExtra: 80000,
-  escalaRP: 3,   // RP extra sobre la escala mayor
-  bonoPorExtraRP: 100000,
-}
-
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+const PERFORMANCE_BASE = 8
+const BONO_EXTRA_VENTA = 80000
+const BONO_EXTRA_RP = 100000
+const ESCALA_RP = 3
 
 export default function ResumenVerisurePage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
 
-  const [ventas, setVentas] = useState<Venta2[]>([])
+  const [ventas, setVentas] = useState<any[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [pipeline, setPipeline] = useState<PipelineCliente[]>([])
   const [loading, setLoading] = useState(true)
   const [showDetalle, setShowDetalle] = useState(false)
+  const [modoSim, setModoSim] = useState(false)
 
-  // Simulador manual (si no tiene ventas registradas)
+  // Simulador
   const [simRP, setSimRP] = useState(0)
   const [simRE, setSimRE] = useState(0)
   const [simInstalaciones, setSimInstalaciones] = useState(0)
-  const [simKitPromedio, setSimKitPromedio] = useState<'catalogo' | 'alto' | 'medio' | 'bajo'>('alto')
-  const [modoSim, setModoSim] = useState(false)
+  const [simKitPromedio, setSimKitPromedio] = useState<string>('Alto')
 
   useEffect(() => { load() }, [workspaceId])
 
   const load = async () => {
     try {
-      const [v, c] = await Promise.all([
-        getVentas2(workspaceId),
+      const [v, c, p] = await Promise.all([
+        getVentas(workspaceId),
         getClientes(workspaceId),
+        getPipeline(workspaceId),
       ])
       setVentas(v)
       setClientes(c)
+      setPipeline(p)
     } finally { setLoading(false) }
   }
 
   const hoy = new Date()
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+  const mesLabel = format(hoy, "MMMM yyyy", { locale: es })
 
-  const ventasMes = ventas.filter(v => toDate(v.createdAt) >= inicioMes)
+  // Ventas del mes desde ventas-verisure (formaPago = 'RP' | 'RE')
+  const ventasMes = useMemo(() =>
+    ventas.filter(v => toDate(v.createdAt) >= inicioMes),
+    [ventas]
+  )
+  const ventasRP_real = ventasMes.filter(v => v.formaPago === 'RP')
+  const ventasRE_real = ventasMes.filter(v => v.formaPago === 'RE')
 
-  // RP = cliente tipo 'final', RE = cliente tipo 'empresa'
-  // Buscamos el tipo del cliente por nombre en la venta
-  const clienteMap = useMemo(() => {
-    const m: Record<string, Cliente> = {}
-    clientes.forEach(c => { m[c.nombre.toLowerCase()] = c })
-    return m
-  }, [clientes])
-
-  const ventasRP = ventasMes.filter(v => {
-    const c = clienteMap[v.clienteNombre?.toLowerCase() ?? '']
-    return c?.tipo === 'final' || !c  // sin match asumimos RP
-  })
-  const ventasRE = ventasMes.filter(v => {
-    const c = clienteMap[v.clienteNombre?.toLowerCase() ?? '']
-    return c?.tipo === 'empresa'
-  })
-
-  // Usar simulador si no hay ventas o si está en modo sim
-  const totalRP = modoSim ? simRP : ventasRP.length
-  const totalRE = modoSim ? simRE : ventasRE.length
+  // Usar simulador o datos reales
+  const totalRP = modoSim ? simRP : ventasRP_real.length
+  const totalRE = modoSim ? simRE : ventasRE_real.length
   const totalVentas = totalRP + totalRE
   const totalInstalaciones = modoSim ? simInstalaciones : ventasMes.length
 
   // Calcular comisiones
   const comisiones = useMemo(() => {
-    const kit = COMISION_KIT[simKitPromedio] ?? COMISION_KIT['alto']
+    const kitKey = modoSim ? simKitPromedio : 'Alto' // para reales usamos promedio
+    const kit = COMISION_KIT[kitKey] ?? COMISION_KIT['Alto']
 
-    // 1. Directa por venta
-    const directaRP = totalRP * kit.rp
-    const directaRE = totalRE * kit.re
+    // 1. Directa por venta — para datos reales usamos el total de la venta (ya calculado en ventas-verisure)
+    let directaRP = 0
+    let directaRE = 0
+    if (modoSim) {
+      directaRP = totalRP * kit.rp
+      directaRE = totalRE * kit.re
+    } else {
+      directaRP = ventasRP_real.reduce((a, v) => a + (v.total ?? 0), 0)
+      directaRE = ventasRE_real.reduce((a, v) => a + (v.total ?? 0), 0)
+    }
 
     // 2. Instalación (Vet)
     let comisionInstalacion = 0
@@ -111,31 +106,28 @@ export default function ResumenVerisurePage() {
     }
 
     // 3. Performance
-    const escalaBase = PERFORMANCE.escalaBase
-    let bonoPerfomance = 0
-    if (totalVentas > escalaBase) {
-      bonoPerfomance = (totalVentas - escalaBase) * PERFORMANCE.bonoPorExtra
+    let bonoPerformance = 0
+    if (totalVentas > PERFORMANCE_BASE) {
+      bonoPerformance = (totalVentas - PERFORMANCE_BASE) * BONO_EXTRA_VENTA
     }
 
     // 4. Bono RP
-    const escalaRP = PERFORMANCE.escalaRP
     let bonoRP = 0
-    // Asumimos escala mayor RP = 3 para Vet
-    if (totalRP > escalaRP) {
-      bonoRP = (totalRP - escalaRP) * PERFORMANCE.bonoPorExtraRP
+    if (totalRP > ESCALA_RP) {
+      bonoRP = (totalRP - ESCALA_RP) * BONO_EXTRA_RP
     }
 
-    const total = directaRP + directaRE + comisionInstalacion + bonoPerfomance + bonoRP
+    const total = directaRP + directaRE + comisionInstalacion + bonoPerformance + bonoRP
+    return { directaRP, directaRE, comisionInstalacion, bonoPerformance, bonoRP, total }
+  }, [totalRP, totalRE, totalVentas, totalInstalaciones, modoSim, simKitPromedio, ventasRP_real, ventasRE_real])
 
-    return {
-      directaRP, directaRE, comisionInstalacion,
-      bonoPerfomance, bonoRP, total,
-    }
-  }, [totalRP, totalRE, totalVentas, totalInstalaciones, simKitPromedio])
-
-  // Progreso hacia la escala de instalación
   const progresoInstalacion = Math.min(100, (totalInstalaciones / INSTALACION_VET.express.cantidad) * 100)
-  const progresoPerformance = Math.min(100, (totalVentas / PERFORMANCE.escalaBase) * 100)
+  const progresoPerformance = Math.min(100, (totalVentas / PERFORMANCE_BASE) * 100)
+
+  // Pipeline stats
+  const pipelineActivos = pipeline.filter(p => !['cobrado','perdido'].includes(p.estado))
+  const pipelineInstalados = pipeline.filter(p => p.estado === 'instalado')
+  const pipelineAprobados = pipeline.filter(p => p.estado === 'aprobado')
 
   if (loading) return (
     <div className="space-y-3 mt-4">
@@ -143,19 +135,15 @@ export default function ResumenVerisurePage() {
     </div>
   )
 
-  const mesLabel = format(hoy, "MMMM yyyy", { locale: es })
-
   return (
     <div className="space-y-4 animate-fade-in pb-4">
 
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>
-            {mesLabel}
-          </h2>
+          <h2 className="text-lg font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>{mesLabel}</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Resumen de comisiones — Vet
+            {modoSim ? '🧮 Modo simulador' : `Datos reales · ${ventasMes.length} ventas registradas`}
           </p>
         </div>
         <button onClick={() => setModoSim(!modoSim)}
@@ -163,7 +151,7 @@ export default function ResumenVerisurePage() {
           style={modoSim
             ? { background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }
             : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-          {modoSim ? '🧮 Simulando' : '🧮 Simular'}
+          🧮 {modoSim ? 'Simulando' : 'Simular'}
         </button>
       </div>
 
@@ -171,9 +159,7 @@ export default function ResumenVerisurePage() {
       {modoSim && (
         <div className="px-4 py-3 rounded-2xl space-y-3"
           style={{ background: 'var(--amber-bg)', border: '1px solid var(--amber)' }}>
-          <p className="text-xs font-semibold" style={{ color: 'var(--amber)' }}>
-            🧮 Modo simulador — ajustá los valores
-          </p>
+          <p className="text-xs font-semibold" style={{ color: 'var(--amber)' }}>Ajustá los valores para simular</p>
           <div className="grid grid-cols-2 gap-2">
             {[
               { label: 'Ventas RP', val: simRP, set: setSimRP },
@@ -188,42 +174,34 @@ export default function ResumenVerisurePage() {
             ))}
             <div>
               <label className="label text-[10px]">Kit promedio</label>
-              <select className="input text-sm" value={simKitPromedio}
-                onChange={e => setSimKitPromedio(e.target.value as any)}>
-                <option value="catalogo">Catálogo</option>
-                <option value="alto">Alto</option>
-                <option value="medio">Medio</option>
-                <option value="bajo">Bajo</option>
+              <select className="input text-sm" value={simKitPromedio} onChange={e => setSimKitPromedio(e.target.value)}>
+                {Object.keys(COMISION_KIT).map(k => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>
           </div>
         </div>
       )}
 
-      {/* Resumen ventas */}
+      {/* Ventas del mes */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="px-3 py-3 rounded-2xl text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="text-2xl font-bold" style={{ color: 'var(--brand)' }}>{totalRP}</p>
-          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>RP</p>
-        </div>
-        <div className="px-3 py-3 rounded-2xl text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="text-2xl font-bold" style={{ color: 'var(--blue)' }}>{totalRE}</p>
-          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>RE</p>
-        </div>
-        <div className="px-3 py-3 rounded-2xl text-center"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="text-2xl font-bold" style={{ color: 'var(--green)' }}>{totalVentas}</p>
-          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Total</p>
-        </div>
+        {[
+          { label: 'RP', value: totalRP, color: 'var(--brand)' },
+          { label: 'RE', value: totalRE, color: 'var(--blue)' },
+          { label: 'Total', value: totalVentas, color: 'var(--green)' },
+        ].map(s => (
+          <div key={s.label} className="px-3 py-3 rounded-2xl text-center"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* Total comisiones */}
       <div className="px-4 py-4 rounded-2xl"
         style={{ background: 'var(--surface)', border: '1px solid var(--green)' }}>
         <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>
-          Comisión estimada del mes
+          Comisión estimada
         </p>
         <p className="text-3xl font-bold" style={{ color: 'var(--green)' }}>
           {fmtARS(comisiones.total)}
@@ -231,21 +209,22 @@ export default function ResumenVerisurePage() {
         <button onClick={() => setShowDetalle(!showDetalle)}
           className="flex items-center gap-1 mt-2 text-xs"
           style={{ color: 'var(--text-tertiary)' }}>
-          Ver detalle {showDetalle ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          Ver desglose {showDetalle ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
 
         {showDetalle && (
           <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
             {[
-              { label: `Directa RP (${totalRP} ventas)`,        valor: comisiones.directaRP,          color: 'var(--brand-light)' },
-              { label: `Directa RE (${totalRE} ventas)`,        valor: comisiones.directaRE,          color: 'var(--blue)' },
-              { label: `Instalación (${totalInstalaciones})`,   valor: comisiones.comisionInstalacion, color: '#a855f7' },
-              { label: 'Bono performance',                       valor: comisiones.bonoPerfomance,     color: 'var(--amber)' },
-              { label: 'Bono RP extra',                         valor: comisiones.bonoRP,             color: 'var(--green)' },
+              { label: `Directa RP (${totalRP})`,             valor: comisiones.directaRP,          color: 'var(--brand-light)' },
+              { label: `Directa RE (${totalRE})`,             valor: comisiones.directaRE,          color: 'var(--blue)'        },
+              { label: `Instalación (${totalInstalaciones})`, valor: comisiones.comisionInstalacion, color: '#a855f7'            },
+              { label: 'Bono performance',                    valor: comisiones.bonoPerformance,    color: 'var(--amber)'       },
+              { label: 'Bono RP extra',                       valor: comisiones.bonoRP,             color: 'var(--green)'       },
             ].map(r => (
               <div key={r.label} className="flex justify-between items-center">
                 <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{r.label}</span>
-                <span className="text-sm font-semibold" style={{ color: r.valor > 0 ? r.color : 'var(--text-tertiary)' }}>
+                <span className="text-sm font-semibold"
+                  style={{ color: r.valor > 0 ? r.color : 'var(--text-tertiary)' }}>
                   {fmtARS(r.valor)}
                 </span>
               </div>
@@ -256,20 +235,15 @@ export default function ResumenVerisurePage() {
 
       {/* Progreso escalas */}
       <div className="space-y-3">
-        {/* Instalaciones */}
-        <div className="px-4 py-3 rounded-2xl"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="px-4 py-3 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="flex justify-between items-center mb-2">
-            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Instalaciones
-            </p>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Instalaciones</p>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {totalInstalaciones} / {INSTALACION_VET.express.cantidad} para express
             </p>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-            <div className="h-full rounded-full transition-all"
-              style={{ width: `${progresoInstalacion}%`, background: 'var(--green)' }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${progresoInstalacion}%`, background: 'var(--green)' }} />
           </div>
           <div className="flex justify-between mt-1">
             <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
@@ -281,50 +255,82 @@ export default function ResumenVerisurePage() {
           </div>
         </div>
 
-        {/* Performance */}
-        <div className="px-4 py-3 rounded-2xl"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="px-4 py-3 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="flex justify-between items-center mb-2">
-            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Performance
-            </p>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Performance</p>
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-              {totalVentas} / {PERFORMANCE.escalaBase} ventas netas
+              {totalVentas} / {PERFORMANCE_BASE} ventas netas
             </p>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-            <div className="h-full rounded-full transition-all"
-              style={{ width: `${progresoPerformance}%`, background: 'var(--amber)' }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${progresoPerformance}%`, background: 'var(--amber)' }} />
           </div>
-          {totalVentas > PERFORMANCE.escalaBase && (
+          {totalVentas > PERFORMANCE_BASE && (
             <p className="text-[10px] mt-1" style={{ color: 'var(--amber)' }}>
-              +{totalVentas - PERFORMANCE.escalaBase} extra = {fmtARS(comisiones.bonoPerfomance)} bono
+              +{totalVentas - PERFORMANCE_BASE} sobre la escala = {fmtARS(comisiones.bonoPerformance)} extra
             </p>
           )}
         </div>
       </div>
 
-      {/* Clientes del mes */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
-          style={{ color: 'var(--text-tertiary)' }}>
-          Clientes activos este mes
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: 'Potenciales', count: clientes.filter(c => c.estado === 'potencial').length, color: 'var(--blue)' },
-            { label: 'Instalados',  count: clientes.filter(c => c.estado === 'activo').length,    color: 'var(--green)' },
-            { label: 'En seguimiento', count: clientes.filter(c => c.estado === 'dormido').length,  color: 'var(--amber)' },
-            { label: 'Perdidos',    count: clientes.filter(c => c.estado === 'perdido').length,   color: 'var(--text-tertiary)' },
-          ].map(s => (
-            <div key={s.label} className="px-3 py-2.5 rounded-xl"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <p className="text-xl font-bold" style={{ color: s.color }}>{s.count}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.label}</p>
-            </div>
-          ))}
+      {/* Pipeline stats */}
+      {pipeline.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>
+            Pipeline
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { label: 'Activos',    count: pipelineActivos.length,    color: 'var(--blue)'  },
+              { label: 'Aprobados',  count: pipelineAprobados.length,  color: 'var(--amber)' },
+              { label: 'Instalados', count: pipelineInstalados.length, color: 'var(--green)' },
+              { label: 'Total',      count: pipeline.length,           color: 'var(--text-primary)' },
+            ].map(s => (
+              <div key={s.label} className="px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <p className="text-xl font-bold" style={{ color: s.color }}>{s.count}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Últimas ventas del mes */}
+      {ventasMes.length > 0 && !modoSim && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>
+            Ventas del mes
+          </p>
+          <div className="space-y-1.5">
+            {ventasMes.slice(0, 6).map((v: any) => (
+              <div key={v.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                  style={v.formaPago === 'RP'
+                    ? { background: 'var(--red-bg)', color: 'var(--brand-light)' }
+                    : { background: 'var(--blue-bg)', color: 'var(--blue)' }}>
+                  {v.formaPago}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                    {v.clienteNombre}
+                  </p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {v.items?.[0]?.nombre ?? '—'}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold" style={{ color: 'var(--green)' }}>{fmtARS(v.total)}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {format(toDate(v.createdAt), "d MMM", { locale: es })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

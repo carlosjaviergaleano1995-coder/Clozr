@@ -37,8 +37,9 @@ export default function AjustesPage() {
     {
       titulo: '⚙️ Configuración Verisure',
       items: [
-        modulos.mostrarPlantillas && { label: 'Plantillas de mensajes', desc: 'Editá tus mensajes de WhatsApp', path: 'plantillas', icon: Radio },
-        modulos.mostrarVerisure   && { label: 'Ventas registradas',    desc: 'Historial de instalaciones',     path: 'ventas-verisure', icon: TrendingUp },
+        modulos.mostrarPlantillas && { label: 'Plantillas de mensajes', desc: 'Editá tus mensajes de WhatsApp', path: 'plantillas',      icon: Radio },
+        modulos.mostrarVerisure   && { label: 'Pipeline de clientes',  desc: 'Seguimiento de instalaciones',  path: 'pipeline',        icon: TrendingUp },
+        modulos.mostrarVerisure   && { label: 'Ventas registradas',    desc: 'Historial de instalaciones',    path: 'ventas-verisure', icon: Shield },
       ].filter(Boolean),
     },
   ].filter(g => g.items.length > 0)
