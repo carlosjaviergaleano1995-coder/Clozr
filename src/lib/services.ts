@@ -68,7 +68,7 @@ export const getWorkspaces = async (userId: string): Promise<Workspace[]> => {
 
 export const createWorkspace = async (data: Omit<Workspace, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces'), {
-    ...data,
+    ...cleanForFirestore(data),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -77,7 +77,7 @@ export const createWorkspace = async (data: Omit<Workspace, 'id' | 'createdAt' |
 
 export const updateWorkspace = async (id: string, data: Partial<Workspace>) => {
   await updateDoc(doc(db, 'workspaces', id), {
-    ...data,
+    ...cleanForFirestore(data),
     updatedAt: serverTimestamp(),
   })
 }

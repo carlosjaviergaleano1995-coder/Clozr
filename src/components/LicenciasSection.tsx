@@ -59,9 +59,11 @@ export default function LicenciasSection({ negocios }: Props) {
     } finally { setActivando(false) }
   }
 
+  const [errorCrear, setErrorCrear] = useState('')
+
   const handleCrear = async () => {
     if (!user || !showCrear) return
-    setCreando(true)
+    setCreando(true); setErrorCrear('')
     try {
       const { template } = showCrear
       const config = {
@@ -71,13 +73,14 @@ export default function LicenciasSection({ negocios }: Props) {
         moduloRevendedores: template.slug === 'iphone-club',
       }
       const tipo = template.slug === 'verisure-arg' ? 'servicios' : 'productos'
-      const nombre = nombreWs || template.nombre
-      const id = await createWorkspace({
+      const nombre = nombreWs.trim() || template.nombre
+      const wsData = {
         nombre, tipo, config,
         emoji: template.emoji, color: template.color,
-        negocioId: negocioSel || undefined,
         ownerId: user.uid, miembros: [user.uid],
-      } as any)
+      } as any
+      if (negocioSel) wsData.negocioId = negocioSel
+      const id = await createWorkspace(wsData)
       setWorkspaces([...workspaces, {
         id, nombre, tipo: tipo as any, config,
         emoji: template.emoji, color: template.color,
@@ -87,6 +90,9 @@ export default function LicenciasSection({ negocios }: Props) {
       }])
       setShowCrear(null)
       router.push(`/workspace/${id}/hoy`)
+    } catch (err) {
+      console.error(err)
+      setErrorCrear('Error al crear el workspace. Intentá de nuevo.')
     } finally { setCreando(false) }
   }
 
@@ -238,6 +244,9 @@ export default function LicenciasSection({ negocios }: Props) {
               </button>
               <button onClick={() => setShowCrear(null)} className="btn-secondary">Después</button>
             </div>
+            {errorCrear && (
+              <p className="text-xs text-center mt-2" style={{ color: 'var(--brand-light)' }}>{errorCrear}</p>
+            )}
           </div>
         </div>
       )}
