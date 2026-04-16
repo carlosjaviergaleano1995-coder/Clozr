@@ -44,6 +44,12 @@ export default function LicenciasSection({ negocios }: Props) {
   const tieneAcceso = (templateId: string) =>
     misLicencias.some(l => l.templateId === templateId && l.estado === 'activada')
 
+  const yaTieneWorkspace = (templateSlug: string) => {
+    if (templateSlug === 'verisure-arg')  return workspaces.some(w => w.config?.moduloVerisure)
+    if (templateSlug === 'iphone-club')   return workspaces.some(w => w.config?.moduloBroadcast)
+    return false
+  }
+
   const handleActivar = async () => {
     if (!codigo.trim() || !user || !showActivar) return
     setActivando(true); setError('')
@@ -98,8 +104,10 @@ export default function LicenciasSection({ negocios }: Props) {
 
   if (loading || templates.length === 0) return null
 
-  const conAcceso = templates.filter(t => tieneAcceso(t.id))
+  const conAcceso = templates.filter(t => tieneAcceso(t.id) && !yaTieneWorkspace(t.slug))
   const sinAcceso = templates.filter(t => !tieneAcceso(t.id))
+  // No mostrar nada si todos los templates ya tienen workspace activo
+  if (conAcceso.length === 0 && sinAcceso.length === 0) return null
 
   return (
     <div className="space-y-2">
