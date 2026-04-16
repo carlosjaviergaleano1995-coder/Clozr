@@ -13,8 +13,6 @@ import type { Workspace, WorkspaceConfig, Negocio } from '@/types'
 import { ClozrLogo, ClozrIcon } from '@/components/ClozrLogo'
 import LicenciasSection from '@/components/LicenciasSection'
 
-const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
-
 const EMOJIS = ['📱','🔧','🛒','🛡️','⚡','💻','🎮','🏪','🏠','🎯','✂️','🍕','🚗','👗','📚']
 const COLORS = ['#E8001D','#2563eb','#7c3aed','#059669','#d97706','#0891b2','#db2777']
 
@@ -50,6 +48,7 @@ export default function DashboardPage() {
   const { workspaces, setWorkspaces } = useWorkspaceStore()
   const [negocios, setNegocios] = useState<Negocio[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [showNeg, setShowNeg] = useState(false)
   const [editNeg, setEditNeg] = useState<Negocio | null>(null)
@@ -73,6 +72,12 @@ export default function DashboardPage() {
       const [n, w] = await Promise.all([getNegocios(user.uid), getWorkspaces(user.uid)])
       setNegocios(n.sort((a, b) => a.nombre.localeCompare(b.nombre)))
       setWorkspaces(w)
+      // Verificar si es admin (silencioso — no importa si falla)
+      fetch('/api/admin/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid }),
+      }).then(r => { if (r.ok) setIsAdmin(true) }).catch(() => {})
     } finally { setLoading(false) }
   }
 
@@ -252,7 +257,7 @@ export default function DashboardPage() {
           <LicenciasSection />
 
           {/* Admin — solo visible para el dueño de Clozr */}
-          {user?.uid === ADMIN_UID && (
+          {isAdmin && (
             <button onClick={() => router.push('/admin')}
               className="flex items-center gap-2 w-full px-4 py-2.5 rounded-2xl"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

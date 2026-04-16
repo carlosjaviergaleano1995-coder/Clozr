@@ -14,9 +14,6 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
 
-// UID del admin — solo vos podés entrar
-const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
-
 const ESTADO_COLORS: Record<string, { color: string; bg: string; label: string }> = {
   disponible: { color: 'var(--amber)',       bg: 'var(--amber-bg)',  label: 'Sin activar' },
   activada:   { color: 'var(--green)',        bg: 'var(--green-bg)', label: 'Activada' },
@@ -39,12 +36,35 @@ export default function AdminPage() {
   const [cantGenerar, setCantGenerar] = useState(1)
   const [filtroEstado, setFiltroEstado] = useState<string>('todos')
 
+  const [autorizando, setAutorizando] = useState(true)
+  const [autorizado, setAutorizado] = useState(false)
+
   useEffect(() => {
     if (authLoading) return
     if (!user) { router.push('/auth'); return }
-    if (user.uid !== ADMIN_UID) { router.push('/dashboard'); return }
-    load()
+    verificarAdmin()
   }, [user, authLoading])
+
+  const verificarAdmin = async () => {
+    if (!user) return
+    try {
+      const res = await fetch('/api/admin/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: user.uid }),
+      })
+      if (res.ok) {
+        setAutorizado(true)
+        load()
+      } else {
+        router.push('/dashboard')
+      }
+    } catch {
+      router.push('/dashboard')
+    } finally {
+      setAutorizando(false)
+    }
+  }
 
   const load = async () => {
     try {
@@ -109,7 +129,7 @@ export default function AdminPage() {
     })
   }
 
-  if (authLoading || loading) return (
+  if (authLoading || autorizando || !autorizado) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <RefreshCw size={28} className="animate-spin" style={{ color: 'var(--brand)' }} />
     </div>
