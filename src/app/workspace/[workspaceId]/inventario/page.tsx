@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { Plus, Search, Pencil, Trash2, ChevronDown, Camera, X } from 'lucide-react'
 import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getConfigIPhoneClub, getDolarConfig } from '@/lib/services'
-import { useAuthStore } from '@/store'
+import { useAuthStore, useWorkspaceStore } from '@/store'
 import { CATEGORIAS, type Producto2, type CategoriaCodigo, type Condicion, type CamposSmartphone } from '@/types'
 import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
 
@@ -56,6 +56,11 @@ export default function InventarioPage() {
   const searchParams = useSearchParams()
   const workspaceId = params.workspaceId as string
   const { user } = useAuthStore()
+  const { workspaces } = useWorkspaceStore()
+  const ws = workspaces.find(w => w.id === workspaceId)
+  // Imágenes Apple solo disponibles si el workspace tiene módulo broadcast
+  // (indica que es un negocio de reventa Apple — iPhone Club, etc.)
+  const tieneImagenesApple = ws?.config?.moduloBroadcast === true
 
   // Si viene desde un turno de compra
   const fromTurno = searchParams.get('from') === 'turno'
@@ -149,22 +154,22 @@ export default function InventarioPage() {
       .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.marca.localeCompare(b.marca) || a.modelo.localeCompare(b.modelo))
   }, [productos, categoriaFiltro, condicionFiltro, search])
 
-  // Colores según modelo (solo para iPhones Apple)
+  // Colores según modelo — solo para iPhones Apple con módulo activado
   const coloresDisponibles = useMemo(() => {
-    if (form.marca === 'Apple' && form.categoria === 'smartphones') {
+    if (tieneImagenesApple && form.marca === 'Apple' && form.categoria === 'smartphones') {
       const cols = getColoresModelo(form.modelo)
       return cols.length > 0 ? cols : COLORES_COMUNES
     }
     return COLORES_COMUNES
-  }, [form.marca, form.modelo, form.categoria])
+  }, [form.marca, form.modelo, form.categoria, tieneImagenesApple])
 
-  // Modelos según marca/categoría
+  // Modelos según marca/categoría — selector iPhone solo si tiene módulo Apple
   const modelosDisponibles = useMemo(() => {
-    if (form.marca === 'Apple' && form.categoria === 'smartphones') {
+    if (tieneImagenesApple && form.marca === 'Apple' && form.categoria === 'smartphones') {
       return MODELOS_IPHONE.map(m => m.nombre)
     }
     return []
-  }, [form.marca, form.categoria])
+  }, [form.marca, form.categoria, tieneImagenesApple])
 
   const esSmartphoneUsado = form.categoria === 'smartphones' && form.condicion === 'usado'
   const esRepuesto = form.categoria === 'repuestos'
@@ -233,7 +238,7 @@ export default function InventarioPage() {
   const getCatInfo = (codigo: CategoriaCodigo) => CATEGORIAS.find(c => c.codigo === codigo)!
 
   const imgSrc = (p: Producto2) => {
-    if (p.marca === 'Apple' && p.categoria === 'smartphones') {
+    if (tieneImagenesApple && p.marca === 'Apple' && p.categoria === 'smartphones') {
       return getImagenModelo(p.modelo, p.color)
     }
     return null

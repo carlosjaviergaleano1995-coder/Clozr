@@ -1,4 +1,5 @@
 'use client'
+import { useModuloGuard } from '@/hooks/useModuloGuard'
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -26,6 +27,7 @@ const EMPTY: FormData = {
 }
 
 export default function RevendedoresPage() {
+  useModuloGuard('moduloRevendedores')
   const params = useParams()
   const workspaceId = params.workspaceId as string
   const { user } = useAuthStore()

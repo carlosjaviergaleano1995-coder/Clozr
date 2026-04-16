@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, TrendingUp } from 'lucide-react'
 import { getConfigVerisure, saveConfigVerisure } from '@/lib/services'
 import { CONFIG_VERISURE_DEFAULT, DEVICE_IMAGES } from '@/lib/verisure-defaults'
+import { useModuloGuard } from '@/hooks/useModuloGuard'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,6 +108,7 @@ function calcInstalacion(inst: Instalacion, config: ConfigVerisure, tipoVenta: T
 export default function VerisurePage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  useModuloGuard('moduloVerisure') // redirige si no tiene licencia
 
   const [config, setConfig] = useState<ConfigVerisure>(CONFIG_VERISURE_DEFAULT)
   const [loading, setLoading] = useState(true)

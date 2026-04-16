@@ -1,4 +1,5 @@
 'use client'
+import { useModuloGuard } from '@/hooks/useModuloGuard'
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -18,6 +19,7 @@ import type { StockIPhone, StockOtroApple, StockAccesorio, ConfigIPhoneClub, Dol
 type Seccion = 'usados' | 'nuevos' | 'otros' | 'accesorios'
 
 export default function BroadcastPage() {
+  useModuloGuard('moduloBroadcast')
   const params = useParams()
   const workspaceId = params.workspaceId as string
 
