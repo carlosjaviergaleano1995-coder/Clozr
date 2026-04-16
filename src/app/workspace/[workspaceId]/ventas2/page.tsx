@@ -14,6 +14,7 @@ import type {
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
+import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
 
 const FORMAS_PAGO: { id: FormaPago2; label: string; emoji: string }[] = [
   { id: 'efectivo_usd', label: 'Efectivo USD', emoji: '💵' },
@@ -25,9 +26,9 @@ const FORMAS_PAGO: { id: FormaPago2; label: string; emoji: string }[] = [
   { id: 'otro',         label: 'Otro',         emoji: '📋' },
 ]
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
-const fmtPrecio = (n: number, m: 'USD' | 'ARS') => m === 'USD' ? fmtUSD(n) : fmtARS(n)
+
+
+
 
 type ItemForm = {
   productoId: string
@@ -254,7 +255,7 @@ export default function VentasPage() {
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-sm font-bold" style={{ color: 'var(--green)' }}>
-                        {fmtPrecio(v.total, v.moneda)}
+                        {fmtMonto(v.total, v.moneda)}
                       </span>
                       <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                         {FORMAS_PAGO.find(f => f.id === v.formaPago)?.emoji} {FORMAS_PAGO.find(f => f.id === v.formaPago)?.label}
@@ -266,7 +267,7 @@ export default function VentasPage() {
                     <div className="mt-1 space-y-0.5">
                       {v.items.map((item, i) => (
                         <p key={i} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {item.cantidad}x {item.productoNombre} — {fmtPrecio(item.precioUnitario, item.moneda)}
+                          {item.cantidad}x {item.productoNombre} — {fmtMonto(item.precioUnitario, item.moneda)}
                           {item.fueraDeStock && <span style={{ color: 'var(--amber)' }}> ⚠️</span>}
                         </p>
                       ))}
@@ -349,7 +350,7 @@ export default function VentasPage() {
                               {p.color && ` ${p.color}`}
                             </p>
                             <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {fmtPrecio(p.precioUSD, p.moneda)} · {p.stock} u disponibles
+                              {fmtMonto(p.precioUSD, p.moneda)} · {p.stock} u disponibles
                             </p>
                           </div>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-2 flex-shrink-0"
@@ -432,7 +433,7 @@ export default function VentasPage() {
                       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                       <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
                       <span className="text-base font-bold" style={{ color: 'var(--green)' }}>
-                        {fmtPrecio(total, monedaMix)}
+                        {fmtMonto(total, monedaMix)}
                       </span>
                     </div>
                   </div>

@@ -11,9 +11,10 @@ import {
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
+
 
 function Card({ icon: Icon, label, value, color, sub }: {
   icon: any; label: string; value: string | number; color: string; sub?: string

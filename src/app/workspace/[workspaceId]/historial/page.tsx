@@ -12,6 +12,7 @@ import type { MovimientoStock, MovimientoTipo, Producto2 } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
+import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
 
 const TIPO_CONFIG: Record<MovimientoTipo, { label: string; icon: any; color: string; bg: string; signo: string }> = {
   entrada: { label: 'Entrada',  icon: ArrowDown,    color: 'var(--green)',       bg: 'var(--green-bg)',  signo: '+' },
@@ -21,7 +22,7 @@ const TIPO_CONFIG: Record<MovimientoTipo, { label: string; icon: any; color: str
 }
 
 const fmtPrecio = (n: number, m?: 'USD' | 'ARS') =>
-  m === 'ARS' ? `$${Math.round(n).toLocaleString('es-AR')}` : `U$S ${n}`
+  m === 'ARS' ? `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : `U$S ${n}`
 
 export default function HistorialPage() {
   const params = useParams()
@@ -164,7 +165,7 @@ export default function HistorialPage() {
                     </span>
                     {m.precioUnitario && (
                       <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        {fmtPrecio(m.precioUnitario, m.moneda)}
+                        {fmtMonto(m.precioUnitario ?? 0, (m.moneda ?? 'ARS') as 'USD' | 'ARS')}
                       </span>
                     )}
                     {m.nota && (

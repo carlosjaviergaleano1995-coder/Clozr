@@ -56,7 +56,7 @@ export default function PresupuestoPage() {
   }
 
   const fmt = (n: number, moneda = 'USD') =>
-    moneda === 'USD' ? `U$S ${n.toLocaleString('es-AR')}` : `$${Math.round(n).toLocaleString('es-AR')}`
+    moneda === 'USD' ? `U$S ${n.toLocaleString('es-AR')}` : `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
   const total = items.reduce((acc, item) => acc + getPrecio(item) * item.cantidad, 0)
   const monedaPredom = items[0]?.producto?.moneda ?? 'USD'

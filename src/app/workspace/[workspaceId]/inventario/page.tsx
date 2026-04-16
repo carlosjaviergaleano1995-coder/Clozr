@@ -7,6 +7,7 @@ import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getCo
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { CATEGORIAS, type Producto2, type CategoriaCodigo, type Condicion, type CamposSmartphone } from '@/types'
 import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
 const MARCAS_COMUNES: Record<CategoriaCodigo, string[]> = {
   smartphones:  ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Google'],
@@ -23,8 +24,8 @@ const MARCAS_COMUNES: Record<CategoriaCodigo, string[]> = {
 const STORAGES = ['32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB']
 const COLORES_COMUNES = ['BLACK', 'WHITE', 'SILVER', 'GOLD', 'BLUE', 'RED', 'PINK', 'GREEN', 'PURPLE', 'YELLOW']
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
+
 
 type FormData = {
   categoria: CategoriaCodigo

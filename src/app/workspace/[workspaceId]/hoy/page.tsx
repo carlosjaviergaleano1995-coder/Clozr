@@ -33,7 +33,7 @@ const MOTIVOS_VERISURE = [
   { id: 'otro',         label: 'Otro',             emoji: '📌' },
 ]
 
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
 const fmtUSD = (n: number) => `U$S ${n}`
 
 export default function HoyPage() {

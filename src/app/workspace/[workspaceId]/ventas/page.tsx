@@ -56,7 +56,7 @@ export default function VentasPage() {
   const totalMes = ventasMes.reduce((acc, v) => acc + v.total, 0)
 
   const fmt = (n: number, moneda = 'USD') =>
-    moneda === 'USD' ? `U$S ${n.toLocaleString('es-AR')}` : `$${Math.round(n).toLocaleString('es-AR')}`
+    moneda === 'USD' ? `U$S ${n.toLocaleString('es-AR')}` : `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
   const handleSave = async () => {
     if (!form.total || !user) return

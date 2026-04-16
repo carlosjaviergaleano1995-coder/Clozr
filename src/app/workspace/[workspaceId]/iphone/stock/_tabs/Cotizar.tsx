@@ -8,6 +8,7 @@ import {
 } from '@/lib/services'
 import { aplicarFormaPago } from '@/lib/iphone-broadcast'
 import type { StockIPhone, StockOtroApple, ConfigIPhoneClub, DolarConfig, FormaPagoIC } from '@/types'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
 type TipoCliente = 'mayorista' | 'revendedor' | 'final'
 
@@ -18,8 +19,7 @@ const FORMAS_PAGO: { id: FormaPagoIC | 'usd_efectivo'; label: string }[] = [
   { id: 'manchados',         label: '🟡 Manchados' },
 ]
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR', { maximumFractionDigits: 1 })}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
 
 export default function Cotizar({ workspaceId }: { workspaceId: string }) {
 

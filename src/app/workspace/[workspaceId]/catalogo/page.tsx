@@ -6,6 +6,7 @@ import { Plus, Search, Package, MoreVertical, Copy } from 'lucide-react'
 import { getProductos, createProducto, updateProducto, deleteProducto } from '@/lib/services'
 import { useWorkspaceStore, useAuthStore } from '@/store'
 import type { Producto, ProductoCondicion } from '@/types'
+import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
 
 const CONDICION_LABELS: Record<ProductoCondicion, string> = {
   nuevo: '🆕 Nuevo',
@@ -121,13 +122,13 @@ export default function CatalogoPage() {
     if (nuevos.length) {
       msg += '*🆕 NUEVOS*\n'
       nuevos.forEach(p => {
-        msg += `▸ ${p.nombre}${p.storage ? ' ' + p.storage : ''}${p.color ? ' ' + p.color : ''} → ${fmtPrecio(p.precioFinal, p.moneda)}\n`
+        msg += `▸ ${p.nombre}${p.storage ? ' ' + p.storage : ''}${p.color ? ' ' + p.color : ''} → ${fmtMonto(p.precioFinal ?? 0, (p.moneda ?? "ARS") as "USD" | "ARS")}\n`
       })
     }
     if (usados.length) {
       msg += '\n*🔄 USADOS*\n'
       usados.forEach(p => {
-        msg += `▸ ${p.nombre}${p.storage ? ' ' + p.storage : ''}${p.bateria ? ' ' + p.bateria + '%' : ''}${p.color ? ' ' + p.color : ''} → ${fmtPrecio(p.precioFinal, p.moneda)}\n`
+        msg += `▸ ${p.nombre}${p.storage ? ' ' + p.storage : ''}${p.bateria ? ' ' + p.bateria + '%' : ''}${p.color ? ' ' + p.color : ''} → ${fmtMonto(p.precioFinal ?? 0, (p.moneda ?? "ARS") as "USD" | "ARS")}\n`
       })
     }
     navigator.clipboard.writeText(msg)
@@ -199,8 +200,8 @@ export default function CatalogoPage() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-[var(--text-primary)] text-sm">{fmtPrecio(p.precioFinal, p.moneda)}</p>
-                    {p.precioRevendedor ? <p className="text-xs text-[var(--text-tertiary)]">Rev: {fmtPrecio(p.precioRevendedor, p.moneda)}</p> : null}
+                    <p className="font-bold text-[var(--text-primary)] text-sm">{fmtMonto(p.precioFinal ?? 0, (p.moneda ?? "ARS") as "USD" | "ARS")}</p>
+                    {p.precioRevendedor ? <p className="text-xs text-[var(--text-tertiary)]">Rev: {fmtMonto(p.precioRevendedor, p.moneda)}</p> : null}
                   </div>
                 </div>
               </div>

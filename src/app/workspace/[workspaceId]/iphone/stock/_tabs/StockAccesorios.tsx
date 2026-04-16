@@ -8,6 +8,7 @@ import {
 } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import type { StockAccesorio, PrecioVolumen } from '@/types'
+import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
 
 // ── Categorías disponibles ────────────────────────────────────────────────────
 const CATEGORIAS = [
@@ -306,7 +307,7 @@ export default function StockAccesorios({ workspaceId }: { workspaceId: string }
                         {item.preciosVolumen.map((pv, i) => (
                           <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
                             style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
-                            x{pv.cantidad} {fmtPrecio(pv.precio, item.moneda)}
+                            x{pv.cantidad} {fmtMonto(pv.precio, item.moneda)}
                           </span>
                         ))}
                       </div>

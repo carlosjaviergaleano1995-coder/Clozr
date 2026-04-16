@@ -10,6 +10,7 @@ import {
 import { getDolarConfig } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import type { StockOtroApple, DolarConfig } from '@/types'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
 const TIPOS = [
   { id: 'watch',   label: '⌚️ Apple Watch' },
@@ -30,8 +31,8 @@ const EMPTY = {
   disponible: true,
 }
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
+
 
 export default function OtrosApplePage() {
   const params = useParams()

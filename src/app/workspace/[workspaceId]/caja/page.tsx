@@ -12,6 +12,7 @@ import type { CajaDia, MovimientoCaja, MovCajaTipo, MonedaCaja } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
+import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
 
 const TIPOS_MOV: { id: MovCajaTipo; label: string; emoji: string; esIngreso: boolean }[] = [
   { id: 'venta',     label: 'Venta',       emoji: '🛒', esIngreso: true  },
@@ -23,9 +24,7 @@ const TIPOS_MOV: { id: MovCajaTipo; label: string; emoji: string; esIngreso: boo
   { id: 'ajuste',    label: 'Ajuste',      emoji: '⚙️', esIngreso: true  },
 ]
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
-const fmtMonto = (n: number, m: MonedaCaja) => m === 'USD' ? fmtUSD(n) : fmtARS(n)
+
 
 export default function CajaPage() {
   const params = useParams()

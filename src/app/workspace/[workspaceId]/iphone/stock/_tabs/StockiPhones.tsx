@@ -9,12 +9,12 @@ import {
 import { useAuthStore } from '@/store'
 import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
 import type { StockIPhone, AppleCondicion, ConfigIPhoneClub, DolarConfig } from '@/types'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
 const STORAGES = ['64GB','128GB','256GB','512GB','1TB']
 const NOMBRES_MODELOS = MODELOS_IPHONE.map(m => m.nombre)
 
-const fmtUSD = (n: number) => `U$S ${n}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
 
 type Tab = 'usados' | 'nuevos'
 type FormData = Omit<StockIPhone,'id'|'workspaceId'|'createdAt'|'updatedAt'|'activo'>

@@ -12,6 +12,7 @@ import type { Cliente, ClienteTipo, ClienteEstado, Venta2, UbicacionCliente, Pla
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
 const TIPOS: { id: ClienteTipo; label: string; color: string; bg: string }[] = [
   { id: 'final',      label: 'Final',      color: 'var(--blue)',   bg: 'var(--blue-bg)'   },
@@ -33,8 +34,8 @@ const ESTADOS: { id: ClienteEstado; emoji: string; label: string; color: string 
   { id: 'perdido',   emoji: '❌', label: 'Perdido',   color: 'var(--text-tertiary)' },
 ]
 
-const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
-const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
+
+
 
 type FormData = { nombre: string; telefono: string; email: string; tipo: ClienteTipo; estado: ClienteEstado; notas: string; direccion: string; dni: string; barrio: string; referido: string }
 const EMPTY: FormData = { nombre: '', telefono: '', email: '', tipo: 'final', estado: 'potencial', notas: '', direccion: '', dni: '', barrio: '', referido: '' }
