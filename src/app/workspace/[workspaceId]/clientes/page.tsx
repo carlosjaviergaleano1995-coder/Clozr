@@ -1,106 +1,92 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Search, MessageCircle, MoreVertical, User, Pencil, Trash2 } from 'lucide-react'
-import { getClientes, createCliente, updateCliente, deleteCliente, getWorkspaces } from '@/lib/services'
+import { Plus, Search, MessageCircle, Pencil, Trash2, ChevronRight, X, Phone, History, DollarSign } from 'lucide-react'
+import {
+  getClientes, createCliente, updateCliente, deleteCliente,
+  getVentas2, getMovimientosCaja, agregarMovimientoCaja,
+} from '@/lib/services'
 import { useAuthStore, useWorkspaceStore } from '@/store'
-import type { Cliente, ClienteTipo, ClienteEstado } from '@/types'
+import type { Cliente, ClienteTipo, ClienteEstado, Venta2, MovimientoCaja } from '@/types'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { toDate } from '@/lib/services'
 
-// ── Configs por tipo de workspace ────────────────────────────────────────────
-
-// Servicios (Verisure): solo RP y RE
-const TIPOS_SERVICIOS: { id: ClienteTipo; label: string; color: string; bg: string; descripcion: string }[] = [
-  { id: 'final',      label: 'RP',    color: 'var(--brand-light)', bg: 'rgba(232,0,29,0.12)', descripcion: 'Recurso Propio — cliente conseguido por vos' },
-  { id: 'empresa',    label: 'RE',    color: 'var(--blue)',        bg: 'var(--blue-bg)',       descripcion: 'Recurso Empresa — cliente asignado por la empresa' },
+const TIPOS: { id: ClienteTipo; label: string; color: string; bg: string }[] = [
+  { id: 'final',      label: 'Final',      color: 'var(--blue)',   bg: 'var(--blue-bg)'   },
+  { id: 'revendedor', label: 'Revendedor', color: 'var(--green)',  bg: 'var(--green-bg)'  },
+  { id: 'mayorista',  label: 'Mayorista',  color: 'var(--amber)',  bg: 'var(--amber-bg)'  },
+  { id: 'empresa',    label: 'Empresa',    color: '#a855f7',       bg: 'rgba(168,85,247,0.12)' },
 ]
 
-// Productos (iPhone Club): final, revendedor, mayorista
-const TIPOS_PRODUCTOS: { id: ClienteTipo; label: string; color: string; bg: string }[] = [
-  { id: 'final',      label: 'Final',      color: 'var(--blue)',        bg: 'var(--blue-bg)' },
-  { id: 'revendedor', label: 'Revendedor', color: 'var(--green)',       bg: 'var(--green-bg)' },
-  { id: 'mayorista',  label: 'Mayorista',  color: 'var(--amber)',       bg: 'var(--amber-bg)' },
+// Para Verisure: RP / RE
+const TIPOS_VERISURE: { id: ClienteTipo; label: string; color: string; bg: string; desc: string }[] = [
+  { id: 'final',   label: 'RP', color: 'var(--brand-light)', bg: 'var(--red-bg)',  desc: 'Recurso Propio' },
+  { id: 'empresa', label: 'RE', color: 'var(--blue)',        bg: 'var(--blue-bg)', desc: 'Recurso Empresa' },
 ]
 
-const ESTADO_CONFIG: Record<ClienteEstado, { label: string; emoji: string; color: string }> = {
-  activo:    { label: 'Activo',    emoji: '🟢', color: 'var(--green)' },
-  potencial: { label: 'Potencial', emoji: '⭐', color: 'var(--blue)' },
-  dormido:   { label: 'Dormido',   emoji: '💤', color: 'var(--amber)' },
-  perdido:   { label: 'Perdido',   emoji: '❌', color: 'var(--text-tertiary)' },
-}
+const ESTADOS: { id: ClienteEstado; emoji: string; label: string; color: string }[] = [
+  { id: 'activo',    emoji: '🟢', label: 'Activo',    color: 'var(--green)' },
+  { id: 'potencial', emoji: '⭐', label: 'Potencial', color: 'var(--blue)'  },
+  { id: 'dormido',   emoji: '💤', label: 'Dormido',   color: 'var(--amber)' },
+  { id: 'perdido',   emoji: '❌', label: 'Perdido',   color: 'var(--text-tertiary)' },
+]
 
-type FormData = Omit<Cliente, 'id' | 'createdAt' | 'updatedAt' | 'workspaceId' | 'creadoPor'>
+const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
+const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
 
-const EMPTY: FormData = {
-  nombre: '', telefono: '', email: '', direccion: '',
-  tipo: 'final', estado: 'potencial', notas: '',
-}
+type FormData = { nombre: string; telefono: string; email: string; tipo: ClienteTipo; estado: ClienteEstado; notas: string }
+const EMPTY: FormData = { nombre: '', telefono: '', email: '', tipo: 'final', estado: 'potencial', notas: '' }
 
 export default function ClientesPage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
   const { user } = useAuthStore()
   const { workspaces } = useWorkspaceStore()
-
   const ws = workspaces.find(w => w.id === workspaceId)
-  const esServicios = ws?.tipo === 'servicios'
-
-  const tiposDisponibles = esServicios ? TIPOS_SERVICIOS : TIPOS_PRODUCTOS
+  const esVerisure = ws?.config?.moduloVerisure === true
+  const tiposDisponibles = esVerisure ? TIPOS_VERISURE : TIPOS
 
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [ventas, setVentas] = useState<Venta2[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [filterTipo, setFilterTipo] = useState<ClienteTipo | 'todos'>('todos')
-  const [filterEstado, setFilterEstado] = useState<ClienteEstado | 'todos'>('todos')
+  const [filtroTipo, setFiltroTipo] = useState<ClienteTipo | 'todos'>('todos')
   const [showForm, setShowForm] = useState(false)
   const [editando, setEditando] = useState<Cliente | null>(null)
   const [form, setForm] = useState<FormData>({ ...EMPTY })
   const [saving, setSaving] = useState(false)
-  const [menuId, setMenuId] = useState<string | null>(null)
+  const [detalle, setDetalle] = useState<Cliente | null>(null)
+  // Seña rápida
+  const [showSena, setShowSena] = useState(false)
+  const [senaCliente, setSenaCliente] = useState<Cliente | null>(null)
+  const [senaDesc, setSenaDesc] = useState('')
+  const [senaMonto, setSenaMonto] = useState(0)
+  const [senaMoneda, setSenaMoneda] = useState<'USD' | 'ARS'>('USD')
 
   useEffect(() => { load() }, [workspaceId])
 
   const load = async () => {
     try {
-      const data = await getClientes(workspaceId)
-      setClientes(data)
+      const [c, v] = await Promise.all([getClientes(workspaceId), getVentas2(workspaceId)])
+      setClientes(c)
+      setVentas(v)
     } finally { setLoading(false) }
   }
 
-  const filtered = clientes.filter(c => {
-    const matchSearch = !search ||
-      c.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      c.telefono?.includes(search) ||
-      c.email?.toLowerCase().includes(search.toLowerCase())
-    const matchTipo   = filterTipo === 'todos' || c.tipo === filterTipo
-    const matchEstado = filterEstado === 'todos' || c.estado === filterEstado
-    return matchSearch && matchTipo && matchEstado
-  }).sort((a, b) => {
-    // Activos primero, luego potenciales, dormidos, perdidos
-    const orden = { activo: 0, potencial: 1, dormido: 2, perdido: 3 }
-    return (orden[a.estado] ?? 9) - (orden[b.estado] ?? 9)
-  })
+  const filtered = useMemo(() => clientes
+    .filter(c => filtroTipo === 'todos' || c.tipo === filtroTipo)
+    .filter(c => !search || `${c.nombre} ${c.telefono ?? ''} ${c.email ?? ''}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const ord: Record<ClienteEstado, number> = { activo: 0, potencial: 1, dormido: 2, perdido: 3 }
+      return (ord[a.estado] ?? 9) - (ord[b.estado] ?? 9) || a.nombre.localeCompare(b.nombre)
+    }),
+  [clientes, filtroTipo, search])
 
-  const openNew = () => {
-    setEditando(null)
-    setForm({ ...EMPTY, tipo: tiposDisponibles[0].id })
-    setShowForm(true)
-  }
-
-  const openEdit = (c: Cliente) => {
-    setEditando(c)
-    setForm({
-      nombre:    c.nombre,
-      telefono:  c.telefono   ?? '',
-      email:     c.email      ?? '',
-      direccion: c.direccion  ?? '',
-      tipo:      c.tipo,
-      estado:    c.estado,
-      notas:     c.notas      ?? '',
-    })
-    setShowForm(true)
-    setMenuId(null)
-  }
+  const ventasDeCliente = (nombre: string) =>
+    ventas.filter(v => v.clienteNombre?.toLowerCase() === nombre.toLowerCase())
+      .sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())
 
   const handleSave = async () => {
     if (!form.nombre.trim() || !user) return
@@ -109,12 +95,10 @@ export default function ClientesPage() {
       if (editando) {
         await updateCliente(workspaceId, editando.id, form)
         setClientes(prev => prev.map(c => c.id === editando.id ? { ...c, ...form } : c))
+        if (detalle?.id === editando.id) setDetalle(d => d ? { ...d, ...form } : d)
       } else {
         const id = await createCliente(workspaceId, { ...form, workspaceId, creadoPor: user.uid })
-        setClientes(prev => [...prev, {
-          id, ...form, workspaceId, creadoPor: user.uid,
-          createdAt: new Date(), updatedAt: new Date(),
-        }])
+        setClientes(prev => [...prev, { id, ...form, workspaceId, creadoPor: user.uid, createdAt: new Date(), updatedAt: new Date() }])
       }
       setShowForm(false)
     } finally { setSaving(false) }
@@ -124,196 +108,349 @@ export default function ClientesPage() {
     if (!confirm('¿Eliminar este cliente?')) return
     await deleteCliente(workspaceId, id)
     setClientes(prev => prev.filter(c => c.id !== id))
-    setMenuId(null)
+    setDetalle(null)
   }
 
-  const handleEstado = async (c: Cliente, estado: ClienteEstado) => {
-    await updateCliente(workspaceId, c.id, { estado, ultimoContacto: new Date() })
+  const cambiarEstado = async (c: Cliente, estado: ClienteEstado) => {
+    await updateCliente(workspaceId, c.id, { estado })
     setClientes(prev => prev.map(x => x.id === c.id ? { ...x, estado } : x))
-    setMenuId(null)
+    if (detalle?.id === c.id) setDetalle(d => d ? { ...d, estado } : d)
   }
 
-  const tipoInfo = (tipo: ClienteTipo) =>
-    tiposDisponibles.find(t => t.id === tipo) ?? { label: tipo, color: 'var(--text-tertiary)', bg: 'var(--surface-2)' }
+  const handleSena = async () => {
+    if (!senaCliente || !senaDesc || !senaMonto || !user) return
+    setSaving(true)
+    try {
+      await agregarMovimientoCaja(workspaceId, {
+        workspaceId,
+        tipo: 'seña',
+        descripcion: `Seña — ${senaCliente.nombre}: ${senaDesc}`,
+        monto: senaMonto,
+        moneda: senaMoneda,
+        esIngreso: true,
+        creadoPor: user.uid,
+      })
+      setShowSena(false)
+      setSenaDesc(''); setSenaMonto(0)
+    } finally { setSaving(false) }
+  }
+
+  const abrirNuevo = () => {
+    setEditando(null)
+    setForm({ ...EMPTY, tipo: tiposDisponibles[0].id as ClienteTipo })
+    setShowForm(true)
+  }
+
+  const abrirEditar = (c: Cliente) => {
+    setEditando(c)
+    setForm({ nombre: c.nombre, telefono: c.telefono ?? '', email: c.email ?? '', tipo: c.tipo, estado: c.estado, notas: c.notas ?? '' })
+    setShowForm(true)
+  }
 
   if (loading) return (
-    <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
+    <div className="space-y-2 mt-2">
+      {[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
     </div>
   )
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in pb-4">
 
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Clientes</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {clientes.length} en total
-            {esServicios && (
-              <> · {clientes.filter(c => c.tipo === 'final').length} RP · {clientes.filter(c => c.tipo === 'empresa').length} RE</>
-            )}
+            {clientes.filter(c => c.estado === 'activo').length} activos · {clientes.length} total
           </p>
         </div>
-        <button onClick={openNew} className="btn-primary gap-1">
-          <Plus size={16} /> Nuevo
+        <button onClick={abrirNuevo} className="btn-primary gap-1 text-sm">
+          <Plus size={15} /> Agregar
         </button>
       </div>
 
-      {/* Buscador */}
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-        <input className="input pl-9 text-sm" placeholder="Buscar nombre, teléfono..."
-          value={search} onChange={e => setSearch(e.target.value)} />
-      </div>
-
-      {/* Filtros */}
+      {/* Filtros tipo */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
-        <button onClick={() => setFilterTipo('todos')}
+        <button onClick={() => setFiltroTipo('todos')}
           className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-          style={filterTipo === 'todos'
+          style={filtroTipo === 'todos'
             ? { background: 'var(--brand)', color: '#fff' }
             : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-          Todos
+          Todos ({clientes.length})
         </button>
-        {tiposDisponibles.map(t => (
-          <button key={t.id} onClick={() => setFilterTipo(t.id)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-            style={filterTipo === t.id
-              ? { background: t.color, color: '#fff' }
-              : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-            {t.label}
-          </button>
-        ))}
-        <div className="w-px mx-0.5" style={{ background: 'var(--border)' }} />
-        {(Object.keys(ESTADO_CONFIG) as ClienteEstado[]).map(e => (
-          <button key={e} onClick={() => setFilterEstado(filterEstado === e ? 'todos' : e)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-            style={filterEstado === e
-              ? { background: 'var(--surface-3)', color: 'var(--text-primary)', border: `1px solid ${ESTADO_CONFIG[e].color}` }
-              : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-            {ESTADO_CONFIG[e].emoji} {ESTADO_CONFIG[e].label}
-          </button>
-        ))}
+        {tiposDisponibles.map(t => {
+          const count = clientes.filter(c => c.tipo === t.id).length
+          return (
+            <button key={t.id} onClick={() => setFiltroTipo(t.id)}
+              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+              style={filtroTipo === t.id
+                ? { background: 'var(--brand)', color: '#fff' }
+                : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+              {t.label} ({count})
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Búsqueda */}
+      <div className="relative">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
+        <input className="input pl-8 text-sm" placeholder="Buscar por nombre, teléfono..."
+          value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {/* Lista */}
       {filtered.length === 0 ? (
         <div className="text-center py-12">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
-            style={{ background: 'var(--surface-2)' }}>
-            <User size={22} style={{ color: 'var(--text-tertiary)' }} />
-          </div>
           <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            {search ? 'Sin resultados' : 'Todavía no hay clientes'}
+            {clientes.length === 0 ? 'Sin clientes todavía' : 'Sin resultados'}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            {search ? 'Probá con otro término' : 'Tocá + Nuevo para agregar el primero'}
+            {clientes.length === 0 ? 'Tocá + Agregar para cargar el primero' : 'Probá otro filtro'}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map(c => {
-            const tInfo = tipoInfo(c.tipo)
-            const eInfo = ESTADO_CONFIG[c.estado]
+            const tipo = tiposDisponibles.find(t => t.id === c.tipo)
+            const estado = ESTADOS.find(e => e.id === c.estado)
+            const vsCliente = ventasDeCliente(c.nombre)
             return (
-              <div key={c.id} className="px-3 py-3 rounded-xl relative"
+              <button key={c.id} onClick={() => setDetalle(c)}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
-                    style={{ background: tInfo.bg, color: tInfo.color }}>
-                    {c.nombre.charAt(0).toUpperCase()}
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-base font-bold"
+                  style={{ background: (tipo?.bg ?? 'var(--surface-2)'), color: (tipo?.color ?? 'var(--text-secondary)') }}>
+                  {c.nombre.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{c.nombre}</span>
+                    {tipo && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                        style={{ background: tipo.bg, color: tipo.color }}>
+                        {tipo.label}
+                      </span>
+                    )}
+                    <span className="text-[10px]">{estado?.emoji}</span>
                   </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                        {c.nombre}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {c.telefono && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{c.telefono}</span>}
+                    {vsCliente.length > 0 && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                        · {vsCliente.length} compra{vsCliente.length > 1 ? 's' : ''}
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                        style={{ background: tInfo.bg, color: tInfo.color }}>
-                        {tInfo.label}
-                      </span>
-                      <span className="text-[10px]" style={{ color: eInfo.color }}>
-                        {eInfo.emoji} {eInfo.label}
-                      </span>
-                    </div>
-                    {c.telefono && (
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{c.telefono}</p>
                     )}
-                    {c.direccion && (
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>📍 {c.direccion}</p>
-                    )}
-                    {c.notas && (
-                      <p className="text-xs mt-1 italic" style={{ color: 'var(--text-tertiary)' }}>{c.notas}</p>
-                    )}
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {c.telefono && (
-                      <a href={`https://wa.me/54${c.telefono.replace(/\D/g,'')}`} target="_blank"
-                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
-                        <MessageCircle size={14} />
-                      </a>
-                    )}
-                    <button onClick={() => openEdit(c)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                      <Pencil size={13} />
-                    </button>
-                    <div className="relative">
-                      <button onClick={() => setMenuId(menuId === c.id ? null : c.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                        <MoreVertical size={13} />
-                      </button>
-                      {menuId === c.id && (
-                        <div className="absolute right-0 top-full mt-1 w-44 rounded-xl shadow-lg z-50 overflow-hidden animate-scale-in"
-                          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide"
-                            style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                            Cambiar estado
-                          </div>
-                          {(Object.keys(ESTADO_CONFIG) as ClienteEstado[]).map(est => (
-                            <button key={est} onClick={() => handleEstado(c, est)}
-                              className="w-full text-left px-4 py-2.5 text-sm transition-colors"
-                              style={{
-                                color: c.estado === est ? ESTADO_CONFIG[est].color : 'var(--text-primary)',
-                                fontWeight: c.estado === est ? 600 : 400,
-                                background: 'transparent',
-                              }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                              {ESTADO_CONFIG[est].emoji} {ESTADO_CONFIG[est].label}
-                            </button>
-                          ))}
-                          <div style={{ borderTop: '1px solid var(--border)' }} />
-                          <button onClick={() => handleDelete(c.id)}
-                            className="w-full text-left px-4 py-2.5 text-sm transition-colors"
-                            style={{ color: 'var(--brand-light)' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--red-bg)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                            🗑 Eliminar
-                          </button>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
-              </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {c.telefono && (
+                    <a href={`https://wa.me/54${c.telefono.replace(/\D/g,'')}`} target="_blank"
+                      onClick={e => e.stopPropagation()}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center"
+                      style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
+                      <MessageCircle size={14} />
+                    </a>
+                  )}
+                  <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
+                </div>
+              </button>
             )
           })}
         </div>
       )}
 
-      {menuId && <div className="fixed inset-0 z-40" onClick={() => setMenuId(null)} />}
+      {/* ── Detalle cliente ────────────────────────────────────────────────── */}
+      {detalle && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setDetalle(null)}>
+          <div className="w-full max-w-md rounded-2xl animate-slide-up max-h-[92vh] overflow-y-auto"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
 
-      {/* Modal formulario */}
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold"
+                    style={{ background: (tiposDisponibles.find(t => t.id === detalle.tipo)?.bg ?? 'var(--surface-2)') }}>
+                    {detalle.nombre.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>{detalle.nombre}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      {tiposDisponibles.find(t => t.id === detalle.tipo) && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{ background: tiposDisponibles.find(t => t.id === detalle.tipo)!.bg, color: tiposDisponibles.find(t => t.id === detalle.tipo)!.color }}>
+                          {tiposDisponibles.find(t => t.id === detalle.tipo)!.label}
+                        </span>
+                      )}
+                      <span className="text-[10px]">{ESTADOS.find(e => e.id === detalle.estado)?.emoji} {ESTADOS.find(e => e.id === detalle.estado)?.label}</span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setDetalle(null)} className="btn-icon">✕</button>
+              </div>
+
+              {/* Acciones rápidas */}
+              <div className="flex gap-2 mt-3">
+                {detalle.telefono && (
+                  <a href={`https://wa.me/54${detalle.telefono.replace(/\D/g,'')}`} target="_blank"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green)' }}>
+                    <MessageCircle size={15} /> WhatsApp
+                  </a>
+                )}
+                <button onClick={() => { setSenaCliente(detalle); setSenaDesc(''); setSenaMonto(0); setShowSena(true) }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
+                  <DollarSign size={15} /> Seña
+                </button>
+                <button onClick={() => { abrirEditar(detalle); setDetalle(null) }}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                  <Pencil size={15} />
+                </button>
+                <button onClick={() => handleDelete(detalle.id)}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl"
+                  style={{ background: 'var(--red-bg)', color: 'var(--brand-light)' }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)' }} />
+
+            {/* Info */}
+            <div className="px-5 py-3 space-y-2">
+              {detalle.telefono && (
+                <div className="flex items-center gap-2">
+                  <Phone size={13} style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.telefono}</span>
+                </div>
+              )}
+              {detalle.email && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Email:</span>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.email}</span>
+                </div>
+              )}
+              {detalle.notas && (
+                <p className="text-xs italic px-1" style={{ color: 'var(--text-tertiary)' }}>{detalle.notas}</p>
+              )}
+            </div>
+
+            {/* Cambiar estado */}
+            <div className="px-5 pb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>Estado</p>
+              <div className="flex gap-1.5 flex-wrap">
+                {ESTADOS.map(e => (
+                  <button key={e.id} onClick={() => cambiarEstado(detalle, e.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
+                    style={detalle.estado === e.id
+                      ? { background: 'var(--brand)', color: '#fff' }
+                      : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                    {e.emoji} {e.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)' }} />
+
+            {/* Historial de compras */}
+            <div className="px-5 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                Historial de compras
+              </p>
+              {ventasDeCliente(detalle.nombre).length === 0 ? (
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
+              ) : (
+                <div className="space-y-2">
+                  {ventasDeCliente(detalle.nombre).slice(0, 8).map(v => (
+                    <div key={v.id} className="px-3 py-2 rounded-xl"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono" style={{ color: 'var(--brand-light)' }}>{v.codigo}</span>
+                        <span className="text-xs font-bold" style={{ color: 'var(--green)' }}>
+                          {v.moneda === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                        {format(toDate(v.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
+                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        {v.items.map((item, i) => (
+                          <p key={i} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                            {item.cantidad}× {item.productoNombre}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal seña ─────────────────────────────────────────────────────── */}
+      {showSena && senaCliente && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowSena(false)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Registrar seña</h3>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{senaCliente.nombre}</p>
+              </div>
+              <button onClick={() => setShowSena(false)} className="btn-icon">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="label">Descripción</label>
+                <input className="input text-sm" placeholder="Ej: Seña iPhone 16 Pro Black"
+                  value={senaDesc} onChange={e => setSenaDesc(e.target.value)} autoFocus />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="label">Monto</label>
+                  <input type="number" className="input text-sm" placeholder="0"
+                    value={senaMonto || ''} onChange={e => setSenaMonto(Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="label">Moneda</label>
+                  <div className="flex gap-1.5 h-[42px] items-center">
+                    {(['USD', 'ARS'] as const).map(m => (
+                      <button key={m} onClick={() => setSenaMoneda(m)}
+                        className="px-3 h-full rounded-xl text-sm font-bold transition-all"
+                        style={senaMoneda === m
+                          ? { background: 'var(--brand)', color: '#fff' }
+                          : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={handleSena} disabled={!senaDesc || !senaMonto || saving} className="btn-primary flex-1">
+                {saving ? 'Guardando...' : 'Registrar seña'}
+              </button>
+              <button onClick={() => setShowSena(false)} className="btn-secondary">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal nuevo/editar cliente ─────────────────────────────────────── */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
@@ -321,92 +458,64 @@ export default function ClientesPage() {
           <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up max-h-[90vh] overflow-y-auto"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             onClick={e => e.stopPropagation()}>
-
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {editando ? 'Editar cliente' : 'Nuevo cliente'}
               </h3>
               <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
             </div>
-
             <div className="space-y-3">
-              {/* Nombre */}
               <div>
                 <label className="label">Nombre *</label>
-                <input className="input text-sm" placeholder="Juan Pérez"
-                  value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                  autoFocus />
+                <input className="input text-sm" placeholder="Nombre completo"
+                  value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
               </div>
-
-              {/* Tipo — botones visuales */}
-              <div>
-                <label className="label">{esServicios ? 'Origen' : 'Tipo'}</label>
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${tiposDisponibles.length}, 1fr)` }}>
-                  {tiposDisponibles.map(t => (
-                    <button key={t.id} onClick={() => setForm(f => ({ ...f, tipo: t.id }))}
-                      className="py-2.5 rounded-xl text-sm font-bold transition-all"
-                      style={form.tipo === t.id
-                        ? { background: t.color, color: '#fff', border: `1.5px solid ${t.color}` }
-                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1.5px solid var(--border)' }}>
-                      {t.label}
-                      {'descripcion' in t && form.tipo === t.id && (
-                        <span className="block text-[9px] font-normal opacity-80 mt-0.5 leading-tight">
-                          {(t as any).descripcion}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">Teléfono</label>
+                  <input className="input text-sm" placeholder="221..."
+                    value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
                 </div>
-              </div>
-
-              {/* Estado */}
-              <div>
-                <label className="label">Estado</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(Object.keys(ESTADO_CONFIG) as ClienteEstado[]).map(e => (
-                    <button key={e} onClick={() => setForm(f => ({ ...f, estado: e }))}
-                      className="py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={form.estado === e
-                        ? { background: 'var(--surface-3)', color: ESTADO_CONFIG[e].color, border: `1px solid ${ESTADO_CONFIG[e].color}` }
-                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                      {ESTADO_CONFIG[e].emoji} {ESTADO_CONFIG[e].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Teléfono */}
-              <div>
-                <label className="label">Teléfono</label>
-                <input className="input text-sm" type="tel" placeholder="221 4445-2967"
-                  value={form.telefono ?? ''} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
-              </div>
-
-              {/* Dirección */}
-              <div>
-                <label className="label">Dirección</label>
-                <input className="input text-sm" placeholder="Calle 123, La Plata"
-                  value={form.direccion ?? ''} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
-              </div>
-
-              {/* Email (solo productos/mixto) */}
-              {!esServicios && (
                 <div>
                   <label className="label">Email</label>
-                  <input className="input text-sm" type="email" placeholder="juan@ejemplo.com"
-                    value={form.email ?? ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                  <input className="input text-sm" placeholder="email@..."
+                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
-              )}
-
-              {/* Notas */}
+              </div>
+              <div>
+                <label className="label">Tipo</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {tiposDisponibles.map(t => (
+                    <button key={t.id} onClick={() => setForm(f => ({ ...f, tipo: t.id as ClienteTipo }))}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                      style={form.tipo === t.id
+                        ? { background: 'var(--brand)', color: '#fff' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">Estado</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {ESTADOS.map(e => (
+                    <button key={e.id} onClick={() => setForm(f => ({ ...f, estado: e.id }))}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                      style={form.estado === e.id
+                        ? { background: 'var(--brand)', color: '#fff' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      {e.emoji} {e.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="label">Notas</label>
-                <textarea className="input text-sm resize-none" rows={3}
-                  placeholder={esServicios ? 'Observaciones, objeciones, seguimiento...' : 'Info adicional...'}
-                  value={form.notas ?? ''} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
+                <textarea className="input text-sm resize-none" rows={2} placeholder="Observaciones..."
+                  value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
               </div>
             </div>
-
             <div className="flex gap-2 mt-4">
               <button onClick={handleSave} disabled={!form.nombre.trim() || saving} className="btn-primary flex-1">
                 {saving ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar cliente'}
