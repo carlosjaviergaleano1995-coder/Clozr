@@ -617,3 +617,92 @@ export const updateNegocio = async (id: string, data: Partial<Negocio>) => {
 export const deleteNegocio = async (id: string) => {
   await deleteDoc(doc(db, 'negocios', id))
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// TEMPLATES Y LICENCIAS
+// ════════════════════════════════════════════════════════════════════════════
+import type { Template, Licencia, LicenciaEstado } from '@/types'
+
+// ── Templates ──────────────────────────────────────────────────────────────
+export const getTemplates = async (): Promise<Template[]> => {
+  const snap = await getDocs(collection(db, 'templates'))
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Template))
+    .filter(t => t.activo)
+}
+
+export const createTemplate = async (data: Omit<Template, 'id'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'templates'), cleanForFirestore(data))
+  return ref.id
+}
+
+export const updateTemplate = async (id: string, data: Partial<Template>) => {
+  await updateDoc(doc(db, 'templates', id), cleanForFirestore(data))
+}
+
+// ── Licencias ──────────────────────────────────────────────────────────────
+const generarCodigoLicencia = (slug: string): string => {
+  const prefix = slug.slice(0, 3).toUpperCase()
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const rand = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return `${prefix}-${rand(4)}-${rand(4)}`
+}
+
+export const getLicencias = async (templateId?: string): Promise<Licencia[]> => {
+  const snap = await getDocs(collection(db, 'licencias'))
+  const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Licencia))
+  return templateId ? all.filter(l => l.templateId === templateId) : all
+}
+
+export const getLicenciasUsuario = async (uid: string): Promise<Licencia[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'licencias'),
+    where('activadaPor', '==', uid),
+    where('estado', '==', 'activada'))
+  )
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Licencia))
+}
+
+export const crearLicencia = async (
+  templateId: string, templateSlug: string, adminUid: string, notas?: string
+): Promise<Licencia> => {
+  const codigo = generarCodigoLicencia(templateSlug)
+  const data: Omit<Licencia, 'id'> = {
+    codigo, templateId, templateSlug,
+    estado: 'disponible',
+    creadaPor: adminUid,
+    creadaEl: new Date(),
+    notas: notas ?? null as any,
+  }
+  const ref = await addDoc(collection(db, 'licencias'), cleanForFirestore(data))
+  return { id: ref.id, ...data }
+}
+
+export const activarLicencia = async (
+  codigo: string, uid: string, displayName: string
+): Promise<{ ok: boolean; licencia?: Licencia; error?: string }> => {
+  // Buscar el código
+  const snap = await getDocs(
+    query(collection(db, 'licencias'), where('codigo', '==', codigo.toUpperCase().trim()))
+  )
+  if (snap.empty) return { ok: false, error: 'Código inválido' }
+
+  const docRef = snap.docs[0]
+  const licencia = { id: docRef.id, ...docRef.data() } as Licencia
+
+  if (licencia.estado === 'activada') return { ok: false, error: 'Este código ya fue activado' }
+  if (licencia.estado === 'revocada') return { ok: false, error: 'Este código fue revocado' }
+  if (licencia.estado === 'vencida')  return { ok: false, error: 'Este código está vencido' }
+
+  await updateDoc(docRef.ref, {
+    estado: 'activada',
+    activadaPor: uid,
+    activadaEl: serverTimestamp(),
+    activadaNombre: displayName,
+  })
+
+  return { ok: true, licencia: { ...licencia, estado: 'activada', activadaPor: uid, activadaNombre: displayName } }
+}
+
+export const revocarLicencia = async (id: string) => {
+  await updateDoc(doc(db, 'licencias', id), { estado: 'revocada' })
+}

@@ -582,3 +582,41 @@ export interface CajaDia {
   creadaAt: Date
   cerradaAt?: Date
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// SISTEMA DE LICENCIAS Y TEMPLATES
+// ════════════════════════════════════════════════════════════════════════════
+
+export interface Template {
+  id: string
+  slug: string              // 'verisure-arg', 'iphone-club', etc.
+  nombre: string
+  descripcion: string
+  emoji: string
+  color: string
+  autor: string             // uid del creador (Clozr = 'clozr-official')
+  precio?: number           // futuro — por ahora manual
+  activo: boolean
+  config: WorkspaceConfig   // config que se aplica al workspace
+  dataSemilla?: Record<string, any>  // datos iniciales (precios, etc.)
+  creadoAt: Date
+}
+
+export type LicenciaEstado = 'disponible' | 'activada' | 'revocada' | 'vencida'
+
+export interface Licencia {
+  id: string
+  codigo: string            // 'VRS-A3F9-X2024'
+  templateId: string
+  templateSlug: string
+  estado: LicenciaEstado
+  // Si está activada
+  activadaPor?: string      // uid del usuario
+  activadaEl?: Date
+  activadaNombre?: string   // nombre para mostrar en panel
+  // Control
+  creadaPor: string         // uid admin
+  creadaEl: Date
+  revocarEl?: Date          // para vencimientos futuros
+  notas?: string
+}

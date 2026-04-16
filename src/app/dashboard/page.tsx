@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, ChevronRight, LogOut, Pencil, Trash2, Check } from 'lucide-react'
+import { Plus, ChevronRight, LogOut, Pencil, Trash2, Check, Shield } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import {
   getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace,
@@ -11,6 +11,9 @@ import {
 import { derivarTipo, descripcionWs } from '@/lib/workspace-config'
 import type { Workspace, WorkspaceConfig, Negocio } from '@/types'
 import { ClozrLogo, ClozrIcon } from '@/components/ClozrLogo'
+import LicenciasSection from '@/components/LicenciasSection'
+
+const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 
 const EMOJIS = ['📱','🔧','🛒','🛡️','⚡','💻','🎮','🏪','🏠','🎯','✂️','🍕','🚗','👗','📚']
 const COLORS = ['#E8001D','#2563eb','#7c3aed','#059669','#d97706','#0891b2','#db2777']
@@ -244,6 +247,19 @@ export default function DashboardPage() {
               <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>iPhone Club, taller, agencia...</p>
             </div>
           </button>
+
+          {/* Módulos premium */}
+          <LicenciasSection />
+
+          {/* Admin — solo visible para el dueño de Clozr */}
+          {user?.uid === ADMIN_UID && (
+            <button onClick={() => router.push('/admin')}
+              className="flex items-center gap-2 w-full px-4 py-2.5 rounded-2xl"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <Shield size={14} style={{ color: 'var(--brand)' }} />
+              <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>Panel admin · Licencias</span>
+            </button>
+          )}
         </div>
       </div>
 
