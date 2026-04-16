@@ -254,7 +254,7 @@ export default function DashboardPage() {
           </button>
 
           {/* Módulos premium */}
-          <LicenciasSection />
+          <LicenciasSection negocios={negocios} />
 
           {/* Admin — solo visible para el dueño de Clozr */}
           {isAdmin && (
