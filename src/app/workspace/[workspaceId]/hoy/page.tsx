@@ -158,6 +158,36 @@ export default function HoyPage() {
     return 'Buenas noches'
   }
 
+  // Calendario semanal
+  const [vistaCalendario, setVistaCalendario] = useState(false)
+  const [semanaOffset, setSemanaOffset] = useState(0) // 0 = semana actual
+
+  const diasSemana = useMemo(() => {
+    const hoy = new Date()
+    const lunes = new Date(hoy)
+    const diaSemana = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1
+    lunes.setDate(hoy.getDate() - diaSemana + semanaOffset * 7)
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(lunes)
+      d.setDate(lunes.getDate() + i)
+      return d
+    })
+  }, [semanaOffset])
+
+  // Turnos agrupados por fecha para el calendario
+  const turnosPorFecha = useMemo(() => {
+    const map: Record<string, Turno[]> = {}
+    const allTurnos = [...turnosHoy, ...turnosFuturos]
+    allTurnos.forEach(t => {
+      const fecha = t.esAgendado && t.fechaHora
+        ? toDate(t.fechaHora).toISOString().slice(0, 10)
+        : toDate(t.createdAt).toISOString().slice(0, 10)
+      if (!map[fecha]) map[fecha] = []
+      map[fecha].push(t)
+    })
+    return map
+  }, [turnosHoy, turnosFuturos])
+
   if (loading) return (
     <div className="space-y-3 mt-4">
       {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
@@ -167,15 +197,98 @@ export default function HoyPage() {
   return (
     <div className="space-y-4 animate-fade-in pb-6">
 
-      {/* Header */}
-      <div className="pt-1">
-        <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-          {saludo()} 👋
-        </p>
-        <p className="text-sm capitalize mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
-        </p>
+      {/* Header con toggle de calendario */}
+      <div className="pt-1 flex items-start justify-between">
+        <div>
+          <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            {saludo()} 👋
+          </p>
+          <p className="text-sm capitalize mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          </p>
+        </div>
+        <button onClick={() => setVistaCalendario(!vistaCalendario)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all mt-1"
+          style={vistaCalendario
+            ? { background: 'var(--brand)', color: '#fff' }
+            : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+          <Calendar size={13} />
+          Semana
+        </button>
       </div>
+
+      {/* Vista calendario semanal */}
+      {vistaCalendario && (
+        <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          {/* Nav semana */}
+          <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
+            <button onClick={() => setSemanaOffset(o => o - 1)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+              ‹
+            </button>
+            <p className="text-xs font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>
+              {format(diasSemana[0], "d MMM", { locale: es })} – {format(diasSemana[6], "d MMM", { locale: es })}
+              {semanaOffset === 0 && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--brand)', color: '#fff' }}>Esta semana</span>}
+            </p>
+            <button onClick={() => setSemanaOffset(o => o + 1)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
+              ›
+            </button>
+          </div>
+
+          {/* Días */}
+          <div className="grid grid-cols-7">
+            {diasSemana.map((dia, idx) => {
+              const fechaStr = dia.toISOString().slice(0, 10)
+              const hoyStr = new Date().toISOString().slice(0, 10)
+              const esHoy = fechaStr === hoyStr
+              const turnos = turnosPorFecha[fechaStr] ?? []
+              const DIAS = ['L','M','M','J','V','S','D']
+              return (
+                <div key={idx} className="flex flex-col items-center py-2.5 px-1"
+                  style={{ borderRight: idx < 6 ? '1px solid var(--border)' : 'none' }}>
+                  <p className="text-[9px] font-semibold uppercase mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                    {DIAS[idx]}
+                  </p>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-1`}
+                    style={{
+                      background: esHoy ? 'var(--brand)' : 'transparent',
+                      color: esHoy ? '#fff' : 'var(--text-primary)',
+                    }}>
+                    {dia.getDate()}
+                  </div>
+                  {turnos.length > 0 && (
+                    <div className="flex flex-col gap-0.5 w-full">
+                      {turnos.slice(0, 3).map((t, i) => {
+                        const motivoInfo = MOTIVOS.find(m => m.id === t.motivo)
+                        const hora = t.esAgendado && t.fechaHora
+                          ? format(toDate(t.fechaHora), "HH:mm")
+                          : ''
+                        return (
+                          <div key={i} className="rounded px-0.5 py-0.5 text-center"
+                            style={{ background: t.atendido ? 'var(--surface-2)' : 'rgba(232,0,29,0.12)' }}>
+                            <p className="text-[8px] leading-tight font-medium truncate"
+                              style={{ color: t.atendido ? 'var(--text-tertiary)' : 'var(--brand)' }}>
+                              {hora || motivoInfo?.emoji || '•'}
+                            </p>
+                          </div>
+                        )
+                      })}
+                      {turnos.length > 3 && (
+                        <p className="text-[8px] text-center" style={{ color: 'var(--text-tertiary)' }}>
+                          +{turnos.length - 3}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Acciones rápidas */}
       <div className="grid grid-cols-4 gap-2">

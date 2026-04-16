@@ -123,6 +123,13 @@ export default function ResumenPage() {
   // ── PRODUCTOS / MIXTO ──────────────────────────────────────────────────────
   if (tipo === 'productos' || tipo === 'mixto') {
     const tareasHoy = (data.tareas ?? []).filter((t: any) => !t.completada)
+
+    // Métricas reales de ventas
+    const ingresoHoyUSD = (data.ventasHoy ?? []).filter((v: any) => v.moneda === 'USD').reduce((a: number, v: any) => a + v.total, 0)
+    const ingresoHoyARS = (data.ventasHoy ?? []).filter((v: any) => v.moneda === 'ARS').reduce((a: number, v: any) => a + v.total, 0)
+    const ingresoMesUSD = (data.ventasMes ?? []).filter((v: any) => v.moneda === 'USD').reduce((a: number, v: any) => a + v.total, 0)
+    const ingresoMesARS = (data.ventasMes ?? []).filter((v: any) => v.moneda === 'ARS').reduce((a: number, v: any) => a + v.total, 0)
+
     return (
       <div className="space-y-4 animate-fade-in">
         <div className="pt-2">
@@ -132,23 +139,50 @@ export default function ResumenPage() {
           </p>
         </div>
 
-        {/* Estado caja */}
+        {/* Estado caja + ingresos del día */}
         <div className="px-4 py-3 rounded-2xl"
           style={{ background: data.caja?.abierta ? 'var(--green-bg)' : 'var(--surface)', border: `1px solid ${data.caja?.abierta ? 'var(--green)' : 'var(--border)'}` }}>
           <p className="text-xs font-semibold" style={{ color: data.caja?.abierta ? 'var(--green)' : 'var(--text-tertiary)' }}>
             {data.caja?.abierta ? '🔓 Caja abierta' : '🔒 Caja cerrada'}
           </p>
-          {data.caja?.abierta && (
+          {(data.totalUSD > 0 || data.totalARS > 0) && (
             <div className="flex gap-4 mt-1">
-              <span className="text-sm font-bold" style={{ color: 'var(--green)' }}>+{fmtUSD(data.totalUSD ?? 0)}</span>
-              <span className="text-sm font-bold" style={{ color: 'var(--green)' }}>+{fmtARS(data.totalARS ?? 0)}</span>
+              {data.totalUSD > 0 && <span className="text-sm font-bold" style={{ color: 'var(--green)' }}>+{fmtUSD(data.totalUSD)}</span>}
+              {data.totalARS > 0 && <span className="text-sm font-bold" style={{ color: 'var(--green)' }}>+{fmtARS(data.totalARS)}</span>}
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Card icon={ShoppingCart} label="Ventas hoy" value={data.ventasHoy?.length ?? 0} color="var(--brand)" />
-          <Card icon={TrendingUp} label="Ventas mes" value={data.ventasMes?.length ?? 0} color="var(--green)" />
+        {/* Métricas del día */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>Hoy</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Card icon={ShoppingCart} label="Ventas" value={data.ventasHoy?.length ?? 0} color="var(--brand)" />
+            <div className="px-4 py-3 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Facturado hoy</p>
+              {ingresoHoyUSD > 0 && <p className="text-lg font-bold" style={{ color: 'var(--green)' }}>{fmtUSD(ingresoHoyUSD)}</p>}
+              {ingresoHoyARS > 0 && <p className="text-lg font-bold" style={{ color: 'var(--green)' }}>{fmtARS(ingresoHoyARS)}</p>}
+              {ingresoHoyUSD === 0 && ingresoHoyARS === 0 && <p className="text-lg font-bold" style={{ color: 'var(--text-tertiary)' }}>—</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Métricas del mes */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>Este mes</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Card icon={TrendingUp} label="Ventas" value={data.ventasMes?.length ?? 0} color="var(--green)" />
+            <div className="px-4 py-3 rounded-2xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+              <p className="text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>Facturado</p>
+              {ingresoMesUSD > 0 && <p className="text-lg font-bold" style={{ color: 'var(--green)' }}>{fmtUSD(ingresoMesUSD)}</p>}
+              {ingresoMesARS > 0 && <p className="text-sm font-bold" style={{ color: 'var(--green)' }}>{fmtARS(ingresoMesARS)}</p>}
+              {ingresoMesUSD === 0 && ingresoMesARS === 0 && <p className="text-lg font-bold" style={{ color: 'var(--text-tertiary)' }}>—</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Stock */}
+        <div className="grid grid-cols-2 gap-2">
           <Card icon={Package} label="Con stock" value={(data.productos ?? []).filter((p: any) => p.stock > 0).length} color="var(--blue)" />
           <Card icon={CheckSquare} label="Tareas" value={tareasHoy.length} color="var(--amber)" sub="pendientes" />
         </div>

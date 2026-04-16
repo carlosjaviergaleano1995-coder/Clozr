@@ -2,12 +2,22 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { Plus, Search, Pencil, Trash2, ChevronDown, Camera, X } from 'lucide-react'
-import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getConfigIPhoneClub, getDolarConfig } from '@/lib/services'
+import { Plus, Search, Pencil, Trash2, ChevronDown, Camera, X, ShoppingCart, Check } from 'lucide-react'
+import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getConfigIPhoneClub, getDolarConfig, createVenta2, generarCodigo, registrarMovimiento } from '@/lib/services'
 import { useAuthStore, useWorkspaceStore } from '@/store'
-import { CATEGORIAS, type Producto2, type CategoriaCodigo, type Condicion, type CamposSmartphone } from '@/types'
+import { CATEGORIAS, type Producto2, type CategoriaCodigo, type Condicion, type CamposSmartphone, type FormaPago2 } from '@/types'
 import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
 import { fmtARS, fmtUSD } from '@/lib/format'
+
+const FORMAS_PAGO: { id: FormaPago2; label: string; emoji: string }[] = [
+  { id: 'efectivo_usd', label: 'Efectivo USD', emoji: '💵' },
+  { id: 'efectivo_ars', label: 'Efectivo ARS', emoji: '💴' },
+  { id: 'transferencia', label: 'Transferencia', emoji: '🏦' },
+  { id: 'usdt',          label: 'USDT',          emoji: '🔵' },
+  { id: 'tarjeta',       label: 'Tarjeta',       emoji: '💳' },
+  { id: 'permuta',       label: 'Permuta',       emoji: '🔄' },
+  { id: 'otro',          label: 'Otro',          emoji: '📋' },
+]
 
 const MARCAS_COMUNES: Record<CategoriaCodigo, string[]> = {
   smartphones:  ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Google'],
@@ -82,6 +92,15 @@ export default function InventarioPage() {
   const [scanningImei, setScanningImei] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+
+  // Venta rápida desde el inventario
+  const [ventaRapida, setVentaRapida] = useState<Producto2 | null>(null)
+  const [vClienteNombre, setVClienteNombre] = useState('')
+  const [vFormaPago, setVFormaPago] = useState<FormaPago2>('efectivo_usd')
+  const [vPrecio, setVPrecio] = useState(0)
+  const [vNotas, setVNotas] = useState('')
+  const [vendiendo, setVendiendo] = useState(false)
+  const [ventaOk, setVentaOk] = useState(false)
 
   useEffect(() => { load() }, [workspaceId])
 
@@ -234,6 +253,55 @@ export default function InventarioPage() {
     if (!confirm(`¿Eliminar ${p.marca} ${p.modelo}?`)) return
     await deleteProducto2(workspaceId, p.id)
     setProductos(prev => prev.filter(x => x.id !== p.id))
+  }
+
+  const openVentaRapida = (p: Producto2) => {
+    setVentaRapida(p)
+    setVClienteNombre('')
+    setVFormaPago('efectivo_usd')
+    setVPrecio(p.precioUSD)
+    setVNotas('')
+    setVentaOk(false)
+  }
+
+  const handleVentaRapida = async () => {
+    if (!ventaRapida || !user) return
+    setVendiendo(true)
+    try {
+      const codigo = await generarCodigo(workspaceId, 'VTA')
+      const ventaId = await createVenta2(workspaceId, {
+        codigo, workspaceId,
+        clienteNombre: vClienteNombre || 'Sin nombre',
+        items: [{
+          productoId: ventaRapida.id,
+          productoNombre: `${ventaRapida.marca} ${ventaRapida.modelo}${ventaRapida.storage ? ' ' + ventaRapida.storage : ''}${ventaRapida.color ? ' ' + ventaRapida.color : ''}`,
+          cantidad: 1,
+          precioUnitario: vPrecio,
+          moneda: ventaRapida.moneda,
+          fueraDeStock: false,
+        }],
+        total: vPrecio,
+        moneda: ventaRapida.moneda,
+        formaPago: vFormaPago,
+        estado: 'cerrada',
+        notas: vNotas || undefined,
+        realizadoPor: user.uid,
+      })
+      // Descontar stock
+      const nuevoStock = Math.max(0, ventaRapida.stock - 1)
+      await updateProducto2(workspaceId, ventaRapida.id, { stock: nuevoStock })
+      await registrarMovimiento(workspaceId, {
+        workspaceId,
+        productoId: ventaRapida.id,
+        productoNombre: `${ventaRapida.marca} ${ventaRapida.modelo}`,
+        tipo: 'venta', cantidad: 1,
+        precioUnitario: vPrecio, moneda: ventaRapida.moneda,
+        ventaId, realizadoPor: user.uid,
+      })
+      setProductos(prev => prev.map(p => p.id === ventaRapida.id ? { ...p, stock: nuevoStock } : p))
+      setVentaOk(true)
+      setTimeout(() => setVentaRapida(null), 1800)
+    } finally { setVendiendo(false) }
   }
 
   const getCatInfo = (codigo: CategoriaCodigo) => CATEGORIAS.find(c => c.codigo === codigo)!
@@ -400,6 +468,13 @@ export default function InventarioPage() {
                   )}
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
+                  {p.stock > 0 && (
+                    <button onClick={() => openVentaRapida(p)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
+                      <ShoppingCart size={13} />
+                    </button>
+                  )}
                   <button onClick={() => openEdit(p)} className="w-7 h-7 rounded-lg flex items-center justify-center"
                     style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
                     <Pencil size={13} />
@@ -676,6 +751,95 @@ export default function InventarioPage() {
               </button>
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal venta rápida */}
+      {ventaRapida && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => !ventaOk && setVentaRapida(null)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+
+            {ventaOk ? (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
+                  style={{ background: 'var(--green-bg)' }}>
+                  <Check size={28} style={{ color: 'var(--green)' }} />
+                </div>
+                <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>¡Venta registrada!</p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Stock actualizado · {ventaRapida.marca} {ventaRapida.modelo}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Venta rápida</h3>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                      {ventaRapida.marca} {ventaRapida.modelo}
+                      {ventaRapida.storage ? ' · ' + ventaRapida.storage : ''}
+                      {ventaRapida.color ? ' · ' + ventaRapida.color : ''}
+                    </p>
+                  </div>
+                  <button onClick={() => setVentaRapida(null)} className="btn-icon">✕</button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="label">Cliente</label>
+                    <input className="input text-sm" placeholder="Nombre del cliente (opcional)"
+                      value={vClienteNombre} onChange={e => setVClienteNombre(e.target.value)} autoFocus />
+                  </div>
+                  <div>
+                    <label className="label">Precio final</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" className="input text-sm flex-1"
+                        value={vPrecio} onChange={e => setVPrecio(Number(e.target.value))} />
+                      <span className="text-sm font-semibold flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                        {ventaRapida.moneda}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Forma de pago</label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {FORMAS_PAGO.map(fp => (
+                        <button key={fp.id} onClick={() => setVFormaPago(fp.id)}
+                          className="flex flex-col items-center py-2 rounded-xl transition-all"
+                          style={vFormaPago === fp.id
+                            ? { background: 'var(--brand)', border: '1.5px solid var(--brand)' }
+                            : { background: 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
+                          <span className="text-base">{fp.emoji}</span>
+                          <span className="text-[9px] font-semibold mt-0.5 leading-tight"
+                            style={{ color: vFormaPago === fp.id ? '#fff' : 'var(--text-tertiary)' }}>
+                            {fp.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Notas</label>
+                    <input className="input text-sm" placeholder="Opcional..."
+                      value={vNotas} onChange={e => setVNotas(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <button onClick={handleVentaRapida} disabled={vendiendo}
+                    className="btn-primary flex-1 gap-2">
+                    <ShoppingCart size={15} />
+                    {vendiendo ? 'Registrando...' : `Vender · ${ventaRapida.moneda === 'USD' ? fmtUSD(vPrecio) : fmtARS(vPrecio)}`}
+                  </button>
+                  <button onClick={() => setVentaRapida(null)} className="btn-secondary">Cancelar</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
