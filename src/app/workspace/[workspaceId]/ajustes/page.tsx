@@ -30,6 +30,7 @@ export default function AjustesPage() {
     {
       titulo: 'Comunicación',
       items: [
+        modulos.mostrarPlantillas && { label: 'Plantillas de mensajes', desc: 'Mensajes editables para WhatsApp', path: 'plantillas', icon: Radio },
         modulos.mostrarBroadcast    && { label: 'Broadcast',     desc: 'Lista de precios por WhatsApp',  path: 'iphone/broadcast',    icon: Radio },
         modulos.mostrarRevendedores && { label: 'Revendedores',  desc: 'CRM de revendedores',            path: 'iphone/revendedores', icon: Users },
       ].filter(Boolean),

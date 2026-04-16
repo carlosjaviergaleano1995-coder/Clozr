@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Search, MessageCircle, Pencil, Trash2, ChevronRight, X, Phone, History, DollarSign } from 'lucide-react'
+import { Plus, Search, MessageCircle, Pencil, Trash2, ChevronRight, X, Phone, DollarSign, MapPin, Navigation } from 'lucide-react'
 import {
   getClientes, createCliente, updateCliente, deleteCliente,
-  getVentas2, getMovimientosCaja, agregarMovimientoCaja,
+  getVentas2, agregarMovimientoCaja, getPlantillas,
 } from '@/lib/services'
 import { useAuthStore, useWorkspaceStore } from '@/store'
-import type { Cliente, ClienteTipo, ClienteEstado, Venta2, MovimientoCaja } from '@/types'
+import type { Cliente, ClienteTipo, ClienteEstado, Venta2, UbicacionCliente, PlantillaMensaje } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
@@ -36,8 +36,8 @@ const ESTADOS: { id: ClienteEstado; emoji: string; label: string; color: string 
 const fmtUSD = (n: number) => `U$S ${n.toLocaleString('es-AR')}`
 const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
 
-type FormData = { nombre: string; telefono: string; email: string; tipo: ClienteTipo; estado: ClienteEstado; notas: string }
-const EMPTY: FormData = { nombre: '', telefono: '', email: '', tipo: 'final', estado: 'potencial', notas: '' }
+type FormData = { nombre: string; telefono: string; email: string; tipo: ClienteTipo; estado: ClienteEstado; notas: string; direccion: string; dni: string; barrio: string; referido: string }
+const EMPTY: FormData = { nombre: '', telefono: '', email: '', tipo: 'final', estado: 'potencial', notas: '', direccion: '', dni: '', barrio: '', referido: '' }
 
 export default function ClientesPage() {
   const params = useParams()
@@ -58,6 +58,11 @@ export default function ClientesPage() {
   const [form, setForm] = useState<FormData>({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const [detalle, setDetalle] = useState<Cliente | null>(null)
+  const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([])
+  const [showPlantillas, setShowPlantillas] = useState(false)
+  const [plantillaCliente, setPlantillaCliente] = useState<Cliente | null>(null)
+  // Ubicación
+  const [buscandoUbicacion, setBuscandoUbicacion] = useState(false)
   // Seña rápida
   const [showSena, setShowSena] = useState(false)
   const [senaCliente, setSenaCliente] = useState<Cliente | null>(null)
@@ -69,9 +74,14 @@ export default function ClientesPage() {
 
   const load = async () => {
     try {
-      const [c, v] = await Promise.all([getClientes(workspaceId), getVentas2(workspaceId)])
+      const [c, v, p] = await Promise.all([
+        getClientes(workspaceId),
+        getVentas2(workspaceId),
+        getPlantillas(workspaceId),
+      ])
       setClientes(c)
       setVentas(v)
+      setPlantillas(p)
     } finally { setLoading(false) }
   }
 
@@ -92,13 +102,20 @@ export default function ClientesPage() {
     if (!form.nombre.trim() || !user) return
     setSaving(true)
     try {
+      const data = {
+        nombre: form.nombre, telefono: form.telefono || undefined,
+        email: form.email || undefined, tipo: form.tipo, estado: form.estado,
+        notas: form.notas || undefined, direccion: form.direccion || undefined,
+        dni: form.dni || undefined, barrio: form.barrio || undefined,
+        referido: form.referido || undefined,
+      }
       if (editando) {
-        await updateCliente(workspaceId, editando.id, form)
-        setClientes(prev => prev.map(c => c.id === editando.id ? { ...c, ...form } : c))
-        if (detalle?.id === editando.id) setDetalle(d => d ? { ...d, ...form } : d)
+        await updateCliente(workspaceId, editando.id, data)
+        setClientes(prev => prev.map(c => c.id === editando.id ? { ...c, ...data } : c))
+        if (detalle?.id === editando.id) setDetalle(d => d ? { ...d, ...data } : d)
       } else {
-        const id = await createCliente(workspaceId, { ...form, workspaceId, creadoPor: user.uid })
-        setClientes(prev => [...prev, { id, ...form, workspaceId, creadoPor: user.uid, createdAt: new Date(), updatedAt: new Date() }])
+        const id = await createCliente(workspaceId, { ...data, workspaceId, creadoPor: user.uid })
+        setClientes(prev => [...prev, { id, ...data, workspaceId, creadoPor: user.uid, createdAt: new Date(), updatedAt: new Date() }])
       }
       setShowForm(false)
     } finally { setSaving(false) }
@@ -143,8 +160,46 @@ export default function ClientesPage() {
 
   const abrirEditar = (c: Cliente) => {
     setEditando(c)
-    setForm({ nombre: c.nombre, telefono: c.telefono ?? '', email: c.email ?? '', tipo: c.tipo, estado: c.estado, notas: c.notas ?? '' })
+    setForm({
+      nombre: c.nombre, telefono: c.telefono ?? '', email: c.email ?? '',
+      tipo: c.tipo, estado: c.estado, notas: c.notas ?? '',
+      direccion: c.direccion ?? '', dni: c.dni ?? '',
+      barrio: c.barrio ?? '', referido: c.referido ?? '',
+    })
     setShowForm(true)
+  }
+
+  const obtenerUbicacionGPS = () => {
+    setBuscandoUbicacion(true)
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        // Geocodificación inversa con Nominatim (gratis)
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+          const data = await res.json()
+          const direccion = data.display_name ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+          setForm(f => ({ ...f, direccion }))
+        } catch {
+          setForm(f => ({ ...f, direccion: `${lat.toFixed(6)}, ${lng.toFixed(6)}` }))
+        } finally { setBuscandoUbicacion(false) }
+      },
+      () => { setBuscandoUbicacion(false); alert('No se pudo obtener la ubicación') },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  // Usar plantilla con variables del cliente
+  const usarPlantilla = (plantilla: PlantillaMensaje, cliente: Cliente) => {
+    const texto = plantilla.texto
+      .replace(/{nombre}/g, cliente.nombre)
+      .replace(/{direccion}/g, cliente.direccion ?? '')
+      .replace(/{fecha}/g, format(new Date(), "d/M/yyyy"))
+      .replace(/{hora}/g, format(new Date(), "HH:mm"))
+    const tel = cliente.telefono?.replace(/\D/g, '')
+    const url = `https://wa.me/54${tel}?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
+    setShowPlantillas(false)
   }
 
   if (loading) return (
@@ -295,16 +350,31 @@ export default function ClientesPage() {
               </div>
 
               {/* Acciones rápidas */}
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2 mt-3 flex-wrap">
                 {detalle.telefono && (
                   <a href={`https://wa.me/54${detalle.telefono.replace(/\D/g,'')}`} target="_blank"
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold"
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
                     style={{ background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green)' }}>
-                    <MessageCircle size={15} /> WhatsApp
+                    <MessageCircle size={15} /> WA
+                  </a>
+                )}
+                {detalle.telefono && plantillas.length > 0 && (
+                  <button onClick={() => { setPlantillaCliente(detalle); setShowPlantillas(true) }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid var(--blue)' }}>
+                    <MessageCircle size={15} /> Plantilla
+                  </button>
+                )}
+                {detalle.direccion && (
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detalle.direccion)}`}
+                    target="_blank"
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7', border: '1px solid #a855f7' }}>
+                    <MapPin size={15} /> Maps
                   </a>
                 )}
                 <button onClick={() => { setSenaCliente(detalle); setSenaDesc(''); setSenaMonto(0); setShowSena(true) }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
                   style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
                   <DollarSign size={15} /> Seña
                 </button>
@@ -329,6 +399,30 @@ export default function ClientesPage() {
                 <div className="flex items-center gap-2">
                   <Phone size={13} style={{ color: 'var(--text-tertiary)' }} />
                   <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.telefono}</span>
+                </div>
+              )}
+              {detalle.direccion && (
+                <div className="flex items-start gap-2">
+                  <MapPin size={13} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.direccion}</span>
+                </div>
+              )}
+              {detalle.barrio && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Barrio:</span>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.barrio}</span>
+                </div>
+              )}
+              {detalle.dni && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>DNI:</span>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.dni}</span>
+                </div>
+              )}
+              {detalle.referido && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Referido por:</span>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{detalle.referido}</span>
                 </div>
               )}
               {detalle.email && (
@@ -515,6 +609,55 @@ export default function ClientesPage() {
                 <textarea className="input text-sm resize-none" rows={2} placeholder="Observaciones..."
                   value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
               </div>
+
+              {/* Campos extra — colapsables */}
+              <details className="group">
+                <summary className="text-xs font-semibold cursor-pointer select-none py-1"
+                  style={{ color: 'var(--text-tertiary)' }}>
+                  + Más información (dirección, DNI, barrio...)
+                </summary>
+                <div className="space-y-2 mt-2">
+                  {/* Dirección con GPS */}
+                  <div>
+                    <label className="label">Dirección</label>
+                    <div className="flex gap-2">
+                      <input className="input text-sm flex-1" placeholder="Ej: Av. Corrientes 1234"
+                        value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
+                      <button onClick={obtenerUbicacionGPS} disabled={buscandoUbicacion}
+                        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
+                        style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                        title="Obtener ubicación actual">
+                        {buscandoUbicacion ? '⏳' : <Navigation size={16} />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      El botón 📍 usa tu GPS para completar automáticamente
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="label">Barrio</label>
+                      <input className="input text-sm" placeholder="Ej: Palermo"
+                        value={form.barrio} onChange={e => setForm(f => ({ ...f, barrio: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="label">DNI</label>
+                      <input className="input text-sm" placeholder="12345678"
+                        value={form.dni} onChange={e => setForm(f => ({ ...f, dni: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Referido por</label>
+                    <input className="input text-sm" placeholder="Nombre de quien lo refirió"
+                      value={form.referido} onChange={e => setForm(f => ({ ...f, referido: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input className="input text-sm" placeholder="email@..."
+                      value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                </div>
+              </details>
             </div>
             <div className="flex gap-2 mt-4">
               <button onClick={handleSave} disabled={!form.nombre.trim() || saving} className="btn-primary flex-1">
@@ -522,6 +665,48 @@ export default function ClientesPage() {
               </button>
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal plantillas ──────────────────────────────────────────────────── */}
+      {showPlantillas && plantillaCliente && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowPlantillas(false)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up max-h-[85vh] overflow-y-auto"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Enviar mensaje</h3>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{plantillaCliente.nombre}</p>
+              </div>
+              <button onClick={() => setShowPlantillas(false)} className="btn-icon">✕</button>
+            </div>
+            {plantillas.length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: 'var(--text-tertiary)' }}>
+                Sin plantillas — creá una en Ajustes → Plantillas
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {plantillas.map(p => (
+                  <button key={p.id} onClick={() => usarPlantilla(p, plantillaCliente)}
+                    className="w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-3)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-2)')}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{p.nombre}</p>
+                      <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>
+                        {p.texto.replace(/{nombre}/g, plantillaCliente.nombre).slice(0, 80)}...
+                      </p>
+                    </div>
+                    <MessageCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--green)' }} />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

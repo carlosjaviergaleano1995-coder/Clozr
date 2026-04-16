@@ -60,9 +60,15 @@ export interface Cliente {
   telefono?: string
   email?: string
   direccion?: string
+  ubicacion?: UbicacionCliente   // coordenadas + dirección guardada
   tipo: ClienteTipo
   estado: ClienteEstado
   notas?: string
+  // Campos Verisure
+  dni?: string
+  fechaNacimiento?: string
+  barrio?: string
+  referido?: string              // nombre de quien lo refirió
   ultimoContacto?: Date
   creadoPor: string
   createdAt: Date
@@ -620,3 +626,45 @@ export interface Licencia {
   revocarEl?: Date          // para vencimientos futuros
   notas?: string
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// PLANTILLAS DE MENSAJES
+// ════════════════════════════════════════════════════════════════════════════
+
+export type PlantillaMomento =
+  | 'primer_contacto'
+  | 'presupuesto'
+  | 'seguimiento'
+  | 'confirmacion_visita'
+  | 'recordatorio'
+  | 'post_instalacion'
+  | 'cobranza'
+  | 'promocion'
+  | 'otro'
+
+export interface PlantillaMensaje {
+  id: string
+  workspaceId: string
+  momento: PlantillaMomento
+  nombre: string        // nombre visible en la lista
+  texto: string         // contenido con variables {nombre}, {kit}, {precio}, etc.
+  activa: boolean
+  orden: number
+  creadoAt: Date
+  updatedAt: Date
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CLIENTE VERISURE (extiende Cliente con ubicación y más)
+// ════════════════════════════════════════════════════════════════════════════
+
+export interface UbicacionCliente {
+  lat: number
+  lng: number
+  direccion: string     // texto legible
+  modoCaptura: 'gps' | 'manual'
+}
+
+// Se guarda en el cliente como campo extra
+// El tipo Cliente ya existe — agregamos campos opcionales via notas estructuradas
+// Para no romper la estructura, guardamos la ubicación como JSON en un campo dedicado

@@ -706,3 +706,99 @@ export const activarLicencia = async (
 export const revocarLicencia = async (id: string) => {
   await updateDoc(doc(db, 'licencias', id), { estado: 'revocada' })
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// PLANTILLAS DE MENSAJES
+// ════════════════════════════════════════════════════════════════════════════
+import type { PlantillaMensaje } from '@/types'
+
+export const getPlantillas = async (workspaceId: string): Promise<PlantillaMensaje[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'plantillas'))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as PlantillaMensaje))
+    .filter(p => p.activa !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+}
+
+export const createPlantilla = async (
+  workspaceId: string,
+  data: Omit<PlantillaMensaje, 'id' | 'creadoAt' | 'updatedAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'plantillas'), {
+    ...cleanForFirestore(data), creadoAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updatePlantilla = async (
+  workspaceId: string, id: string, data: Partial<PlantillaMensaje>
+) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'plantillas', id), {
+    ...cleanForFirestore(data), updatedAt: serverTimestamp(),
+  })
+}
+
+export const deletePlantilla = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'plantillas', id), { activa: false })
+}
+
+// Inicializar plantillas base si no existen
+export const initPlantillasVerisure = async (workspaceId: string) => {
+  const existentes = await getPlantillas(workspaceId)
+  if (existentes.length > 0) return
+
+  const PLANTILLAS_BASE = [
+    {
+      momento: 'primer_contacto' as const,
+      nombre: 'Primer contacto',
+      orden: 1,
+      texto: `Hola {nombre}! 👋 Te contacto de parte de Verisure, la empresa líder en seguridad. Me gustaría contarte sobre nuestros sistemas de alarma con monitoreo 24hs. ¿Tenés unos minutos para charlar? 🛡️`,
+    },
+    {
+      momento: 'presupuesto' as const,
+      nombre: 'Envío de presupuesto',
+      orden: 2,
+      texto: `Hola {nombre}! Te paso el presupuesto que armamos 📋\n\n🛡️ Kit: {kit}\n💰 Precio: {precio}\n\nIncluye instalación profesional y monitoreo 24/7. ¿Te parece bien si coordinamos una visita sin compromiso?`,
+    },
+    {
+      momento: 'seguimiento' as const,
+      nombre: 'Seguimiento',
+      orden: 3,
+      texto: `Hola {nombre}! ¿Cómo estás? Te escribo para ver si tuviste la posibilidad de pensar en la propuesta de seguridad que te pasé. Cualquier consulta estoy a disposición 😊`,
+    },
+    {
+      momento: 'confirmacion_visita' as const,
+      nombre: 'Confirmación de visita',
+      orden: 4,
+      texto: `Hola {nombre}! Te confirmo nuestra visita para {fecha} a las {hora} en {direccion}. Voy a llevar toda la información del sistema. ¡Nos vemos! 👋`,
+    },
+    {
+      momento: 'recordatorio' as const,
+      nombre: 'Recordatorio de visita',
+      orden: 5,
+      texto: `Hola {nombre}! Te recuerdo que mañana tenemos coordinado vernos a las {hora}. ¿Seguimos en pie? 😊`,
+    },
+    {
+      momento: 'post_instalacion' as const,
+      nombre: 'Post instalación',
+      orden: 6,
+      texto: `Hola {nombre}! ¿Cómo quedaron con el sistema? Espero que todo haya salido perfecto. Ante cualquier consulta o inconveniente no dudes en escribirme. ¡Bienvenido a la familia Verisure! 🛡️✅`,
+    },
+    {
+      momento: 'cobranza' as const,
+      nombre: 'Cobranza',
+      orden: 7,
+      texto: `Hola {nombre}! Te escribo porque tengo pendiente coordinar el pago de la instalación. ¿Cuándo te vendría bien? Podemos hacer transferencia o efectivo 💰`,
+    },
+    {
+      momento: 'promocion' as const,
+      nombre: 'Promoción especial',
+      orden: 8,
+      texto: `Hola {nombre}! 🔥 Tenemos una promo especial por tiempo limitado. Sistema completo con instalación incluida a precio increíble. ¿Te interesa que te pase los detalles?`,
+    },
+  ]
+
+  for (const p of PLANTILLAS_BASE) {
+    await createPlantilla(workspaceId, { ...p, workspaceId, activa: true })
+  }
+}

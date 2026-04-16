@@ -1,10 +1,7 @@
-// Lógica central: a partir del config del workspace determina
-// qué módulos mostrar, qué nav usar y qué tipo interno asignar.
-
 import type { WorkspaceConfig, WorkspaceType } from '@/types'
 import {
-  Sun, Package, Users, Wallet, Settings,
-  Wrench, Shield, ShoppingCart, Radio,
+  Sun, Users, Wallet, Settings,
+  Package, ShoppingCart, History, Shield, BarChart2,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -13,7 +10,6 @@ export interface NavItem {
   icon: any
 }
 
-// Derivar el WorkspaceType interno desde las respuestas del onboarding
 export function derivarTipo(config: WorkspaceConfig): WorkspaceType {
   const { vendeProductos, vendeServicios, tieneOrdenes } = config
   if (tieneOrdenes && !vendeProductos) return 'tecnico'
@@ -22,54 +18,52 @@ export function derivarTipo(config: WorkspaceConfig): WorkspaceType {
   return 'productos'
 }
 
-// Derivar el nav de 5 ítems según el config
 export function derivarNav(config: WorkspaceConfig): NavItem[] {
-  const { vendeProductos, vendeServicios, tieneStock, tieneOrdenes, moduloVerisure, moduloBroadcast } = config
-
-  // Hoy siempre está
-  const nav: NavItem[] = [
-    { id: 'hoy',       label: 'Hoy',      icon: Sun },
-  ]
-
-  // Stock — si vende productos o repuestos
-  if (tieneStock || vendeProductos) {
-    nav.push({ id: 'inventario', label: 'Stock', icon: Package })
+  // Verisure — nav completamente distinto, sin stock ni caja
+  if (config.moduloVerisure) {
+    return [
+      { id: 'hoy',               label: 'Hoy',      icon: Sun },
+      { id: 'clientes',          label: 'Clientes', icon: Users },
+      { id: 'verisure',          label: 'Calc',     icon: Shield },
+      { id: 'resumen-verisure',  label: 'Resumen',  icon: BarChart2 },
+      { id: 'ajustes',           label: 'Ajustes',  icon: Settings },
+    ]
   }
 
-  // Clientes — siempre
+  // Nav base — siempre presente
+  const nav: NavItem[] = [{ id: 'hoy', label: 'Hoy', icon: Sun }]
+
+  if (config.tieneStock || config.vendeProductos)
+    nav.push({ id: 'inventario', label: 'Stock', icon: Package })
+
   nav.push({ id: 'clientes', label: 'Clientes', icon: Users })
-
-  // Caja — siempre
-  nav.push({ id: 'caja', label: 'Caja', icon: Wallet })
-
-  // Ajustes — siempre
-  nav.push({ id: 'ajustes', label: 'Ajustes', icon: Settings })
+  nav.push({ id: 'caja',     label: 'Caja',     icon: Wallet })
+  nav.push({ id: 'ajustes',  label: 'Ajustes',  icon: Settings })
 
   return nav.slice(0, 5)
 }
 
-// Qué secciones aparecen en Ajustes
 export function derivarAjustes(config: WorkspaceConfig) {
-  const { vendeProductos, vendeServicios, tieneStock, tieneOrdenes, moduloVerisure, moduloBroadcast, moduloRevendedores } = config
   return {
-    mostrarVentas:       vendeProductos || tieneStock,
-    mostrarHistorial:    tieneStock,
-    mostrarOrdenes:      tieneOrdenes,
-    mostrarTurnos:       tieneOrdenes,
-    mostrarBroadcast:    moduloBroadcast,
-    mostrarRevendedores: moduloRevendedores,
-    mostrarVerisure:     moduloVerisure,
+    mostrarVentas:       config.vendeProductos || config.tieneStock,
+    mostrarHistorial:    config.tieneStock,
+    mostrarOrdenes:      config.tieneOrdenes,
+    mostrarTurnos:       config.tieneOrdenes,
+    mostrarBroadcast:    config.moduloBroadcast,
+    mostrarRevendedores: config.moduloRevendedores,
+    mostrarVerisure:     config.moduloVerisure,
+    mostrarPlantillas:   config.moduloVerisure,
     mostrarTareas:       true,
   }
 }
 
-// Texto descriptivo del workspace para el dashboard
 export function descripcionWs(config: WorkspaceConfig): string {
+  if (config.moduloVerisure) return '🛡️ Verisure · Alarmas y seguridad'
+  if (config.moduloBroadcast) return '📱 iPhone Club · Reventa Apple'
   const partes: string[] = []
   if (config.vendeProductos && config.tieneStock) partes.push('stock y ventas')
   else if (config.vendeProductos) partes.push('ventas')
   if (config.tieneOrdenes) partes.push('reparaciones')
   if (config.vendeServicios && !config.tieneOrdenes) partes.push('servicios')
-  if (config.moduloVerisure) partes.push('Verisure')
   return partes.join(' · ') || 'Workspace'
 }
