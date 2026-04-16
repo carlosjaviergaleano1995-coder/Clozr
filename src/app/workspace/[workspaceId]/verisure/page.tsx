@@ -456,12 +456,17 @@ export default function VerisurePage() {
         )}
       </div>
 
-      {/* Nivel kit */}
+      {/* Lista de precios */}
       {!inst.usaPromo && (
         <div className="card">
-          <p className="text-xs font-semibold text-[var(--text-tertiary)] mb-3 uppercase tracking-wide">Nivel del kit</p>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {(Object.keys(config.kits) as NivelPrecio[]).map(nivel => (
+          <p className="text-xs font-semibold text-[var(--text-tertiary)] mb-3 uppercase tracking-wide">Lista de precios</p>
+
+          {/* Promociones — disponibles para RP y RE */}
+          <p className="text-[10px] font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+            Promociones
+          </p>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {(['catalogo', 'alto', 'medio', 'bajo'] as NivelPrecio[]).filter(n => config.kits[n] !== undefined).map(nivel => (
               <button key={nivel} onClick={() => setInst(i => ({ ...i, nivelKit: nivel }))}
                 className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${inst.nivelKit === nivel ? 'border-brand-600 bg-brand-50' : 'border-[var(--border)] bg-[var(--surface)]'}`}>
                 <span className={`text-xs font-semibold ${inst.nivelKit === nivel ? 'text-brand-700' : 'text-[var(--text-primary)]'}`}>{NIVEL_LABEL[nivel]}</span>
@@ -470,9 +475,40 @@ export default function VerisurePage() {
               </button>
             ))}
           </div>
+
+          {/* Precios especiales RE — solo visible cuando tipoVenta === 'RE' */}
+          {tipoVenta === 'RE' && (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                <p className="text-[10px] font-semibold uppercase tracking-wide px-1" style={{ color: 'var(--blue)' }}>
+                  Precios RE
+                </p>
+                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {(['jefe', 'gerente'] as NivelPrecio[]).filter(n => config.kits[n] !== undefined).map(nivel => (
+                  <button key={nivel} onClick={() => setInst(i => ({ ...i, nivelKit: nivel }))}
+                    className={`flex flex-col items-center py-2.5 px-1 rounded-xl border transition-all ${inst.nivelKit === nivel ? 'border-brand-600 bg-brand-50' : 'border-[var(--border)] bg-[var(--surface)]'}`}>
+                    <span className={`text-xs font-semibold ${inst.nivelKit === nivel ? 'text-brand-700' : 'text-[var(--text-primary)]'}`}>{NIVEL_LABEL[nivel]}</span>
+                    <span className={`text-[10px] font-medium mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-600' : 'text-[var(--text-primary)]'}`}>{fmt(config.kits[nivel])}</span>
+                    <span className={`text-[9px] mt-0.5 ${inst.nivelKit === nivel ? 'text-brand-400' : 'text-[var(--text-tertiary)]'}`}>{fmt(iva(config.kits[nivel], config.ivaPct))} c/IVA</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Si seleccionó Jefe/Gerente pero cambia a RP — limpiar */}
+          {tipoVenta === 'RP' && (inst.nivelKit === 'jefe' || inst.nivelKit === 'gerente') && (
+            <p className="text-xs text-center mb-2" style={{ color: 'var(--brand-light)' }}>
+              ⚠️ Precio Jefe/Gerente solo aplica para RE. Seleccioná otro precio.
+            </p>
+          )}
+
           {!inst.nivelKit && (
             <p className="text-xs text-center mb-2" style={{ color: 'var(--text-tertiary)' }}>
-              Seleccioná un nivel para continuar
+              Seleccioná un precio para continuar
             </p>
           )}
           {inst.nivelKit && !esJG && (
