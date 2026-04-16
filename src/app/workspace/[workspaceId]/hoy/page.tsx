@@ -14,7 +14,7 @@ import { format, isToday, isTomorrow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
 
-const MOTIVOS = [
+const MOTIVOS_GENERAL = [
   { id: 'compra',      label: 'Compra equipo',  emoji: '📱', esCompra: true },
   { id: 'plan_canje',  label: 'Plan canje',     emoji: '💱', esCompra: true },
   { id: 'reparacion',  label: 'Reparación',     emoji: '🔧' },
@@ -22,6 +22,15 @@ const MOTIVOS = [
   { id: 'presupuesto', label: 'Presupuesto',    emoji: '📋' },
   { id: 'retiro',      label: 'Retiro equipo',  emoji: '👋' },
   { id: 'otro',        label: 'Otro',           emoji: '📌' },
+]
+
+const MOTIVOS_VERISURE = [
+  { id: 'visita',       label: 'Visita comercial', emoji: '🏠' },
+  { id: 'presupuesto',  label: 'Presupuesto',      emoji: '📋' },
+  { id: 'instalacion',  label: 'Instalación',      emoji: '🔧' },
+  { id: 'seguimiento',  label: 'Seguimiento',      emoji: '🔄' },
+  { id: 'cobranza',     label: 'Cobranza',         emoji: '💰' },
+  { id: 'otro',         label: 'Otro',             emoji: '📌' },
 ]
 
 const fmtARS = (n: number) => `$${Math.round(n).toLocaleString('es-AR')}`
@@ -87,9 +96,25 @@ export default function HoyPage() {
     } finally { setLoading(false) }
   }
 
+  const isVerisure = ws?.config?.moduloVerisure === true
+
+  const MOTIVOS = isVerisure ? MOTIVOS_VERISURE : MOTIVOS_GENERAL
   const pendientes = turnosHoy.filter(t => !t.atendido)
   const listos = ordenes.filter(o => o.estado === 'listo')
   const enLab = ordenes.filter(o => o.estado === 'en_laboratorio')
+
+  // Acciones rápidas según workspace
+  const accionesRapidas = isVerisure ? [
+    { label: 'Visita',   icon: Clock,        action: () => setShowTurno(true),                                            color: 'var(--brand)' },
+    { label: 'Venta',    icon: ShoppingCart, action: () => router.push(`/workspace/${workspaceId}/ventas-verisure`),      color: 'var(--green)' },
+    { label: 'Cliente',  icon: MessageCircle,action: () => router.push(`/workspace/${workspaceId}/clientes`),             color: 'var(--blue)'  },
+    { label: 'Resumen',  icon: DollarSign,   action: () => router.push(`/workspace/${workspaceId}/resumen-verisure`),     color: 'var(--amber)' },
+  ] : [
+    { label: 'Turno',    icon: Clock,        action: () => setShowTurno(true),                                            color: 'var(--brand)' },
+    { label: 'Venta',    icon: ShoppingCart, action: () => router.push(`/workspace/${workspaceId}/inventario`),           color: 'var(--green)' },
+    { label: 'OT',       icon: Wrench,       action: () => router.push(`/workspace/${workspaceId}/ordenes`),              color: '#a855f7'      },
+    { label: 'Caja',     icon: DollarSign,   action: () => router.push(`/workspace/${workspaceId}/caja`),                 color: 'var(--amber)' },
+  ]
 
   const handleCrearTurno = async () => {
     if (!user) return
@@ -117,7 +142,7 @@ export default function HoyPage() {
     await updateTurno(workspaceId, t.id, { atendido: true })
     setTurnosHoy(prev => prev.map(x => x.id === t.id ? { ...x, atendido: true } : x))
     const motivoInfo = MOTIVOS.find(m => m.id === t.motivo)
-    if (motivoInfo?.esCompra) setShowAccion({ ...t, atendido: true })
+    if ((motivoInfo as any)?.esCompra) setShowAccion({ ...t, atendido: true })
   }
 
   const irAStock = (t: Turno) => {
@@ -154,12 +179,7 @@ export default function HoyPage() {
 
       {/* Acciones rápidas */}
       <div className="grid grid-cols-4 gap-2">
-        {[
-          { label: 'Turno',    icon: Clock,       action: () => setShowTurno(true),                                        color: 'var(--brand)' },
-          { label: 'Venta',    icon: ShoppingCart, action: () => router.push(`/workspace/${workspaceId}/inventario`),       color: 'var(--green)' },
-          { label: 'OT',       icon: Wrench,      action: () => router.push(`/workspace/${workspaceId}/ordenes`),          color: '#a855f7' },
-          { label: 'Caja',     icon: DollarSign,  action: () => router.push(`/workspace/${workspaceId}/caja`),             color: 'var(--amber)' },
-        ].map(({ label, icon: Icon, action, color }) => (
+        {accionesRapidas.map(({ label, icon: Icon, action, color }) => (
           <button key={label} onClick={action}
             className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -172,8 +192,8 @@ export default function HoyPage() {
         ))}
       </div>
 
-      {/* Alertas activas */}
-      {(listos.length > 0 || enLab.length > 0 || stockCritico.length > 0 || !caja) && (
+      {/* Alertas activas — solo para workspaces no-Verisure */}
+      {!isVerisure && (listos.length > 0 || enLab.length > 0 || stockCritico.length > 0 || !caja) && (
         <div className="space-y-2">
           {!caja && (
             <button onClick={() => router.push(`/workspace/${workspaceId}/caja`)}

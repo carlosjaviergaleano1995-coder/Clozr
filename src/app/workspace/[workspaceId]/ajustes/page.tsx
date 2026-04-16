@@ -20,26 +20,25 @@ export default function AjustesPage() {
     {
       titulo: 'Operaciones',
       items: [
-        modulos.mostrarVentas    && { label: 'Ventas',              desc: 'Registro de ventas',             path: 'ventas2',     icon: TrendingUp },
-        modulos.mostrarOrdenes   && { label: 'Órdenes de trabajo',  desc: 'Reparaciones y seguimiento',     path: 'ordenes',     icon: Wrench },
-        modulos.mostrarTurnos    && { label: 'Turnos',              desc: 'Historial de todos los turnos',  path: 'turnos',      icon: Ticket },
-        modulos.mostrarHistorial && { label: 'Historial de stock',  desc: 'Movimientos de inventario',      path: 'historial',   icon: History },
-        modulos.mostrarTareas    && { label: 'Tareas',              desc: 'Rutina y tareas del día',        path: 'tareas',      icon: CheckSquare },
+        modulos.mostrarVentas    && !cfg.moduloVerisure && { label: 'Ventas',              desc: 'Registro de ventas',             path: 'ventas2',          icon: TrendingUp },
+        modulos.mostrarOrdenes   && { label: 'Órdenes de trabajo',  desc: 'Reparaciones y seguimiento',     path: 'ordenes',          icon: Wrench },
+        modulos.mostrarTurnos    && { label: 'Turnos',              desc: 'Historial de todos los turnos',  path: 'turnos',           icon: Ticket },
+        modulos.mostrarHistorial && { label: 'Historial de stock',  desc: 'Movimientos de inventario',      path: 'historial',        icon: History },
+        modulos.mostrarTareas    && { label: 'Tareas',              desc: 'Rutina y tareas del día',        path: 'tareas',           icon: CheckSquare },
       ].filter(Boolean),
     },
     {
       titulo: 'Comunicación',
       items: [
-        modulos.mostrarPlantillas && { label: 'Plantillas de mensajes', desc: 'Mensajes editables para WhatsApp', path: 'plantillas', icon: Radio },
         modulos.mostrarBroadcast    && { label: 'Broadcast',     desc: 'Lista de precios por WhatsApp',  path: 'iphone/broadcast',    icon: Radio },
         modulos.mostrarRevendedores && { label: 'Revendedores',  desc: 'CRM de revendedores',            path: 'iphone/revendedores', icon: Users },
       ].filter(Boolean),
     },
     {
-      titulo: '🛡️ Verisure',
+      titulo: '⚙️ Configuración Verisure',
       items: [
-        modulos.mostrarVerisure && { label: 'Calculadora',     desc: 'Kits, promos, extras y bonos',   path: 'verisure', icon: Shield },
-        modulos.mostrarVerisure && { label: 'Ventas Verisure', desc: 'Registro de instalaciones',      path: 'ventas',   icon: TrendingUp },
+        modulos.mostrarPlantillas && { label: 'Plantillas de mensajes', desc: 'Editá tus mensajes de WhatsApp', path: 'plantillas', icon: Radio },
+        modulos.mostrarVerisure   && { label: 'Ventas registradas',    desc: 'Historial de instalaciones',     path: 'ventas-verisure', icon: TrendingUp },
       ].filter(Boolean),
     },
   ].filter(g => g.items.length > 0)
