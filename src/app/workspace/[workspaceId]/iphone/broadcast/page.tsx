@@ -3,7 +3,7 @@ import { useModuloGuard } from '@/hooks/useModuloGuard'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Copy, Check, RefreshCw } from 'lucide-react'
-import { getProductos2, getConfigIPhoneClub, getDolarConfig } from '@/lib/services'
+import { getProductos2, getConfigIPhoneClub, getDolarConfig, fetchDolarBlue, saveDolarConfig } from '@/lib/services'
 import type { Producto2, ConfigIPhoneClub, DolarConfig } from '@/types'
 import { fmtARS, fmtUSD } from '@/lib/format'
 
@@ -28,6 +28,8 @@ export default function BroadcastPage() {
   const [secciones, setSecciones] = useState<Set<Seccion>>(new Set<Seccion>(['smartphones_usados', 'smartphones_nuevos']))
   const [copied, setCopied] = useState(false)
 
+  const [actualizando, setActualizando] = useState(false)
+
   useEffect(() => { load() }, [workspaceId])
 
   const load = async () => {
@@ -39,8 +41,36 @@ export default function BroadcastPage() {
       ])
       setProductos(prods.filter(p => p.stock > 0))
       setConfig(cfg)
-      setDolar(dolarData)
+      // Auto-actualizar dólar si el valor guardado tiene más de 1 hora
+      const guardado = dolarData?.valor ?? 0
+      const hace = dolarData?.actualizadoAt
+        ? Date.now() - new Date(dolarData.actualizadoAt as any).getTime()
+        : Infinity
+      if (!guardado || hace > 3600000) {
+        const nuevo = await fetchDolarBlue()
+        if (nuevo) {
+          const nuevoConfig = { valor: nuevo, actualizadoAt: new Date(), modoManual: false }
+          await saveDolarConfig(workspaceId, nuevoConfig)
+          setDolar(nuevoConfig)
+        } else {
+          setDolar(dolarData)
+        }
+      } else {
+        setDolar(dolarData)
+      }
     } finally { setLoading(false) }
+  }
+
+  const actualizarDolar = async () => {
+    setActualizando(true)
+    try {
+      const nuevo = await fetchDolarBlue()
+      if (nuevo) {
+        const nuevoConfig = { valor: nuevo, actualizadoAt: new Date(), modoManual: false }
+        await saveDolarConfig(workspaceId, nuevoConfig)
+        setDolar(nuevoConfig)
+      }
+    } finally { setActualizando(false) }
   }
 
   const toggleSeccion = (s: Seccion) => {
@@ -141,9 +171,10 @@ export default function BroadcastPage() {
             Dólar blue: {fmtARS(dolarValor)} · Margen: U$S {margen}
           </p>
         </div>
-        <button onClick={load} className="w-8 h-8 rounded-xl flex items-center justify-center"
-          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-          <RefreshCw size={15} />
+        <button onClick={actualizarDolar} disabled={actualizando}
+          className="w-8 h-8 rounded-xl flex items-center justify-center"
+          style={{ background: actualizando ? 'var(--green-bg)' : 'var(--surface-2)', color: actualizando ? 'var(--green)' : 'var(--text-tertiary)' }}>
+          <RefreshCw size={15} className={actualizando ? 'animate-spin' : ''} />
         </button>
       </div>
 

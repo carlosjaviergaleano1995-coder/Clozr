@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { Plus, Search, Pencil, Trash2, ChevronDown, Camera, X, ShoppingCart, Check } from 'lucide-react'
-import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getConfigIPhoneClub, getDolarConfig, createVenta2, generarCodigo, registrarMovimiento } from '@/lib/services'
+import { getProductos2, createProducto2, updateProducto2, deleteProducto2, getConfigIPhoneClub, getDolarConfig, saveDolarConfig, fetchDolarBlue, createVenta2, generarCodigo, registrarMovimiento } from '@/lib/services'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { CATEGORIAS, type Producto2, type CategoriaCodigo, type Condicion, type CamposSmartphone, type FormaPago2 } from '@/types'
 import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
@@ -122,7 +122,22 @@ export default function InventarioPage() {
       ])
       setProductos(prods)
       setMargenFinal(config.margenFinal)
-      setDolar(dolarData.valor)
+
+      // Auto-actualizar dólar si tiene más de 1 hora o nunca se guardó
+      const hace = dolarData?.actualizadoAt
+        ? Date.now() - new Date(dolarData.actualizadoAt as any).getTime()
+        : Infinity
+      if (!dolarData?.valor || hace > 3600000) {
+        const nuevo = await fetchDolarBlue()
+        if (nuevo) {
+          await saveDolarConfig(workspaceId, { valor: nuevo, actualizadoAt: new Date(), modoManual: false })
+          setDolar(nuevo)
+        } else {
+          setDolar(dolarData.valor ?? 1200)
+        }
+      } else {
+        setDolar(dolarData.valor)
+      }
     } finally { setLoading(false) }
   }
 
