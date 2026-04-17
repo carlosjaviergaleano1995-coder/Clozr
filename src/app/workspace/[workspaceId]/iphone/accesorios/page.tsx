@@ -12,43 +12,64 @@ import type { StockAccesorio, PrecioVolumen, ListaIPhone, CondicionCompra } from
 import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
 
 const CATEGORIAS = [
-  { id: 'cargadores',    label: '⚡ Cargadores' },
-  { id: 'cables',        label: '🔌 Cables' },
-  { id: 'fundas',        label: '📱 Fundas' },
-  { id: 'templados',     label: '🔲 Templados' },
-  { id: 'audio',         label: '🎧 Audio' },
-  { id: 'otros',         label: '📦 Otros' },
+  { id: 'battery_pack',    label: '🔋 Battery Pack' },
+  { id: 'cargadores',      label: '⚡ Cargadores' },
+  { id: 'cargadores_armar',label: '🔧 Cargadores p/armar' },
+  { id: 'cables',          label: '🔌 Cables' },
+  { id: 'cables_armar',    label: '🔧 Cables p/armar' },
+  { id: 'fundas',          label: '📱 Fundas' },
+  { id: 'templados',       label: '🔲 Templados' },
+  { id: 'pencil',          label: '✏️ Apple Pencil' },
+  { id: 'airtag',          label: '🌎 AirTag' },
+  { id: 'audio',           label: '🎧 Audio' },
+  { id: 'otros',           label: '📦 Otros' },
 ]
 
 const EMOJIS_LISTA = ['🇨🇳','🤝','🍎','📦','⭐','🔥','💎','🛒','🏷️','🎯']
 const COLORES_LISTA = ['#E8001D','#0a84ff','#30d158','#ffd60a','#a855f7','#ff9f0a','#64d2ff','#ff375f']
 
-// ── Seed de productos reales ──────────────────────────────────────────────────
+// ── Seed con catálogo real ────────────────────────────────────────────────────
 const SEED: Omit<StockAccesorio, 'id'|'workspaceId'|'createdAt'|'updatedAt'>[] = [
-  // Cables
-  { nombre:'Cable Lightning a USB-A', categoria:'cables', descripcion:'1m Nylon', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:4500},{cantidad:10,precio:3800},{cantidad:50,precio:3200},{cantidad:100,precio:2800}] },
-  { nombre:'Cable Lightning a USB-C', categoria:'cables', descripcion:'1m Nylon', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:5500},{cantidad:10,precio:4800},{cantidad:50,precio:4000},{cantidad:100,precio:3500}] },
-  { nombre:'Cable USB-C a USB-C',     categoria:'cables', descripcion:'1m Trenzado', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:6000},{cantidad:10,precio:5000},{cantidad:50,precio:4200},{cantidad:100,precio:3800}] },
-  { nombre:'Cable USB-C a USB-C',     categoria:'cables', descripcion:'2m Trenzado', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:7500},{cantidad:10,precio:6500},{cantidad:50,precio:5500}] },
-  { nombre:'Cable MagSafe',            categoria:'cables', descripcion:'1m Original', moneda:'USD', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:18},{cantidad:5,precio:16},{cantidad:10,precio:14}] },
+  // Battery Pack
+  { nombre:'Battery Pack', categoria:'battery_pack', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:20000},{cantidad:10,precio:15000},{cantidad:30,precio:13000},{cantidad:50,precio:10000},{cantidad:100,precio:9200}] },
+  // Fuente 20W Original
+  { nombre:'Fuente 20W Original', categoria:'cargadores', descripcion:'Europeas', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:25},{cantidad:10,precio:20},{cantidad:20,precio:19},{cantidad:50,precio:17}] },
   // Cargadores
-  { nombre:'Fuente 20W USB-C',        categoria:'cargadores', descripcion:'Americano', moneda:'USD', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:7},{cantidad:10,precio:6},{cantidad:30,precio:5},{cantidad:50,precio:4.5}] },
-  { nombre:'Fuente 20W USB-C',        categoria:'cargadores', descripcion:'Original Apple', moneda:'USD', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:25},{cantidad:10,precio:21},{cantidad:20,precio:19}] },
-  { nombre:'Fuente 5W USB-A',         categoria:'cargadores', descripcion:'Americana', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:3500},{cantidad:10,precio:3000},{cantidad:30,precio:2700},{cantidad:50,precio:2400}] },
-  { nombre:'Cargador Inalámbrico 15W',categoria:'cargadores', descripcion:'MagSafe compatible', moneda:'USD', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:12},{cantidad:5,precio:10},{cantidad:10,precio:9}] },
-  // Fundas
-  { nombre:'Funda Silicona Líquida',  categoria:'fundas', descripcion:'11 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:4500},{cantidad:10,precio:3800},{cantidad:30,precio:3200},{cantidad:50,precio:2800}] },
-  { nombre:'Funda Silicona Líquida',  categoria:'fundas', descripcion:'15 Pro Max / 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:6500},{cantidad:10,precio:5500},{cantidad:30,precio:4800}] },
-  { nombre:'Funda MagSafe',            categoria:'fundas', descripcion:'12 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:5500},{cantidad:10,precio:4500},{cantidad:30,precio:3800}] },
-  { nombre:'Funda Transparente Anti-Amarilla', categoria:'fundas', descripcion:'11 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:3200},{cantidad:10,precio:2600},{cantidad:50,precio:2000},{cantidad:100,precio:1700}] },
-  { nombre:'Funda Cuero',             categoria:'fundas', descripcion:'12 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:7500},{cantidad:10,precio:6500}] },
-  // Templados
-  { nombre:'Templado 9H Privacidad',  categoria:'templados', descripcion:'12 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:3500},{cantidad:10,precio:2800},{cantidad:50,precio:2200},{cantidad:100,precio:1800}] },
-  { nombre:'Templado 9H Normal',      categoria:'templados', descripcion:'11 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:2500},{cantidad:10,precio:2000},{cantidad:50,precio:1600},{cantidad:100,precio:1300}] },
-  { nombre:'Templado Cámara',         categoria:'templados', descripcion:'12 a 16 Pro Max', moneda:'ARS', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:1800},{cantidad:10,precio:1400},{cantidad:50,precio:1100}] },
-  // Audio
-  { nombre:'AirPods 2da Gen',         categoria:'audio', descripcion:'Réplica AAA', moneda:'USD', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:15},{cantidad:5,precio:13},{cantidad:10,precio:11}] },
-  { nombre:'AirPods Pro 2da Gen',     categoria:'audio', descripcion:'Réplica AAA ANC', moneda:'USD', stock:0, activo:true, preciosVolumen:[{cantidad:1,precio:22},{cantidad:5,precio:19},{cantidad:10,precio:16}] },
+  { nombre:'Fuente 5W', categoria:'cargadores', descripcion:'Americana', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:5,precio:7000},{cantidad:10,precio:6200},{cantidad:30,precio:5900},{cantidad:50,precio:5500}] },
+  { nombre:'Fuente 20W', categoria:'cargadores', descripcion:'Americano', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:5,precio:7.5},{cantidad:10,precio:7},{cantidad:30,precio:6.5},{cantidad:50,precio:5.5}] },
+  // Cargadores para armar
+  { nombre:'Fuente 20W', categoria:'cargadores_armar', descripcion:'Americano', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:5,precio:7.5},{cantidad:10,precio:7},{cantidad:30,precio:6.5},{cantidad:50,precio:4.7},{cantidad:100,precio:4},{cantidad:250,precio:3}] },
+  // Cables
+  { nombre:'Cable USB a Lightning', categoria:'cables', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:10,precio:3800},{cantidad:30,precio:3000},{cantidad:50,precio:2500},{cantidad:100,precio:2000}] },
+  { nombre:'Cable C a Lightning', categoria:'cables', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:10,precio:4300},{cantidad:30,precio:3800},{cantidad:50,precio:3300},{cantidad:100,precio:2800}] },
+  { nombre:'Cable C a C (Mallado)', categoria:'cables', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:10,precio:5000},{cantidad:30,precio:4000},{cantidad:50,precio:3500},{cantidad:100,precio:3000}] },
+  // Cables para armar
+  { nombre:'Cable USB a Lightning', categoria:'cables_armar', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:50,precio:1900},{cantidad:100,precio:1500},{cantidad:300,precio:1200},{cantidad:500,precio:1050}] },
+  { nombre:'Cable C a Lightning', categoria:'cables_armar', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:50,precio:2500},{cantidad:100,precio:1950},{cantidad:300,precio:1650},{cantidad:500,precio:1500}] },
+  { nombre:'Cable C a C (Mallado)', categoria:'cables_armar', descripcion:'', moneda:'ARS', stock:0, activo:true,
+    preciosVolumen:[{cantidad:50,precio:2300},{cantidad:100,precio:1900},{cantidad:300,precio:1750},{cantidad:500,precio:1600}] },
+  // Apple Pencil
+  { nombre:'Apple Pencil 2da Gen', categoria:'pencil', descripcion:'', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:120}] },
+  { nombre:'Apple Pencil USB-C', categoria:'pencil', descripcion:'', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:105}] },
+  { nombre:'Apple Pencil Pro', categoria:'pencil', descripcion:'', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:130}] },
+  // AirTag
+  { nombre:'AirTag Pack x1', categoria:'airtag', descripcion:'', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:65}] },
+  { nombre:'AirTag Pack x4', categoria:'airtag', descripcion:'', moneda:'USD', stock:0, activo:true,
+    preciosVolumen:[{cantidad:1,precio:95}] },
 ]
 
 type FormData = {

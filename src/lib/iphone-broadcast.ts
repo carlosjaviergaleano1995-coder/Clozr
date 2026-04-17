@@ -186,17 +186,23 @@ export function generarBroadcastAccesorios(items: StockAccesorio[]): string {
   })
 
   const CATEGORIA_LABELS: Record<string, string> = {
-    cargadores:        '⚡️CARGADORES⚡️',
-    cargadores_armar:  '‼️CARGADORES PARA ARMAR‼️',
-    cables:            '⚡️CABLES⚡️',
-    cables_armar:      '‼️CABLES PARA ARMAR‼️',
-    fundas:            'FUNDAS',
-    fuente_original:   '⚡️FUENTE 20W ORIGINAL⚡️',
+    battery_pack:     '⚡️ Battery Pack ⚡️',
+    fuente_original:  '⚡️FUENTE 20W ORIGINAL⚡️',
+    cargadores:       '⚡️CARGADORES⚡️',
+    cargadores_armar: '‼️CARGADORES PARA ARMAR‼️',
+    cables:           '⚡️CABLES⚡️',
+    cables_armar:     '‼️CABLES PARA ARMAR‼️',
+    fundas:           'FUNDAS',
+    templados:        'TEMPLADOS',
+    pencil:           '✏️ APPLE PENCIL',
+    airtag:           '🌎 AIRTAG',
+    audio:            '🎧 AUDIO',
+    otros:            '📦 OTROS',
   }
 
   const ORDEN_CATEGORIAS = [
-    'cargadores', 'cargadores_armar', 'cables', 'cables_armar',
-    'fundas', 'fuente_original',
+    'battery_pack', 'fuente_original', 'cargadores', 'cargadores_armar',
+    'cables', 'cables_armar', 'fundas', 'templados', 'pencil', 'airtag', 'audio', 'otros',
   ]
 
   let msg = '*🇨🇳IMPORTACION DIRECTA🇨🇳*\n👉 *LA MEJOR CALIDAD*\n\n'
