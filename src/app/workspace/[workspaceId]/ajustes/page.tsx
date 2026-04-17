@@ -66,6 +66,12 @@ export default function AjustesPage() {
         modulos.mostrarVerisure   && { label: 'Ventas registradas',    desc: 'Historial de instalaciones',     path: 'ventas-verisure', icon: TrendingUp },
       ].filter(Boolean),
     },
+    {
+      titulo: 'Equipo',
+      items: [
+        { label: 'Equipo', desc: 'Miembros, roles e invitaciones', path: 'equipo', icon: Users },
+      ],
+    },
   ].filter(g => g.items.length > 0)
 
   return (

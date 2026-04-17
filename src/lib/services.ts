@@ -66,12 +66,26 @@ export const getWorkspaces = async (userId: string): Promise<Workspace[]> => {
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Workspace))
 }
 
-export const createWorkspace = async (data: Omit<Workspace, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+export const createWorkspace = async (
+  data: Omit<Workspace, 'id' | 'createdAt' | 'updatedAt'>,
+  ownerUser?: { uid: string; email: string; displayName: string; photoURL?: string }
+): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces'), {
     ...cleanForFirestore(data),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
+  // Registrar owner como miembro automáticamente
+  if (ownerUser) {
+    await setDoc(doc(db, 'workspaces', ref.id, 'members', ownerUser.uid), {
+      workspaceId: ref.id,
+      role: 'owner',
+      email: ownerUser.email,
+      displayName: ownerUser.displayName,
+      photoURL: ownerUser.photoURL ?? null,
+      joinedAt: serverTimestamp(),
+    })
+  }
   return ref.id
 }
 
@@ -870,4 +884,136 @@ export const agregarNotaVisita = async (
     updatedAt: serverTimestamp(),
   })
   return nuevasNotas
+}
+
+// ── MULTI-USUARIO ─────────────────────────────────────────────────────────────
+import type { WorkspaceMember, WorkspaceInvite, MemberRole } from '@/types'
+
+// Helpers
+const generateToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+
+// ── Members ───────────────────────────────────────────────────────────────────
+
+export const getMembers = async (workspaceId: string): Promise<WorkspaceMember[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'members'))
+  return snap.docs.map(d => ({ ...d.data(), userId: d.id } as WorkspaceMember))
+}
+
+export const getMemberRole = async (workspaceId: string, userId: string): Promise<MemberRole | null> => {
+  const snap = await getDoc(doc(db, 'workspaces', workspaceId, 'members', userId))
+  if (!snap.exists()) return null
+  return (snap.data() as WorkspaceMember).role
+}
+
+export const setMemberRole = async (workspaceId: string, userId: string, role: MemberRole) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'members', userId), { role })
+}
+
+export const removeMember = async (workspaceId: string, userId: string) => {
+  await deleteDoc(doc(db, 'workspaces', workspaceId, 'members', userId))
+  // También sacar del array miembros del workspace
+  const wsRef = doc(db, 'workspaces', workspaceId)
+  const wsSnap = await getDoc(wsRef)
+  if (wsSnap.exists()) {
+    const miembros = (wsSnap.data().miembros ?? []).filter((id: string) => id !== userId)
+    await updateDoc(wsRef, { miembros })
+  }
+}
+
+// ── Invites ───────────────────────────────────────────────────────────────────
+
+export const getInvites = async (workspaceId: string): Promise<WorkspaceInvite[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'invites'), where('workspaceId', '==', workspaceId))
+  )
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as WorkspaceInvite))
+}
+
+export const createInvite = async (
+  workspaceId: string,
+  workspaceNombre: string,
+  workspaceEmoji: string,
+  createdBy: string,
+  role: MemberRole,
+  email?: string
+): Promise<WorkspaceInvite> => {
+  const token = generateToken()
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 días
+
+  const data = {
+    workspaceId,
+    workspaceNombre,
+    workspaceEmoji,
+    role,
+    token,
+    createdBy,
+    createdAt: serverTimestamp(),
+    expiresAt,
+    status: 'pending' as const,
+    ...(email ? { email } : {}),
+  }
+
+  const ref = await addDoc(collection(db, 'invites'), data)
+  return { id: ref.id, ...data, createdAt: now }
+}
+
+export const revokeInvite = async (inviteId: string) => {
+  await updateDoc(doc(db, 'invites', inviteId), { status: 'revoked' })
+}
+
+export const getInviteByToken = async (token: string): Promise<WorkspaceInvite | null> => {
+  const snap = await getDocs(
+    query(collection(db, 'invites'), where('token', '==', token))
+  )
+  if (snap.empty) return null
+  const d = snap.docs[0]
+  return { id: d.id, ...d.data() } as WorkspaceInvite
+}
+
+export const acceptInvite = async (
+  invite: WorkspaceInvite,
+  user: { uid: string; email: string; displayName: string; photoURL?: string }
+): Promise<void> => {
+  // 1. Agregar a members
+  await setDoc(doc(db, 'workspaces', invite.workspaceId, 'members', user.uid), {
+    workspaceId: invite.workspaceId,
+    role: invite.role,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL ?? null,
+    joinedAt: serverTimestamp(),
+  })
+
+  // 2. Agregar al array miembros del workspace
+  const wsRef = doc(db, 'workspaces', invite.workspaceId)
+  const wsSnap = await getDoc(wsRef)
+  if (wsSnap.exists()) {
+    const miembros = wsSnap.data().miembros ?? []
+    if (!miembros.includes(user.uid)) {
+      await updateDoc(wsRef, { miembros: [...miembros, user.uid] })
+    }
+  }
+
+  // 3. Marcar invite como aceptada
+  await updateDoc(doc(db, 'invites', invite.id), {
+    status: 'accepted',
+    acceptedBy: user.uid,
+    acceptedAt: serverTimestamp(),
+  })
+}
+
+// Al crear workspace, registrar el owner como miembro también
+export const registerOwnerAsMember = async (
+  workspaceId: string,
+  user: { uid: string; email: string; displayName: string; photoURL?: string }
+) => {
+  await setDoc(doc(db, 'workspaces', workspaceId, 'members', user.uid), {
+    workspaceId,
+    role: 'owner' as MemberRole,
+    email: user.email,
+    displayName: user.displayName,
+    photoURL: user.photoURL ?? null,
+    joinedAt: serverTimestamp(),
+  })
 }

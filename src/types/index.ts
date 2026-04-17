@@ -704,3 +704,37 @@ export interface PipelineCliente {
   creadoAt: Date
   updatedAt: Date
 }
+
+// ── MULTI-USUARIO ─────────────────────────────────────────────────────────────
+
+export type MemberRole = 'owner' | 'admin' | 'vendedor' | 'viewer'
+
+export interface WorkspaceMember {
+  userId: string
+  workspaceId: string
+  role: MemberRole
+  email: string
+  displayName: string
+  photoURL?: string
+  joinedAt: Date
+}
+
+export type InviteStatus = 'pending' | 'accepted' | 'expired' | 'revoked'
+
+export interface WorkspaceInvite {
+  id: string
+  workspaceId: string
+  workspaceNombre: string
+  workspaceEmoji: string
+  role: MemberRole
+  // Invitación por email
+  email?: string
+  // Invitación por link
+  token: string
+  createdBy: string   // uid del owner
+  createdAt: Date
+  expiresAt: Date     // 7 días
+  status: InviteStatus
+  acceptedBy?: string // uid del que aceptó
+  acceptedAt?: Date
+}
