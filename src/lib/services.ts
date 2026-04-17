@@ -1017,3 +1017,35 @@ export const registerOwnerAsMember = async (
     joinedAt: serverTimestamp(),
   })
 }
+
+// ── VENTAS iPHONE CLUB ────────────────────────────────────────────────────────
+import type { VentaIPhone } from '@/types'
+
+export const getVentasIPhone = async (workspaceId: string): Promise<VentaIPhone[]> => {
+  const snap = await getDocs(
+    query(collection(db, 'workspaces', workspaceId, 'ventas_iphone'),
+    where('workspaceId', '==', workspaceId))
+  )
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as VentaIPhone))
+    .sort((a, b) => {
+      const fa = a.fecha instanceof Date ? a.fecha : new Date(((a.fecha as any)?.seconds ?? 0) * 1000)
+      const fb = b.fecha instanceof Date ? b.fecha : new Date(((b.fecha as any)?.seconds ?? 0) * 1000)
+      return fb.getTime() - fa.getTime()
+    })
+}
+
+export const createVentaIPhone = async (
+  workspaceId: string,
+  data: Omit<VentaIPhone, 'id' | 'creadoAt'>
+): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'ventas_iphone'), {
+    ...cleanForFirestore(data),
+    creadoAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const deleteVentaIPhone = async (workspaceId: string, id: string) => {
+  await deleteDoc(doc(db, 'workspaces', workspaceId, 'ventas_iphone', id))
+}

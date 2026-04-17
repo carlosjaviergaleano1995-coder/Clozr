@@ -738,3 +738,28 @@ export interface WorkspaceInvite {
   acceptedBy?: string // uid del que aceptó
   acceptedAt?: Date
 }
+
+// ── VENTAS iPHONE CLUB ────────────────────────────────────────────────────────
+
+export type FormaPagoVentaIC = 'usd_efectivo' | 'usdt' | 'transferencia_ars' | 'manchados'
+
+export interface VentaIPhone {
+  id: string
+  workspaceId: string
+  // Qué se vendió
+  itemId?: string           // id del StockIPhone o StockOtroApple (opcional si se borró)
+  tipo: 'iphone' | 'otro_apple' | 'accesorio'
+  descripcion: string       // ej: "iPhone 14 Pro 256GB Space Black (usado)"
+  // Precios
+  precioCompraUSD: number   // costo (precio mayorista)
+  precioVentaUSD: number    // precio de venta en USD equivalente
+  precioVentaARS?: number   // si cobró en ARS
+  formaPago: FormaPagoVentaIC
+  dolarAlMomento: number    // cotización al momento de venta
+  gananciaUSD: number       // precioVentaUSD - precioCompraUSD
+  // Contexto
+  clienteNombre?: string
+  notas?: string
+  fecha: Date
+  creadoAt: Date
+}

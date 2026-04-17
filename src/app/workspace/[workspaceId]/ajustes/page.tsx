@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronRight, Radio, Users, Shield, TrendingUp, CheckSquare, Wrench, History, Ticket, Pencil, Check, Package } from 'lucide-react'
+import { ChevronRight, Radio, Users, Shield, TrendingUp, CheckSquare, Wrench, History, Ticket, Pencil, Check, Package, BarChart2 } from 'lucide-react'
 import { useWorkspaceStore } from '@/store'
 import { updateWorkspace } from '@/lib/services'
 import { derivarAjustes } from '@/lib/workspace-config'
@@ -58,6 +58,8 @@ export default function AjustesPage() {
       items: [
         modulos.mostrarBroadcast    && { label: 'Broadcast',     desc: 'Lista de precios por WhatsApp',  path: 'iphone/broadcast',    icon: Radio },
         modulos.mostrarBroadcast    && { label: 'Accesorios',    desc: 'Cargadores, cables y fundas',    path: 'iphone/accesorios',   icon: Package },
+        modulos.mostrarBroadcast    && { label: 'Ventas',        desc: 'Historial y ganancias',          path: 'iphone/ventas',       icon: TrendingUp },
+        modulos.mostrarBroadcast    && { label: 'Resumen',       desc: 'Métricas y evolución mensual',   path: 'iphone/resumen',      icon: BarChart2 },
         modulos.mostrarRevendedores && { label: 'Revendedores',  desc: 'CRM de revendedores',            path: 'iphone/revendedores', icon: Users },
       ].filter(Boolean),
     },
