@@ -7,6 +7,7 @@ import StockiPhones   from './_tabs/StockiPhones'
 import StockOtros     from './_tabs/StockOtros'
 import StockAccesorios from './_tabs/StockAccesorios'
 import Cotizar        from './_tabs/Cotizar'
+import { useMemberRole } from '@/hooks/useMemberRole'
 
 const TABS = [
   { id: 'iphones',    label: 'iPhones',    icon: Smartphone },
@@ -21,10 +22,12 @@ export default function StockPage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
   const [tab, setTab] = useState<TabId>('iphones')
+  const { isVendedor, isViewer } = useMemberRole(workspaceId)
+  const canEdit   = !isViewer
+  const canDelete = isVendedor
 
   return (
     <div className="space-y-3 animate-fade-in">
-      {/* Sub-nav tabs */}
       <div className="flex gap-1 p-1 rounded-2xl sticky top-[57px] z-30"
         style={{ background: 'var(--surface-2)' }}>
         {TABS.map(t => {
@@ -43,10 +46,9 @@ export default function StockPage() {
         })}
       </div>
 
-      {/* Contenido — workspaceId pasado como prop para garantizar que esté disponible */}
-      {tab === 'iphones'    && <StockiPhones    workspaceId={workspaceId} />}
-      {tab === 'otros'      && <StockOtros      workspaceId={workspaceId} />}
-      {tab === 'accesorios' && <StockAccesorios workspaceId={workspaceId} />}
+      {tab === 'iphones'    && <StockiPhones    workspaceId={workspaceId} canEdit={canEdit} canDelete={canDelete} />}
+      {tab === 'otros'      && <StockOtros      workspaceId={workspaceId} canEdit={canEdit} canDelete={canDelete} />}
+      {tab === 'accesorios' && <StockAccesorios workspaceId={workspaceId} canEdit={canEdit} canDelete={canDelete} />}
       {tab === 'cotizar'    && <Cotizar         workspaceId={workspaceId} />}
     </div>
   )

@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { Plus, CheckSquare, Square, Trash2, RefreshCw, RotateCcw } from 'lucide-react'
 import { getTareas, createTarea, toggleTarea, deleteTarea } from '@/lib/services'
 import { useAuthStore } from '@/store'
+import { useMemberRole } from '@/hooks/useMemberRole'
 import type { Tarea, TareaFrecuencia } from '@/types'
 
 // Opción C: Tareas recurrentes fijas + tareas puntuales del día
@@ -21,6 +22,8 @@ export default function TareasPage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
   const { user } = useAuthStore()
+  const { isVendedor, isViewer } = useMemberRole(workspaceId)
+  const canEdit = !isViewer
 
   const [tareas, setTareas] = useState<Tarea[]>([])
   const [loading, setLoading] = useState(true)
@@ -125,16 +128,18 @@ export default function TareasPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {recurrentes.some(t => t.completada) && (
+          {canEdit && recurrentes.some(t => t.completada) && (
             <button onClick={handleReset}
               className="btn-ghost text-xs gap-1"
               style={{ color: 'var(--text-tertiary)' }}>
               <RotateCcw size={13} /> Reset
             </button>
           )}
-          <button onClick={() => setShowForm(true)} className="btn-primary gap-1">
-            <Plus size={15} /> Nueva
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowForm(true)} className="btn-primary gap-1">
+              <Plus size={15} /> Nueva
+            </button>
+          )}
         </div>
       </div>
 
@@ -167,7 +172,7 @@ export default function TareasPage() {
           <div className="space-y-2">
             {puntuales.map(t => (
               <TareaRow key={t.id} t={t} toggling={toggling}
-                onToggle={handleToggle} onDelete={handleDelete} />
+                onToggle={handleToggle} onDelete={handleDelete} canEdit={canEdit} />
             ))}
           </div>
         </div>
@@ -181,7 +186,7 @@ export default function TareasPage() {
           <div className="space-y-2">
             {recurrentes.filter(t => !t.completada).map(t => (
               <TareaRow key={t.id} t={t} toggling={toggling}
-                onToggle={handleToggle} onDelete={handleDelete} />
+                onToggle={handleToggle} onDelete={handleDelete} canEdit={canEdit} />
             ))}
           </div>
         </div>
@@ -278,12 +283,13 @@ export default function TareasPage() {
   )
 }
 
-function TareaRow({ t, toggling, onToggle, onDelete, done = false }: {
+function TareaRow({ t, toggling, onToggle, onDelete, done = false, canEdit = true }: {
   t: Tarea
   toggling: Set<string>
   onToggle: (t: Tarea) => void
   onDelete: (id: string) => void
   done?: boolean
+  canEdit?: boolean
 }) {
   const cfg = FRECUENCIA_CONFIG[t.frecuencia]
   return (
@@ -303,11 +309,13 @@ function TareaRow({ t, toggling, onToggle, onDelete, done = false }: {
           {cfg.label}
         </span>
       </div>
-      <button onClick={() => onDelete(t.id)}
-        className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-        style={{ color: 'var(--text-tertiary)' }}>
-        <Trash2 size={14} />
-      </button>
+      {canEdit && (
+        <button onClick={() => onDelete(t.id)}
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
+          style={{ color: 'var(--text-tertiary)' }}>
+          <Trash2 size={14} />
+        </button>
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import {
   getVentas2, agregarMovimientoCaja, getPlantillas,
   getPipelineByCliente, createPipeline, updatePipeline, agregarNotaVisita,
 } from '@/lib/services'
+import { useMemberRole } from '@/hooks/useMemberRole'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import type { Cliente, ClienteTipo, ClienteEstado, Venta2, PlantillaMensaje, PipelineCliente, EstadoPipeline, NotaVisita } from '@/types'
 import { format } from 'date-fns'
@@ -48,6 +49,9 @@ export default function ClientesPage() {
   const { workspaces } = useWorkspaceStore()
   const ws = workspaces.find(w => w.id === workspaceId)
   const esVerisure = ws?.config?.moduloVerisure === true
+  const { isVendedor, isViewer } = useMemberRole(workspaceId)
+  const canEdit = !isViewer
+  const canDelete = isVendedor  // vendedor+ puede borrar sus propios, admin/owner todo
   const tiposDisponibles = esVerisure ? TIPOS_VERISURE : TIPOS
 
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -284,9 +288,11 @@ export default function ClientesPage() {
             {clientes.filter(c => c.estado === 'activo').length} activos · {clientes.length} total
           </p>
         </div>
-        <button onClick={abrirNuevo} className="btn-primary gap-1 text-sm">
-          <Plus size={15} /> Agregar
-        </button>
+        {canEdit && (
+          <button onClick={abrirNuevo} className="btn-primary gap-1 text-sm">
+            <Plus size={15} /> Agregar
+          </button>
+        )}
       </div>
 
       {/* Filtros tipo */}
@@ -438,21 +444,27 @@ export default function ClientesPage() {
                     <MapPin size={15} /> Maps
                   </a>
                 )}
-                <button onClick={() => { setSenaCliente(detalle); setSenaDesc(''); setSenaMonto(0); setShowSena(true) }}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
-                  <DollarSign size={15} /> Seña
-                </button>
-                <button onClick={() => { abrirEditar(detalle); setDetalle(null) }}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                  <Pencil size={15} />
-                </button>
-                <button onClick={() => handleDelete(detalle.id)}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl"
-                  style={{ background: 'var(--red-bg)', color: 'var(--brand-light)' }}>
-                  <Trash2 size={15} />
-                </button>
+                {canEdit && (
+                  <button onClick={() => { setSenaCliente(detalle); setSenaDesc(''); setSenaMonto(0); setShowSena(true) }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
+                    <DollarSign size={15} /> Seña
+                  </button>
+                )}
+                {canEdit && (
+                  <button onClick={() => { abrirEditar(detalle); setDetalle(null) }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                    <Pencil size={15} />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => handleDelete(detalle.id)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl"
+                    style={{ background: 'var(--red-bg)', color: 'var(--brand-light)' }}>
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             </div>
 

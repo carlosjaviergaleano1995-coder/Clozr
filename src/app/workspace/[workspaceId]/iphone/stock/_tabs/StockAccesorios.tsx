@@ -109,7 +109,7 @@ const EMPTY_FORM: FormData = {
   moneda: 'ARS', stock: 0, preciosVolumen: [{ cantidad: 1, precio: 0 }],
 }
 
-export default function StockAccesorios({ workspaceId }: { workspaceId: string }) {
+export default function StockAccesorios({ workspaceId, canEdit = true, canDelete = true }: { workspaceId: string; canEdit?: boolean; canDelete?: boolean }) {
   const { user } = useAuthStore()
 
   const [items, setItems] = useState<StockAccesorio[]>([])
@@ -226,9 +226,11 @@ export default function StockAccesorios({ workspaceId }: { workspaceId: string }
             Cargadores · Cables · Fundas
           </p>
         </div>
-        <button onClick={openNew} className="btn-primary gap-1 text-sm">
-          <Plus size={15} /> Nuevo
-        </button>
+        {canEdit && (
+          <button onClick={openNew} className="btn-primary gap-1 text-sm">
+            <Plus size={15} /> Nuevo
+          </button>
+        )}
       </div>
 
       {/* Empty state con carga inicial */}
@@ -325,16 +327,20 @@ export default function StockAccesorios({ workspaceId }: { workspaceId: string }
                     </div>
 
                     <div className="flex gap-1.5 flex-shrink-0">
-                      <button onClick={() => openEdit(item)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                        <Pencil size={13} />
-                      </button>
-                      <button onClick={() => handleDelete(item)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                        <Trash2 size={13} />
-                      </button>
+                      {canEdit && (
+                        <button onClick={() => openEdit(item)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                          <Pencil size={13} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button onClick={() => handleDelete(item)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

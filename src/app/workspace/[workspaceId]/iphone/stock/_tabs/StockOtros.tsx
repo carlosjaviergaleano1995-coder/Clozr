@@ -33,7 +33,7 @@ const EMPTY = {
 
 
 
-export default function StockOtros({ workspaceId }: { workspaceId: string }) {
+export default function StockOtros({ workspaceId, canEdit = true, canDelete = true }: { workspaceId: string; canEdit?: boolean; canDelete?: boolean }) {
   const { user } = useAuthStore()
 
   const [items, setItems] = useState<StockOtroApple[]>([])
@@ -123,9 +123,11 @@ export default function StockOtros({ workspaceId }: { workspaceId: string }) {
             Watch · iPad · AirPods · AirTag
           </p>
         </div>
-        <button onClick={openNew} className="btn-primary gap-1 text-sm">
-          <Plus size={15} /> Agregar
-        </button>
+        {canEdit && (
+          <button onClick={openNew} className="btn-primary gap-1 text-sm">
+            <Plus size={15} /> Agregar
+          </button>
+        )}
       </div>
 
       {/* Filtro por tipo */}
@@ -199,23 +201,29 @@ export default function StockOtros({ workspaceId }: { workspaceId: string }) {
                   )}
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
-                  <button onClick={() => handleToggleDisponible(item)}
-                    className="px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
-                    style={item.disponible
-                      ? { background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green)' }
-                      : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-                    {item.disponible ? 'Disp.' : 'N/D'}
-                  </button>
-                  <button onClick={() => openEdit(item)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => handleDelete(item)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                    <Trash2 size={13} />
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => handleToggleDisponible(item)}
+                      className="px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
+                      style={item.disponible
+                        ? { background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green)' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+                      {item.disponible ? 'Disp.' : 'N/D'}
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button onClick={() => openEdit(item)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => handleDelete(item)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             )

@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, Trendin
 import { getConfigVerisure, saveConfigVerisure } from '@/lib/services'
 import { CONFIG_VERISURE_DEFAULT, DEVICE_IMAGES } from '@/lib/verisure-defaults'
 import { useModuloGuard } from '@/hooks/useModuloGuard'
+import { useMemberRole } from '@/hooks/useMemberRole'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ export default function VerisurePage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
   useModuloGuard('moduloVerisure') // redirige si no tiene licencia
+  const { isAdmin } = useMemberRole(workspaceId)
 
   const [config, setConfig] = useState<ConfigVerisure>(CONFIG_VERISURE_DEFAULT)
   const [loading, setLoading] = useState(true)
@@ -358,7 +360,7 @@ export default function VerisurePage() {
         </div>
         <div className="flex gap-2">
           <button onClick={reset} className="btn-ghost text-xs gap-1"><RefreshCw size={13} /> Reset</button>
-          <button onClick={() => setShowConfig(!showConfig)} className="btn-ghost text-xs gap-1"><Settings size={13} /></button>
+          {isAdmin && <button onClick={() => setShowConfig(!showConfig)} className="btn-ghost text-xs gap-1"><Settings size={13} /></button>}
         </div>
       </div>
 

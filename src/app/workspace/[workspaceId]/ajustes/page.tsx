@@ -6,6 +6,7 @@ import { ChevronRight, Radio, Users, Shield, TrendingUp, CheckSquare, Wrench, Hi
 import { useWorkspaceStore } from '@/store'
 import { updateWorkspace } from '@/lib/services'
 import { derivarAjustes } from '@/lib/workspace-config'
+import { useMemberRole } from '@/hooks/useMemberRole'
 import type { WorkspaceConfig } from '@/types'
 
 export default function AjustesPage() {
@@ -16,6 +17,7 @@ export default function AjustesPage() {
   const ws = workspaces.find(w => w.id === workspaceId)
   const cfg = ws?.config ?? {}
   const modulos = derivarAjustes(cfg)
+  const { isAdmin } = useMemberRole(workspaceId)
 
   const [editandoNombre, setEditandoNombre] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState(ws?.nombre ?? '')
@@ -139,11 +141,13 @@ export default function AjustesPage() {
               ) : (
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{ws?.nombre}</p>
-                  <button onClick={() => { setNuevoNombre(ws?.nombre ?? ''); setEditandoNombre(true) }}
-                    className="w-6 h-6 rounded-md flex items-center justify-center"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                    <Pencil size={11} />
-                  </button>
+                  {isAdmin && (
+                    <button onClick={() => { setNuevoNombre(ws?.nombre ?? ''); setEditandoNombre(true) }}
+                      className="w-6 h-6 rounded-md flex items-center justify-center"
+                      style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                      <Pencil size={11} />
+                    </button>
+                  )}
                 </div>
               )}
               <div className="flex flex-wrap gap-1 mt-1">
@@ -158,8 +162,8 @@ export default function AjustesPage() {
           </div>
         </div>
 
-        {/* Toggles de config — solo para workspaces no-premium */}
-        {!cfg.moduloVerisure && !cfg.moduloBroadcast && (
+        {/* Toggles de config — solo para admins en workspaces no-premium */}
+        {isAdmin && !cfg.moduloVerisure && !cfg.moduloBroadcast && (
           <div className="px-4 py-3" style={{ background: 'var(--surface)' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: 'var(--text-tertiary)' }}>
               Módulos activos
