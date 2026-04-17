@@ -3,11 +3,19 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Smartphone, Watch, ShoppingBag, Calculator } from 'lucide-react'
-import StockiPhones   from './_tabs/StockiPhones'
-import StockOtros     from './_tabs/StockOtros'
-import StockAccesorios from './_tabs/StockAccesorios'
-import Cotizar        from './_tabs/Cotizar'
+import dynamic from 'next/dynamic'
 import { useMemberRole } from '@/hooks/useMemberRole'
+
+const TabSkeleton = () => (
+  <div className="space-y-3 mt-2">
+    {[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
+  </div>
+)
+
+const StockiPhones   = dynamic(() => import('./_tabs/StockiPhones'),   { ssr: false, loading: () => <TabSkeleton /> })
+const StockOtros     = dynamic(() => import('./_tabs/StockOtros'),     { ssr: false, loading: () => <TabSkeleton /> })
+const StockAccesorios = dynamic(() => import('./_tabs/StockAccesorios'), { ssr: false, loading: () => <TabSkeleton /> })
+const Cotizar        = dynamic(() => import('./_tabs/Cotizar'),        { ssr: false, loading: () => <TabSkeleton /> })
 
 const TABS = [
   { id: 'iphones',    label: 'iPhones',    icon: Smartphone },

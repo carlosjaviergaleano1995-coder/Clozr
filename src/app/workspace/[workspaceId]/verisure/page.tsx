@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { ChevronDown, ChevronUp, Copy, RefreshCw, Settings, Check, Plus, TrendingUp } from 'lucide-react'
 import { getConfigVerisure, saveConfigVerisure } from '@/lib/services'
 import { CONFIG_VERISURE_DEFAULT, DEVICE_IMAGES } from '@/lib/verisure-defaults'
 import { useModuloGuard } from '@/hooks/useModuloGuard'
 import { useMemberRole } from '@/hooks/useMemberRole'
+import dynamic from 'next/dynamic'
 import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@/types'
+
+const ConfigPanel = dynamic(() => import('./ConfigPanel'), { ssr: false })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const iva = (n: number, pct = 21) => n * (1 + pct / 100)
@@ -156,8 +159,11 @@ export default function VerisurePage() {
   const setInst = (fn: (i: Instalacion) => Instalacion) =>
     setInstalaciones(prev => prev.map((x, i) => i === instActiva ? fn(x) : x))
 
-  // Cálculos
-  const calcs = instalaciones.map(i => calcInstalacion(i, config, tipoVenta))
+  // Cálculos — memoizados para evitar recalcular en cada render
+  const calcs = useMemo(
+    () => instalaciones.map(i => calcInstalacion(i, config, tipoVenta)),
+    [instalaciones, config, tipoVenta]
+  )
   const totalInsSinIVA = calcs.reduce((s, c) => s + c.totalInsSinIVA, 0)
   const totalInsConIVA = calcs.reduce((s, c) => s + c.totalInsConIVA, 0)
   const cuotaTotalConIVA = calcs.reduce((s, c) => s + c.cuotaTotalConIVA, 0)
@@ -624,7 +630,7 @@ export default function VerisurePage() {
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
                   style={{ background: 'var(--surface-3)' }}>
                   {DEVICE_IMAGES[disp.nombre]
-                    ? <img src={DEVICE_IMAGES[disp.nombre]} alt={disp.nombre} className="w-9 h-9 object-contain" />
+                    ? <img src={DEVICE_IMAGES[disp.nombre]} alt={disp.nombre} className="w-9 h-9 object-contain" loading="lazy" />
                     : <span className="text-lg">📦</span>
                   }
                 </div>
@@ -914,7 +920,7 @@ export default function VerisurePage() {
                   <img
                     src={DEVICE_IMAGES[modalDisp.disp.nombre]}
                     alt={modalDisp.disp.nombre}
-                    className="w-14 h-14 object-contain"
+                    className="w-14 h-14 object-contain" loading="lazy"
                   />
                 </div>
               )}
@@ -1031,81 +1037,6 @@ export default function VerisurePage() {
       )}
 
       {showConfig && <ConfigPanel config={config} workspaceId={workspaceId} onSave={c => { setConfig(c); setShowConfig(false) }} />}
-    </div>
-  )
-}
-
-// ── Config Panel ──────────────────────────────────────────────────────────────
-function ConfigPanel({ config, workspaceId, onSave }: { config: ConfigVerisure; workspaceId: string; onSave: (c: ConfigVerisure) => void }) {
-  const [draft, setDraft] = useState<ConfigVerisure>(JSON.parse(JSON.stringify(config)))
-  const [saving, setSaving] = useState(false)
-  const [tab, setTab] = useState<'kits' | 'promos' | 'bonos'>('kits')
-
-  const updateKit = (k: NivelPrecio, val: number) => setDraft(d => ({ ...d, kits: { ...d.kits, [k]: val } }))
-  const updateCom = (k: keyof ConfigVerisure['comisiones'], val: number) => setDraft(d => ({ ...d, comisiones: { ...d.comisiones, [k]: val } }))
-  const updatePromo = (id: string, field: string, val: any) => setDraft(d => ({ ...d, promos: d.promos.map(p => p.id === id ? { ...p, [field]: val } : p) }))
-  const handleSave = async () => { setSaving(true); try { await saveConfigVerisure(workspaceId, draft); onSave(draft) } finally { setSaving(false) } }
-
-  return (
-    <div className="card border-amber-200 bg-[var(--amber-bg)]">
-      <p className="text-sm font-semibold text-[var(--amber)] mb-3">⚙️ Configuración de precios</p>
-      <div className="flex gap-1 mb-4">
-        {(['kits', 'promos', 'bonos'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all capitalize ${tab === t ? 'bg-amber-800 text-white' : 'bg-amber-100 text-[var(--amber)]'}`}>{t}</button>
-        ))}
-      </div>
-      {tab === 'kits' && (
-        <div className="space-y-2">
-          <p className="text-xs text-[var(--amber)] font-medium mb-1">Precios de instalación (sin IVA)</p>
-          {(Object.keys(draft.kits) as NivelPrecio[]).map(nivel => (
-            <div key={nivel} className="flex items-center gap-3">
-              <span className="text-xs text-[var(--amber)] w-20 font-medium">{NIVEL_LABEL[nivel]}</span>
-              <input type="number" value={draft.kits[nivel]} onChange={e => updateKit(nivel, Number(e.target.value))} className="input text-sm py-1.5 bg-[var(--surface)]" />
-            </div>
-          ))}
-          <p className="text-xs text-[var(--amber)] font-medium mt-3 mb-1">Comisiones (sin IVA)</p>
-          {(Object.keys(draft.comisiones) as (keyof ConfigVerisure['comisiones'])[]).map(k => (
-            <div key={k} className="flex items-center gap-3">
-              <span className="text-xs text-[var(--amber)] w-28 font-medium">{k.replace('_', ' ')}</span>
-              <input type="number" value={draft.comisiones[k]} onChange={e => updateCom(k, Number(e.target.value))} className="input text-sm py-1.5 bg-[var(--surface)]" />
-            </div>
-          ))}
-        </div>
-      )}
-      {tab === 'promos' && (
-        <div className="space-y-3">
-          {draft.promos.map(promo => (
-            <div key={promo.id} className="bg-[var(--surface)] rounded-xl p-3 space-y-2">
-              <input value={promo.label} onChange={e => updatePromo(promo.id, 'label', e.target.value)} className="input text-sm py-1.5" placeholder="Nombre" />
-              <input value={promo.descripcion} onChange={e => updatePromo(promo.id, 'descripcion', e.target.value)} className="input text-sm py-1.5" placeholder="Descripción" />
-              <div className="flex gap-2 items-center">
-                <input type="number" value={promo.precio} onChange={e => updatePromo(promo.id, 'precio', Number(e.target.value))} className="input text-sm py-1.5 flex-1" placeholder="Precio sin IVA" />
-                <button onClick={() => updatePromo(promo.id, 'activa', !promo.activa)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium ${promo.activa ? 'bg-green-100 text-[var(--green)]' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
-                  {promo.activa ? '✅ Activa' : '⏸ Pausada'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {tab === 'bonos' && (
-        <div className="space-y-2">
-          {[['Cuota base', 'cuotaBase'], ['Cuota upgrade', 'cuotaUpgrade'], ['Bono RP instalada', 'bonoInstalacionRP'], ['Bono Jefe/Gerente', 'bonoInstalacionJefeGerente']].map(([label, key]) => (
-            <div key={key} className="flex items-center gap-3">
-              <span className="text-xs text-[var(--amber)] w-32">{label}</span>
-              <input type="number" value={(draft as any)[key]}
-                onChange={e => setDraft(d => ({ ...d, [key]: Number(e.target.value) }))}
-                className="input text-sm py-1.5 bg-[var(--surface)]" />
-            </div>
-          ))}
-        </div>
-      )}
-      <button onClick={handleSave} disabled={saving}
-        className="w-full mt-4 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm rounded-xl py-2.5 transition-all disabled:opacity-40">
-        {saving ? 'Guardando...' : 'Guardar configuración'}
-      </button>
     </div>
   )
 }

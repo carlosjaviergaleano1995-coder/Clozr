@@ -202,7 +202,7 @@ export default function StockiPhones({ workspaceId, canEdit = true, canDelete = 
                   <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center"
                     style={{background:'var(--surface-2)'}}>
                     <img src={imgSrc} alt={`${item.modelo} ${item.color}`}
-                      className="w-9 h-9 object-contain"
+                      className="w-9 h-9 object-contain" loading="lazy"
                       onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                   </div>
                 )}

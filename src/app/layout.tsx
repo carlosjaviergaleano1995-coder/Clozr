@@ -5,6 +5,12 @@ import { AuthProvider } from '@/components/AuthProvider'
 export const metadata: Metadata = {
   title: 'Clozr — CRM para equipos de ventas',
   description: 'La herramienta que entiende cómo vendés.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Clozr',
+  },
 }
 
 export const viewport: Viewport = {
