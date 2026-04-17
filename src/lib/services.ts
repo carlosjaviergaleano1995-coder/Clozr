@@ -496,6 +496,25 @@ export const getTurnosFuturos = async (workspaceId: string): Promise<Turno[]> =>
     .sort((a, b) => toDate(a.fechaHora!).getTime() - toDate(b.fechaHora!).getTime())
 }
 
+// Todos los turnos pasados (antes de hoy), paginados por mes
+export const getTurnosHistorial = async (workspaceId: string): Promise<Turno[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'turnos'))
+  const hoy = new Date().toISOString().slice(0, 10)
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as Turno))
+    .filter(t => {
+      const fecha = t.esAgendado && t.fechaHora
+        ? toDate(t.fechaHora).toISOString().slice(0, 10)
+        : toDate(t.createdAt).toISOString().slice(0, 10)
+      return fecha < hoy
+    })
+    .sort((a, b) => {
+      const fa = a.esAgendado && a.fechaHora ? toDate(a.fechaHora) : toDate(a.createdAt)
+      const fb = b.esAgendado && b.fechaHora ? toDate(b.fechaHora) : toDate(b.createdAt)
+      return fb.getTime() - fa.getTime()
+    })
+}
+
 export const createTurno = async (
   workspaceId: string,
   data: Omit<Turno, 'id' | 'createdAt'>
@@ -839,4 +858,16 @@ export const updatePipeline = async (
   await updateDoc(doc(db, 'workspaces', workspaceId, 'pipeline', id), {
     ...cleanForFirestore(data), updatedAt: serverTimestamp(),
   })
+}
+
+export const agregarNotaVisita = async (
+  workspaceId: string, pipelineId: string,
+  nota: Omit<NotaVisita, never>, notasActuales: NotaVisita[]
+) => {
+  const nuevasNotas = [nota, ...notasActuales]
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'pipeline', pipelineId), {
+    notas: cleanForFirestore(nuevasNotas),
+    updatedAt: serverTimestamp(),
+  })
+  return nuevasNotas
 }

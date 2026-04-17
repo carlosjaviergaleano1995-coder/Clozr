@@ -6,9 +6,10 @@ import { Plus, Search, MessageCircle, Pencil, Trash2, ChevronRight, X, Phone, Do
 import {
   getClientes, createCliente, updateCliente, deleteCliente,
   getVentas2, agregarMovimientoCaja, getPlantillas,
+  getPipelineByCliente, createPipeline, updatePipeline, agregarNotaVisita,
 } from '@/lib/services'
 import { useAuthStore, useWorkspaceStore } from '@/store'
-import type { Cliente, ClienteTipo, ClienteEstado, Venta2, UbicacionCliente, PlantillaMensaje } from '@/types'
+import type { Cliente, ClienteTipo, ClienteEstado, Venta2, PlantillaMensaje, PipelineCliente, EstadoPipeline, NotaVisita } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
@@ -64,6 +65,14 @@ export default function ClientesPage() {
   const [plantillaCliente, setPlantillaCliente] = useState<Cliente | null>(null)
   // Ubicación
   const [buscandoUbicacion, setBuscandoUbicacion] = useState(false)
+  // Pipeline Verisure
+  const [pipeline, setPipeline] = useState<PipelineCliente | null>(null)
+  const [loadingPipeline, setLoadingPipeline] = useState(false)
+  const [showNota, setShowNota] = useState(false)
+  const [notaTexto, setNotaTexto] = useState('')
+  const [notaResultado, setNotaResultado] = useState<'positivo'|'neutro'|'negativo'>('neutro')
+  const [notaProximoPaso, setNotaProximoPaso] = useState('')
+  const [guardandoNota, setGuardandoNota] = useState(false)
   // Seña rápida
   const [showSena, setShowSena] = useState(false)
   const [senaCliente, setSenaCliente] = useState<Cliente | null>(null)
@@ -133,6 +142,61 @@ export default function ClientesPage() {
     await updateCliente(workspaceId, c.id, { estado })
     setClientes(prev => prev.map(x => x.id === c.id ? { ...x, estado } : x))
     if (detalle?.id === c.id) setDetalle(d => d ? { ...d, estado } : d)
+  }
+
+  // Cargar pipeline al abrir detalle
+  const abrirDetalle = async (c: Cliente) => {
+    setDetalle(c)
+    if (!esVerisure) return
+    setLoadingPipeline(true)
+    setPipeline(null)
+    try {
+      const p = await getPipelineByCliente(workspaceId, c.id)
+      setPipeline(p)
+    } finally { setLoadingPipeline(false) }
+  }
+
+  // Cambiar estado del pipeline
+  const cambiarEstadoPipeline = async (estado: EstadoPipeline) => {
+    if (!detalle || !user) return
+    if (pipeline) {
+      await updatePipeline(workspaceId, pipeline.id, { estado })
+      setPipeline(p => p ? { ...p, estado } : p)
+    } else {
+      const id = await createPipeline(workspaceId, {
+        workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre,
+        estado, notas: [], kitInteres: undefined,
+      })
+      setPipeline({ id, workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre, estado, notas: [], creadoAt: new Date(), updatedAt: new Date() })
+    }
+  }
+
+  // Guardar nota de visita
+  const guardarNota = async () => {
+    if (!notaTexto.trim() || !detalle || !user) return
+    setGuardandoNota(true)
+    try {
+      const nota: NotaVisita = {
+        fecha: new Date(),
+        texto: notaTexto.trim(),
+        resultado: notaResultado,
+        proximoPaso: notaProximoPaso.trim() || undefined,
+      }
+      let pipelineId = pipeline?.id
+      let notasActuales = pipeline?.notas ?? []
+      if (!pipelineId) {
+        pipelineId = await createPipeline(workspaceId, {
+          workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre,
+          estado: 'contactado', notas: [], kitInteres: undefined,
+        })
+        setPipeline({ id: pipelineId, workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre, estado: 'contactado', notas: [nota], creadoAt: new Date(), updatedAt: new Date() })
+      } else {
+        const nuevasNotas = await agregarNotaVisita(workspaceId, pipelineId, nota, notasActuales)
+        setPipeline(p => p ? { ...p, notas: nuevasNotas as NotaVisita[] } : p)
+      }
+      setShowNota(false)
+      setNotaTexto(''); setNotaProximoPaso(''); setNotaResultado('neutro')
+    } finally { setGuardandoNota(false) }
   }
 
   const handleSena = async () => {
@@ -272,7 +336,7 @@ export default function ClientesPage() {
             const estado = ESTADOS.find(e => e.id === c.estado)
             const vsCliente = ventasDeCliente(c.nombre)
             return (
-              <button key={c.id} onClick={() => setDetalle(c)}
+              <button key={c.id} onClick={() => abrirDetalle(c)}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 {/* Avatar */}
@@ -455,38 +519,181 @@ export default function ClientesPage() {
 
             <div style={{ borderTop: '1px solid var(--border)' }} />
 
-            {/* Historial de compras */}
-            <div className="px-5 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                Historial de compras
-              </p>
-              {ventasDeCliente(detalle.nombre).length === 0 ? (
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
-              ) : (
-                <div className="space-y-2">
-                  {ventasDeCliente(detalle.nombre).slice(0, 8).map(v => (
-                    <div key={v.id} className="px-3 py-2 rounded-xl"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono" style={{ color: 'var(--brand-light)' }}>{v.codigo}</span>
-                        <span className="text-xs font-bold" style={{ color: 'var(--green)' }}>
-                          {v.moneda === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
-                        </span>
+            {/* Historial de compras — solo para no-Verisure */}
+            {!esVerisure && (
+              <div className="px-5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                  Historial de compras
+                </p>
+                {ventasDeCliente(detalle.nombre).length === 0 ? (
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
+                ) : (
+                  <div className="space-y-2">
+                    {ventasDeCliente(detalle.nombre).slice(0, 8).map(v => (
+                      <div key={v.id} className="px-3 py-2 rounded-xl"
+                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--brand-light)' }}>{v.codigo}</span>
+                          <span className="text-xs font-bold" style={{ color: 'var(--green)' }}>
+                            {v.moneda === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                          {format(toDate(v.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
+                        </p>
+                        <div className="mt-1 space-y-0.5">
+                          {v.items.map((item, i) => (
+                            <p key={i} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                              {item.cantidad}× {item.productoNombre}
+                            </p>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                        {format(toDate(v.createdAt), "d MMM yyyy · HH:mm", { locale: es })}
-                      </p>
-                      <div className="mt-1 space-y-0.5">
-                        {v.items.map((item, i) => (
-                          <p key={i} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                            {item.cantidad}× {item.productoNombre}
-                          </p>
-                        ))}
-                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pipeline Verisure — seguimiento + historial de visitas */}
+            {esVerisure && (
+              <>
+                <div style={{ borderTop: '1px solid var(--border)' }} />
+
+                {/* Estado de la instalación */}
+                <div className="px-5 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                      Seguimiento
+                    </p>
+                    {loadingPipeline && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Cargando...</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { id: 'prospecto',       label: 'Prospecto',    emoji: '🎯' },
+                      { id: 'contactado',      label: 'Contactado',   emoji: '📞' },
+                      { id: 'visita_agendada', label: 'Visita',       emoji: '📅' },
+                      { id: 'presupuestado',   label: 'Presupuestado',emoji: '💰' },
+                      { id: 'aprobado',        label: 'Aprobado',     emoji: '✅' },
+                      { id: 'instalado',       label: 'Instalado',    emoji: '🛡️' },
+                      { id: 'cobrado',         label: 'Cobrado',      emoji: '💵' },
+                      { id: 'perdido',         label: 'Perdido',      emoji: '❌' },
+                    ] as { id: EstadoPipeline; label: string; emoji: string }[]).map(e => (
+                      <button key={e.id} onClick={() => cambiarEstadoPipeline(e.id)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
+                        style={pipeline?.estado === e.id
+                          ? { background: 'var(--brand)', color: '#fff' }
+                          : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        {e.emoji} {e.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)' }} />
+
+                {/* Historial de visitas */}
+                <div className="px-5 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+                      Historial de visitas
+                    </p>
+                    <button onClick={() => { setShowNota(true); setNotaTexto(''); setNotaProximoPaso(''); setNotaResultado('neutro') }}
+                      className="text-[10px] px-2 py-1 rounded-lg font-semibold"
+                      style={{ background: 'var(--brand)', color: '#fff' }}>
+                      + Agregar
+                    </button>
+                  </div>
+
+                  {(!pipeline || pipeline.notas.length === 0) ? (
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin visitas registradas</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {pipeline.notas.map((n, i) => {
+                        const colorRes = n.resultado === 'positivo' ? 'var(--green)' : n.resultado === 'negativo' ? 'var(--brand-light)' : 'var(--amber)'
+                        const bgRes = n.resultado === 'positivo' ? 'var(--green-bg)' : n.resultado === 'negativo' ? 'var(--red-bg)' : 'var(--amber-bg)'
+                        return (
+                          <div key={i} className="px-3 py-2.5 rounded-xl"
+                            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold capitalize"
+                                style={{ background: bgRes, color: colorRes }}>
+                                {n.resultado === 'positivo' ? '👍 Positivo' : n.resultado === 'negativo' ? '👎 Negativo' : '🔄 Neutro'}
+                              </span>
+                              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                                {format(toDate(n.fecha), "d MMM yyyy · HH:mm", { locale: es })}
+                              </span>
+                            </div>
+                            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{n.texto}</p>
+                            {n.proximoPaso && (
+                              <p className="text-[10px] mt-1 italic" style={{ color: 'var(--blue)' }}>
+                                → {n.proximoPaso}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal nueva nota de visita ───────────────────────────────────────── */}
+      {showNota && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowNota(false)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Registrar visita</h3>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{detalle?.nombre}</p>
+              </div>
+              <button onClick={() => setShowNota(false)} className="btn-icon">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="label">¿Cómo salió?</label>
+                <div className="flex gap-2">
+                  {([
+                    { id: 'positivo',  label: '👍 Positivo', color: 'var(--green)'        },
+                    { id: 'neutro',    label: '🔄 Neutro',   color: 'var(--amber)'        },
+                    { id: 'negativo',  label: '👎 Negativo', color: 'var(--brand-light)'  },
+                  ] as { id: 'positivo'|'neutro'|'negativo'; label: string; color: string }[]).map(r => (
+                    <button key={r.id} onClick={() => setNotaResultado(r.id)}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={notaResultado === r.id
+                        ? { background: 'var(--brand)', color: '#fff' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      {r.label}
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
+              <div>
+                <label className="label">¿Qué pasó? *</label>
+                <textarea className="input text-sm resize-none" rows={3} autoFocus
+                  placeholder="Ej: Mostré el kit Alto, le pareció caro, quiere pensarlo..."
+                  value={notaTexto} onChange={e => setNotaTexto(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Próximo paso</label>
+                <input className="input text-sm"
+                  placeholder="Ej: Llamar el jueves, mandar presupuesto RE..."
+                  value={notaProximoPaso} onChange={e => setNotaProximoPaso(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={guardarNota} disabled={!notaTexto.trim() || guardandoNota} className="btn-primary flex-1">
+                {guardandoNota ? 'Guardando...' : 'Guardar visita'}
+              </button>
+              <button onClick={() => setShowNota(false)} className="btn-secondary">Cancelar</button>
             </div>
           </div>
         </div>
