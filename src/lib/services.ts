@@ -122,7 +122,7 @@ export const getClientes = async (workspaceId: string): Promise<Cliente[]> => {
 
 export const createCliente = async (workspaceId: string, data: Omit<Cliente, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'clientes'), {
-    ...data,
+    ...cleanForFirestore(data),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -1048,4 +1048,35 @@ export const createVentaIPhone = async (
 
 export const deleteVentaIPhone = async (workspaceId: string, id: string) => {
   await deleteDoc(doc(db, 'workspaces', workspaceId, 'ventas_iphone', id))
+}
+
+// ── LISTAS iPHONE CLUB ────────────────────────────────────────────────────────
+import type { ListaIPhone } from '@/types'
+
+export const getListas = async (workspaceId: string): Promise<ListaIPhone[]> => {
+  const snap = await getDocs(collection(db, 'workspaces', workspaceId, 'listas_iphone'))
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as ListaIPhone))
+    .filter(l => l.activa !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+}
+
+export const createLista = async (workspaceId: string, data: Omit<ListaIPhone, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'listas_iphone'), {
+    ...cleanForFirestore(data),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateLista = async (workspaceId: string, id: string, data: Partial<ListaIPhone>) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'listas_iphone', id), {
+    ...cleanForFirestore(data),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export const deleteLista = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'listas_iphone', id), { activa: false, updatedAt: serverTimestamp() })
 }

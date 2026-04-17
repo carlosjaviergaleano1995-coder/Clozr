@@ -272,16 +272,37 @@ export interface StockIPhone {
 // ── Accesorio (cargadores, cables, fundas) ────────────────────────────────────
 export interface PrecioVolumen {
   cantidad: number        // ej: 10
-  precio: number          // en ARS
+  precio: number          // en ARS o USD
+}
+
+export interface CondicionCompra {
+  montoMinimo: number     // compra mínima en ARS
+  descuentos: { desde: number; pct: number }[]  // ej: [{ desde: 600000, pct: 5 }, { desde: 1400000, pct: 10 }]
+  notas?: string          // texto libre adicional
+}
+
+export interface ListaIPhone {
+  id: string
+  workspaceId: string
+  nombre: string          // ej: "Importados China", "Socios", "Apple Original"
+  emoji: string           // ej: "🇨🇳", "🤝", "🍎"
+  color: string           // hex ej: "#E8001D"
+  descripcion?: string
+  condicionCompra?: CondicionCompra
+  activa: boolean
+  orden: number
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface StockAccesorio {
   id: string
   workspaceId: string
-  nombre: string          // ej: "Cable USB a Lightning"
-  categoria: string       // ej: "cables" | "cargadores" | "fundas"
-  descripcion?: string    // ej: "C a C Mallado"
-  preciosVolumen: PrecioVolumen[]  // escala de precios
+  listaId?: string        // referencia a ListaIPhone (opcional, null = lista general)
+  nombre: string          // ej: "Cable USB-C a Lightning"
+  categoria: string       // ej: "cables" | "cargadores" | "fundas" | "templados" | "otros"
+  descripcion?: string    // ej: "Trenzado 1m"
+  preciosVolumen: PrecioVolumen[]  // escala: x1, x10, x50...
   moneda: 'ARS' | 'USD'
   stock: number
   activo: boolean
