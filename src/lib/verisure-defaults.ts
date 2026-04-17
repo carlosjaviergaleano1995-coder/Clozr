@@ -283,7 +283,16 @@ export const DISPOSITIVOS_DEFAULT: DispositivoExtra[] = [
     comisiones: [0],
   },
 
-
+  // ── PANEL SOLAR — precio a consultar, sin cuota, sin comisión ────────────
+  {
+    id: 'panel_solar',
+    nombre: 'Panel Solar',
+    nivel: 'ambos',
+    cantidades: [1],
+    precios:    [-1],   // -1 = a consultar
+    cuotas:     [0],
+    comisiones: [0],
+  },
 ]
 
 export const CONFIG_VERISURE_DEFAULT: ConfigVerisure = {

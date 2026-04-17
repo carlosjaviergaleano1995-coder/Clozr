@@ -11,6 +11,8 @@ import type { ConfigVerisure, NivelPrecio, TipoVenta, DispositivoExtra } from '@
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const iva = (n: number, pct = 21) => n * (1 + pct / 100)
 const fmt = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+const fmtPrecio = (n: number, conIva = false, ivaPct = 21) =>
+  n === -1 ? 'A consultar' : fmt(conIva ? iva(n, ivaPct) : n)
 const nowStr = () => {
   const d = new Date()
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
@@ -576,7 +578,7 @@ export default function VerisurePage() {
                     </div>
                     {!ex.bonificado ? (
                       <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                        {fmt(disp.precios[ex.cantidadIdx])} s/IVA
+                        {fmtPrecio(disp.precios[ex.cantidadIdx])} s/IVA
                         {disp.cuotas[ex.cantidadIdx] > 0 && ` · +${fmt(disp.cuotas[ex.cantidadIdx])}/mes`}
                       </p>
                     ) : (
@@ -626,7 +628,7 @@ export default function VerisurePage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{disp.nombre}</span>
-                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">desde {fmt(disp.precios[0])} s/IVA</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{disp.precios[0] === -1 ? 'Precio a consultar' : `desde ${fmt(disp.precios[0])} s/IVA`}</p>
                 </div>
                 <span className="text-xl text-[var(--text-tertiary)] leading-none">+</span>
               </button>
@@ -942,7 +944,7 @@ export default function VerisurePage() {
                       x{cant}
                     </span>
                     <span className={`text-[9px] mt-0.5 font-medium ${isSelected ? 'text-white/80' : 'text-[var(--text-tertiary)]'}`}>
-                      {fmt(precioSinIVA)}
+                      {precioSinIVA === -1 ? 'Consultar' : fmt(precioSinIVA)}
                     </span>
                     {cuota > 0 && (
                       <span className={`text-[8px] mt-0.5 ${isSelected ? 'text-white/60' : 'text-[var(--text-tertiary)]'}`}>
@@ -960,13 +962,13 @@ export default function VerisurePage() {
               <div className="flex justify-between text-xs">
                 <span className="text-[var(--text-tertiary)]">Precio s/IVA</span>
                 <span className="text-[var(--text-primary)] font-semibold">
-                  {modalBonif ? '$0 🎁' : fmt(modalDisp.disp.precios[modalCantIdx])}
+                  {modalBonif ? '$0 🎁' : fmtPrecio(modalDisp.disp.precios[modalCantIdx])}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-[var(--text-tertiary)]">Precio c/IVA</span>
                 <span className="text-[var(--text-primary)] font-semibold">
-                  {modalBonif ? '$0 🎁' : fmt(iva(modalDisp.disp.precios[modalCantIdx], config.ivaPct))}
+                  {modalBonif ? '$0 🎁' : fmtPrecio(modalDisp.disp.precios[modalCantIdx], true, config.ivaPct)}
                 </span>
               </div>
               {modalDisp.disp.cuotas[modalCantIdx] > 0 && (
