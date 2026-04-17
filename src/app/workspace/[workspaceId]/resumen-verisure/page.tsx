@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Copy, Check, Share2 } from 'lucide-react'
 import { getVentas, getClientes, getPipeline } from '@/lib/services'
 import { toDate } from '@/lib/services'
 import type { Cliente, PipelineCliente } from '@/types'
@@ -41,6 +41,7 @@ export default function ResumenVerisurePage() {
   const [loading, setLoading] = useState(true)
   const [showDetalle, setShowDetalle] = useState(false)
   const [modoSim, setModoSim] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // Simulador
   const [simRP, setSimRP] = useState(0)
@@ -129,6 +130,63 @@ export default function ResumenVerisurePage() {
   const pipelineInstalados = pipeline.filter(p => p.estado === 'instalado')
   const pipelineAprobados = pipeline.filter(p => p.estado === 'aprobado')
 
+  const generarResumen = () => {
+    const mesCapitalizado = mesLabel.charAt(0).toUpperCase() + mesLabel.slice(1)
+    const lineas: string[] = []
+    lineas.push(`🛡️ *RESUMEN VERISURE — ${mesCapitalizado.toUpperCase()}*`)
+    lineas.push('')
+    lineas.push(`📊 *Ventas del mes*`)
+    lineas.push(`• RP: ${totalRP}`)
+    lineas.push(`• RE: ${totalRE}`)
+    lineas.push(`• Total: ${totalVentas}`)
+    lineas.push('')
+    lineas.push(`💰 *Comisión estimada: ${fmtARS(comisiones.total)}*`)
+    lineas.push('')
+    if (comisiones.directaRP > 0)         lineas.push(`  ↳ Directa RP: ${fmtARS(comisiones.directaRP)}`)
+    if (comisiones.directaRE > 0)         lineas.push(`  ↳ Directa RE: ${fmtARS(comisiones.directaRE)}`)
+    if (comisiones.comisionInstalacion > 0) lineas.push(`  ↳ Instalación: ${fmtARS(comisiones.comisionInstalacion)}`)
+    if (comisiones.bonoPerformance > 0)   lineas.push(`  ↳ Performance: ${fmtARS(comisiones.bonoPerformance)}`)
+    if (comisiones.bonoRP > 0)            lineas.push(`  ↳ Bono RP: ${fmtARS(comisiones.bonoRP)}`)
+    lineas.push('')
+    lineas.push(`📈 *Progreso escalas*`)
+    lineas.push(`• Instalaciones: ${totalInstalaciones}/${INSTALACION_VET.express.cantidad} (express)`)
+    lineas.push(`• Performance: ${totalVentas}/${PERFORMANCE_BASE} ventas netas`)
+    if (pipeline.length > 0) {
+      lineas.push('')
+      lineas.push(`🔄 *Pipeline*`)
+      lineas.push(`• Activos: ${pipelineActivos.length}`)
+      if (pipelineAprobados.length > 0) lineas.push(`• Aprobados: ${pipelineAprobados.length}`)
+      if (pipelineInstalados.length > 0) lineas.push(`• Instalados: ${pipelineInstalados.length}`)
+    }
+    if (ventasMes.length > 0 && !modoSim) {
+      lineas.push('')
+      lineas.push(`📋 *Detalle ventas*`)
+      ventasMes.forEach((v: any) => {
+        lineas.push(`• [${v.formaPago}] ${v.clienteNombre} — ${v.items?.[0]?.nombre ?? '—'} — ${fmtARS(v.total)}`)
+      })
+    }
+    lineas.push('')
+    lineas.push(`_Generado con Clozr · ${format(new Date(), "d 'de' MMMM yyyy", { locale: es })}_`)
+    return lineas.join('\n')
+  }
+
+  const handleCopiar = () => {
+    navigator.clipboard.writeText(generarResumen())
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
+  const handleCompartir = async () => {
+    const texto = generarResumen()
+    if (navigator.share) {
+      await navigator.share({ text: texto })
+    } else {
+      navigator.clipboard.writeText(texto)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
+  }
+
   if (loading) return (
     <div className="space-y-3 mt-4">
       {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
@@ -146,13 +204,27 @@ export default function ResumenVerisurePage() {
             {modoSim ? '🧮 Modo simulador' : `Datos reales · ${ventasMes.length} ventas registradas`}
           </p>
         </div>
-        <button onClick={() => setModoSim(!modoSim)}
-          className="text-xs px-3 py-1.5 rounded-xl font-medium transition-all"
-          style={modoSim
-            ? { background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }
-            : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-          🧮 {modoSim ? 'Simulando' : 'Simular'}
-        </button>
+        <div className="flex gap-1.5">
+          <button onClick={handleCopiar}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+            style={copied
+              ? { background: 'var(--green-bg)', color: 'var(--green)' }
+              : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+          <button onClick={handleCompartir}
+            className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+            <Share2 size={14} />
+          </button>
+          <button onClick={() => setModoSim(!modoSim)}
+            className="text-xs px-3 py-1.5 rounded-xl font-medium transition-all"
+            style={modoSim
+              ? { background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }
+              : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+            🧮 {modoSim ? 'Sim' : 'Sim'}
+          </button>
+        </div>
       </div>
 
       {/* Simulador */}
@@ -331,6 +403,22 @@ export default function ResumenVerisurePage() {
           </div>
         </div>
       )}
+      {/* Botón copiar grande al final */}
+      <div className="pt-2 pb-2">
+        <button onClick={handleCompartir}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm transition-all"
+          style={{ background: 'var(--brand)', color: '#fff' }}>
+          <Share2 size={16} />
+          Compartir resumen por WhatsApp
+        </button>
+        <button onClick={handleCopiar}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-medium mt-2 transition-all"
+          style={copied
+            ? { background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green)' }
+            : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+          {copied ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar texto</>}
+        </button>
+      </div>
     </div>
   )
 }
