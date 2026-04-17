@@ -5,10 +5,10 @@ import { useParams } from 'next/navigation'
 import { Copy, Check, Search } from 'lucide-react'
 import {
   getStockiPhones, getStockOtrosApple,
-  getConfigIPhoneClub, getDolarConfig,
+  getConfigIPhoneClub, getDolarConfig, getStockAccesorios,
 } from '@/lib/services'
 import { aplicarFormaPago } from '@/lib/iphone-broadcast'
-import type { StockIPhone, StockOtroApple, ConfigIPhoneClub, DolarConfig, FormaPagoIC } from '@/types'
+import type { StockIPhone, StockOtroApple, ConfigIPhoneClub, DolarConfig, FormaPagoIC, StockAccesorio } from '@/types'
 import { fmtARS, fmtUSD } from '@/lib/format'
 
 type TipoCliente = 'mayorista' | 'revendedor' | 'final'
@@ -28,6 +28,7 @@ export default function CotizarPage() {
 
   const [iphones, setIphones] = useState<StockIPhone[]>([])
   const [otros, setOtros] = useState<StockOtroApple[]>([])
+  const [accesorios, setAccesorios] = useState<StockAccesorio[]>([])
   const [config, setConfig] = useState<ConfigIPhoneClub | null>(null)
   const [dolar, setDolar] = useState<DolarConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -36,19 +37,22 @@ export default function CotizarPage() {
   const [formaPago, setFormaPago] = useState<FormaPagoIC | 'usd_efectivo'>('usd_efectivo')
   const [search, setSearch] = useState('')
   const [copied, setCopied] = useState<string | null>(null)
+  const [cantidadAcc, setCantidadAcc] = useState<Record<string, number>>({})
 
   useEffect(() => { load() }, [workspaceId])
 
   const load = async () => {
     try {
-      const [iphonesData, otrosData, configData, dolarData] = await Promise.all([
+      const [iphonesData, otrosData, accData, configData, dolarData] = await Promise.all([
         getStockiPhones(workspaceId),
         getStockOtrosApple(workspaceId),
+        getStockAccesorios(workspaceId),
         getConfigIPhoneClub(workspaceId),
         getDolarConfig(workspaceId),
       ])
       setIphones(iphonesData)
       setOtros(otrosData)
+      setAccesorios(accData)
       setConfig(configData)
       setDolar(dolarData)
     } finally { setLoading(false) }
@@ -73,8 +77,27 @@ export default function CotizarPage() {
     const otrosFiltrados = otros
       .filter(o => o.stock > 0 && o.disponible)
       .filter(o => !busq || o.modelo.toLowerCase().includes(busq))
-    return { iphones: iphonesFiltrados, otros: otrosFiltrados }
-  }, [iphones, otros, search])
+    const accFiltrados = accesorios
+      .filter(a => a.stock > 0)
+      .filter(a => !busq || a.nombre.toLowerCase().includes(busq))
+    return { iphones: iphonesFiltrados, otros: otrosFiltrados, accesorios: accFiltrados }
+  }, [iphones, otros, accesorios, search])
+
+  // Precio de accesorio según cantidad seleccionada
+  const getPrecioAccesorio = (acc: StockAccesorio, cantidad: number) => {
+    const sorted = [...acc.preciosVolumen].sort((a, b) => b.cantidad - a.cantidad)
+    const tramo = sorted.find(pv => cantidad >= pv.cantidad) ?? acc.preciosVolumen[0]
+    return tramo
+  }
+
+  const copiarAccesorio = (acc: StockAccesorio) => {
+    const cant = cantidadAcc[acc.id] ?? 1
+    const tramo = getPrecioAccesorio(acc, cant)
+    const precio = acc.moneda === 'USD' ? `USD ${tramo.precio}` : fmtARS(tramo.precio)
+    navigator.clipboard.writeText(`${acc.nombre}${acc.descripcion ? ' ' + acc.descripcion : ''} x${cant} → ${precio} c/u`)
+    setCopied(acc.id)
+    setTimeout(() => setCopied(null), 2000)
+  }
 
   const copiarPrecio = (item: StockIPhone | StockOtroApple, tipo: 'iphone' | 'otro') => {
     if (!config || !dolar) return
@@ -275,7 +298,63 @@ export default function CotizarPage() {
         </div>
       )}
 
-      {todosItems.iphones.length === 0 && todosItems.otros.length === 0 && (
+      {/* Accesorios */}
+      {todosItems.accesorios.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
+            style={{ color: 'var(--text-tertiary)' }}>🔌 Accesorios</p>
+          <div className="space-y-2">
+            {todosItems.accesorios.map(acc => {
+              const cant = cantidadAcc[acc.id] ?? 1
+              const tramo = getPrecioAccesorio(acc, cant)
+              const precioFmt = acc.moneda === 'USD' ? `USD ${tramo.precio}` : fmtARS(tramo.precio)
+
+              return (
+                <div key={acc.id} className="px-3 py-2.5 rounded-xl"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          {acc.nombre}
+                        </span>
+                        {acc.descripcion && (
+                          <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{acc.descripcion}</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-bold mt-0.5" style={{ color: 'var(--brand-light)' }}>
+                        {precioFmt} <span className="text-xs font-normal" style={{ color: 'var(--text-tertiary)' }}>c/u</span>
+                      </p>
+                    </div>
+                    <button onClick={() => copiarAccesorio(acc)}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
+                      style={copied === acc.id
+                        ? { background: 'var(--green-bg)', color: 'var(--green)' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                      {copied === acc.id ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                  {/* Selector de cantidad */}
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {acc.preciosVolumen.map(pv => (
+                      <button key={pv.cantidad}
+                        onClick={() => setCantidadAcc(prev => ({ ...prev, [acc.id]: pv.cantidad }))}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                        style={cant >= pv.cantidad && (acc.preciosVolumen.find(p => p.cantidad > pv.cantidad && cant >= p.cantidad) === undefined || cant === pv.cantidad)
+                          ? { background: 'var(--brand)', color: '#fff' }
+                          : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+                        x{pv.cantidad} · {acc.moneda === 'USD' ? `USD ${pv.precio}` : fmtARS(pv.precio)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {todosItems.iphones.length === 0 && todosItems.otros.length === 0 && todosItems.accesorios.length === 0 && (
         <div className="text-center py-12">
           <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Sin stock disponible</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>

@@ -3,9 +3,10 @@ import { useModuloGuard } from '@/hooks/useModuloGuard'
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Copy, Check, RefreshCw } from 'lucide-react'
-import { getProductos2, getConfigIPhoneClub, getDolarConfig, fetchDolarBlue, saveDolarConfig } from '@/lib/services'
-import type { Producto2, ConfigIPhoneClub, DolarConfig } from '@/types'
+import { getProductos2, getConfigIPhoneClub, getDolarConfig, fetchDolarBlue, saveDolarConfig, getStockAccesorios } from '@/lib/services'
+import type { Producto2, ConfigIPhoneClub, DolarConfig, StockAccesorio } from '@/types'
 import { fmtARS, fmtUSD } from '@/lib/format'
+import { generarBroadcastAccesorios } from '@/lib/iphone-broadcast'
 
 type Seccion = 'smartphones_usados' | 'smartphones_nuevos' | 'otros' | 'accesorios'
 
@@ -22,26 +23,27 @@ export default function BroadcastPage() {
   const workspaceId = params.workspaceId as string
 
   const [productos, setProductos] = useState<Producto2[]>([])
+  const [accesorios, setAccesorios] = useState<StockAccesorio[]>([])
   const [config, setConfig] = useState<ConfigIPhoneClub | null>(null)
   const [dolar, setDolar] = useState<DolarConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [secciones, setSecciones] = useState<Set<Seccion>>(new Set<Seccion>(['smartphones_usados', 'smartphones_nuevos']))
   const [copied, setCopied] = useState(false)
-
   const [actualizando, setActualizando] = useState(false)
 
   useEffect(() => { load() }, [workspaceId])
 
   const load = async () => {
     try {
-      const [prods, cfg, dolarData] = await Promise.all([
+      const [prods, acc, cfg, dolarData] = await Promise.all([
         getProductos2(workspaceId),
+        getStockAccesorios(workspaceId),
         getConfigIPhoneClub(workspaceId),
         getDolarConfig(workspaceId),
       ])
       setProductos(prods.filter(p => p.stock > 0))
+      setAccesorios(acc)
       setConfig(cfg)
-      // Auto-actualizar dólar si el valor guardado tiene más de 1 hora
       const guardado = dolarData?.valor ?? 0
       const hace = dolarData?.actualizadoAt
         ? Date.now() - new Date(dolarData.actualizadoAt as any).getTime()
@@ -52,12 +54,8 @@ export default function BroadcastPage() {
           const nuevoConfig = { valor: nuevo, actualizadoAt: new Date(), modoManual: false }
           await saveDolarConfig(workspaceId, nuevoConfig)
           setDolar(nuevoConfig)
-        } else {
-          setDolar(dolarData)
-        }
-      } else {
-        setDolar(dolarData)
-      }
+        } else { setDolar(dolarData) }
+      } else { setDolar(dolarData) }
     } finally { setLoading(false) }
   }
 
@@ -83,16 +81,11 @@ export default function BroadcastPage() {
   const dolarValor = dolar?.valor ?? 1200
   const margen = config?.margenFinal ?? 20
 
-  // Precio final en ARS
   const precioFinalARS = (p: Producto2) => {
     const base = p.moneda === 'USD' ? (p.precioUSD + margen) * dolarValor : p.precioUSD
     return fmtARS(base)
   }
 
-  const precioBaseStr = (p: Producto2) =>
-    p.moneda === 'USD' ? fmtUSD(p.precioUSD) : fmtARS(p.precioUSD)
-
-  // Generar línea por producto
   const lineaProducto = (p: Producto2): string => {
     const nombre = `${p.marca} ${p.modelo}${p.storage ? ' ' + p.storage : ''}${p.color ? ' ' + p.color : ''}`
     const bateria = p.smartphone?.bateria ? ` 🔋${p.smartphone.bateria}%` : ''
@@ -129,17 +122,13 @@ export default function BroadcastPage() {
       }
     }
     if (secciones.has('accesorios')) {
-      const items = productos.filter(p => p.categoria === 'accesorios')
-      if (items.length > 0) {
-        txt += '*🔌 ACCESORIOS*\n'
-        items.forEach(p => { txt += lineaProducto(p) + '\n' })
-        txt += '\n'
-      }
+      const secAcc = generarBroadcastAccesorios(accesorios)
+      if (secAcc) txt += secAcc + '\n\n'
     }
 
     if (txt && pie) txt += pie
     return txt.trim()
-  }, [productos, secciones, dolarValor, margen])
+  }, [productos, accesorios, secciones, dolarValor, margen, config])
 
   const copiar = () => {
     navigator.clipboard.writeText(broadcast)
@@ -147,12 +136,11 @@ export default function BroadcastPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Conteos por sección
   const counts: Record<Seccion, number> = {
     smartphones_usados: productos.filter(p => p.categoria === 'smartphones' && p.condicion === 'usado').length,
     smartphones_nuevos: productos.filter(p => p.categoria === 'smartphones' && p.condicion === 'nuevo').length,
     otros:              productos.filter(p => ['computadoras','tablets','wearables','gaming','audio'].includes(p.categoria)).length,
-    accesorios:        productos.filter(p => p.categoria === 'accesorios').length,
+    accesorios:        accesorios.filter(a => a.stock > 0).length,
   }
 
   if (loading) return (
