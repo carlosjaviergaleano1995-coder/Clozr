@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, ChevronRight, MessageCircle, Check, Clock, X } from 'lucide-react'
+import { Plus, ChevronRight, MessageCircle, Check, Clock, X, Bell } from 'lucide-react'
 import { getPipeline, createPipeline, updatePipeline, getClientes } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import type { PipelineCliente, EstadoPipeline, NotaVisita, Cliente } from '@/types'
@@ -63,6 +63,22 @@ export default function PipelinePage() {
   const filtered = useMemo(() =>
     pipeline.filter(p => filtro === 'todos' || p.estado === filtro),
     [pipeline, filtro]
+  )
+
+  // Alertas de seguimiento
+  const ESTADOS_ACTIVOS: EstadoPipeline[] = ['prospecto','contactado','visita_agendada','presupuestado','aprobado','instalado']
+  const ahora = new Date()
+  const alertas = useMemo(() =>
+    pipeline
+      .filter(p => ESTADOS_ACTIVOS.includes(p.estado))
+      .map(p => {
+        const ultima = toDate(p.updatedAt)
+        const diasSinActividad = Math.floor((ahora.getTime() - ultima.getTime()) / (1000 * 60 * 60 * 24))
+        return { ...p, diasSinActividad }
+      })
+      .filter(p => p.diasSinActividad >= 7)
+      .sort((a, b) => b.diasSinActividad - a.diasSinActividad),
+    [pipeline]
   )
 
   // Conteo por estado para el kanban header
@@ -154,6 +170,53 @@ export default function PipelinePage() {
         </button>
       </div>
 
+      {/* Alertas de seguimiento */}
+      {alertas.length > 0 && (
+        <div className="rounded-2xl overflow-hidden"
+          style={{ border: '1px solid var(--amber)', background: 'var(--amber-bg)' }}>
+          <div className="flex items-center gap-2 px-3 py-2.5"
+            style={{ borderBottom: alertas.length > 0 ? '1px solid rgba(255,214,10,0.2)' : 'none' }}>
+            <Bell size={13} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+            <p className="text-xs font-semibold" style={{ color: 'var(--amber)' }}>
+              {alertas.length} {alertas.length === 1 ? 'cliente sin seguimiento' : 'clientes sin seguimiento'}
+            </p>
+          </div>
+          <div className="divide-y" style={{ borderColor: 'rgba(255,214,10,0.15)' }}>
+            {alertas.slice(0, 5).map(p => {
+              const esCritico = p.diasSinActividad >= 14
+              return (
+                <button key={p.id} onClick={() => setDetalle(p)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-left transition-all"
+                  style={{ background: 'transparent' }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                      {p.clienteNombre}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                      {getEstado(p.estado).emoji} {getEstado(p.estado).label}
+                      {p.kitInteres && ` · ${p.kitInteres}`}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0 ml-2"
+                    style={{
+                      background: esCritico ? 'var(--red-bg)' : 'var(--amber-bg)',
+                      color: esCritico ? 'var(--brand-light)' : 'var(--amber)',
+                      border: `1px solid ${esCritico ? 'var(--brand-light)' : 'var(--amber)'}`,
+                    }}>
+                    {p.diasSinActividad}d
+                  </span>
+                </button>
+              )
+            })}
+            {alertas.length > 5 && (
+              <p className="text-[10px] text-center py-2" style={{ color: 'var(--text-tertiary)' }}>
+                +{alertas.length - 5} más
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Filtro por estado */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
         <button onClick={() => setFiltro('todos')}
@@ -189,10 +252,15 @@ export default function PipelinePage() {
             const estado = getEstado(p.estado)
             const ultimaNota = p.notas?.length > 0 ? p.notas[p.notas.length - 1] : null
             const cliente = clientes.find(c => c.id === p.clienteId)
+            const esActivo = ESTADOS_ACTIVOS.includes(p.estado)
+            const diasSin = esActivo
+              ? Math.floor((ahora.getTime() - toDate(p.updatedAt).getTime()) / (1000 * 60 * 60 * 24))
+              : 0
+            const tieneAlerta = esActivo && diasSin >= 7
             return (
               <button key={p.id} onClick={() => setDetalle(p)}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all"
-                style={{ background: 'var(--surface)', border: `1px solid ${p.estado === 'aprobado' || p.estado === 'instalado' ? 'var(--green)' : 'var(--border)'}` }}>
+                style={{ background: 'var(--surface)', border: `1px solid ${tieneAlerta ? (diasSin >= 14 ? 'var(--brand-light)' : 'var(--amber)') : p.estado === 'aprobado' || p.estado === 'instalado' ? 'var(--green)' : 'var(--border)'}` }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
                   style={{ background: estado.bg }}>
                   {estado.emoji}
@@ -222,6 +290,15 @@ export default function PipelinePage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {tieneAlerta && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg"
+                      style={{
+                        background: diasSin >= 14 ? 'var(--red-bg)' : 'var(--amber-bg)',
+                        color: diasSin >= 14 ? 'var(--brand-light)' : 'var(--amber)',
+                      }}>
+                      {diasSin}d
+                    </span>
+                  )}
                   {cliente?.telefono && (
                     <a href={`https://wa.me/54${cliente.telefono.replace(/\D/g,'')}`}
                       target="_blank" onClick={e => e.stopPropagation()}
