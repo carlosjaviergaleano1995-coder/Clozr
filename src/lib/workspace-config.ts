@@ -36,7 +36,7 @@ export function derivarNav(config: WorkspaceConfig): NavItem[] {
     return [
       { id: 'iphone/stock',     label: 'Stock',      icon: Smartphone },
       { id: 'iphone/ventas',    label: 'Ventas',     icon: DollarSign },
-      { id: 'iphone/resumen',   label: 'Resumen',    icon: BarChart2 },
+      { id: 'clientes',         label: 'Clientes',   icon: Users },
       { id: 'iphone/broadcast', label: 'Broadcast',  icon: Radio },
       { id: 'iphone/mas',       label: 'Más',        icon: MoreHorizontal },
     ]

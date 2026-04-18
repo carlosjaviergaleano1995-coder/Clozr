@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import {
   Users, BookOpen, List, Settings,
-  ChevronRight, Tag, LayoutGrid,
+  ChevronRight, Tag, LayoutGrid, BarChart2,
 } from 'lucide-react'
 import { useMemberRole } from '@/hooks/useMemberRole'
 
@@ -17,24 +17,24 @@ export default function IPhoneMasPage() {
 
   const secciones = [
     {
-      titulo: 'Ventas y clientes',
+      titulo: 'Análisis',
       items: [
-        { label: 'Clientes',      desc: 'Tus compradores y revendedores', icon: Users,      path: 'clientes',              siempre: true },
-        { label: 'Revendedores',  desc: 'CRM de revendedores',            icon: BookOpen,   path: 'iphone/revendedores',   siempre: true },
+        { label: 'Resumen',       desc: 'Métricas y evolución mensual',   icon: BarChart2,  path: 'iphone/resumen',              siempre: true },
+        { label: 'Revendedores',  desc: 'CRM de revendedores',            icon: BookOpen,   path: 'iphone/revendedores',         siempre: true },
       ],
     },
     {
       titulo: 'Catálogo y listas',
       items: [
-        { label: 'Listas',        desc: 'Importados, socios, original…',  icon: Tag,        path: 'iphone/stock?tab=accesorios', siempre: true },
-        { label: 'Catálogo',      desc: 'Modelos, productos y categorías', icon: LayoutGrid, path: 'catalogo-iphone',       soloAdmin: true },
+        { label: 'Accesorios',    desc: 'Listas, importados, socios…',    icon: Tag,        path: 'iphone/stock?tab=accesorios', siempre: true },
+        { label: 'Catálogo',      desc: 'Modelos, productos y categorías', icon: LayoutGrid, path: 'catalogo-iphone',             soloAdmin: true },
       ],
     },
     {
       titulo: 'Configuración',
       items: [
-        { label: 'Ajustes',       desc: 'Config del workspace',           icon: Settings,   path: 'ajustes',               siempre: true },
-        { label: 'Equipo',        desc: 'Miembros y roles',               icon: Users,      path: 'equipo',                soloAdmin: true },
+        { label: 'Ajustes',       desc: 'Config del workspace',           icon: Settings,   path: 'ajustes',                     siempre: true },
+        { label: 'Equipo',        desc: 'Miembros y roles',               icon: Users,      path: 'equipo',                      soloAdmin: true },
       ],
     },
   ]

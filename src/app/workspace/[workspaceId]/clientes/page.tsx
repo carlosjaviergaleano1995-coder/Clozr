@@ -132,6 +132,9 @@ export default function ClientesPage() {
         setClientes(prev => [...prev, { id, ...data, workspaceId, creadoPor: user.uid, createdAt: new Date(), updatedAt: new Date() }])
       }
       setShowForm(false)
+    } catch (err) {
+      console.error('Error guardando cliente:', err)
+      alert('Error al guardar el cliente. Revisá la consola.')
     } finally { setSaving(false) }
   }
 
