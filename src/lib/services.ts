@@ -1080,3 +1080,199 @@ export const updateLista = async (workspaceId: string, id: string, data: Partial
 export const deleteLista = async (workspaceId: string, id: string) => {
   await updateDoc(doc(db, 'workspaces', workspaceId, 'listas_iphone', id), { activa: false, updatedAt: serverTimestamp() })
 }
+
+// ── CATÁLOGO EDITABLE ─────────────────────────────────────────────────────────
+import type { CatalogoItem, CatalogoSubcategoria } from '@/types'
+
+export const getCatalogoItems = async (workspaceId: string, categoria?: string): Promise<CatalogoItem[]> => {
+  const col = collection(db, 'workspaces', workspaceId, 'catalogo')
+  const q = categoria
+    ? query(col, where('categoria', '==', categoria), where('activo', '==', true))
+    : query(col, where('activo', '==', true))
+  const snap = await getDocs(q)
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as CatalogoItem))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.nombre.localeCompare(b.nombre))
+}
+
+export const createCatalogoItem = async (workspaceId: string, data: Omit<CatalogoItem, 'id' | 'creadoAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'catalogo'), {
+    ...cleanForFirestore(data),
+    creadoAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const updateCatalogoItem = async (workspaceId: string, id: string, data: Partial<CatalogoItem>) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'catalogo', id), cleanForFirestore(data))
+}
+
+export const deleteCatalogoItem = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'catalogo', id), { activo: false })
+}
+
+export const getCatalogoSubcategorias = async (workspaceId: string, categoria?: string): Promise<CatalogoSubcategoria[]> => {
+  const col = collection(db, 'workspaces', workspaceId, 'catalogo_subcategorias')
+  const q = categoria
+    ? query(col, where('categoria', '==', categoria), where('activo', '==', true))
+    : query(col, where('activo', '==', true))
+  const snap = await getDocs(q)
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as CatalogoSubcategoria))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+}
+
+export const createCatalogoSubcategoria = async (workspaceId: string, data: Omit<CatalogoSubcategoria, 'id' | 'creadoAt'>): Promise<string> => {
+  const ref = await addDoc(collection(db, 'workspaces', workspaceId, 'catalogo_subcategorias'), {
+    ...cleanForFirestore(data),
+    creadoAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+export const deleteCatalogoSubcategoria = async (workspaceId: string, id: string) => {
+  await updateDoc(doc(db, 'workspaces', workspaceId, 'catalogo_subcategorias', id), { activo: false })
+}
+
+// Seed completo del catálogo
+export const seedCatalogo = async (workspaceId: string) => {
+  const items: Omit<CatalogoItem, 'id' | 'creadoAt'>[] = [
+    // ── Smartphones ──
+    ...[ 'iPhone 17 Pro Max','iPhone 17 Pro','iPhone Air','iPhone 17','iPhone 17 E',
+         'iPhone 16 Pro Max','iPhone 16 Pro','iPhone 16 Plus','iPhone 16','iPhone 16E',
+         'iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15 Plus','iPhone 15',
+         'iPhone 14 Pro Max','iPhone 14 Pro','iPhone 14 Plus','iPhone 14',
+         'iPhone 13 Pro Max','iPhone 13 Pro','iPhone 13 Mini','iPhone 13',
+         'iPhone 12 Pro Max','iPhone 12 Pro','iPhone 12 Mini','iPhone 12',
+         'iPhone 11 Pro Max','iPhone 11 Pro','iPhone 11','iPhone SE 3ra Gen',
+         'Samsung Galaxy S25 Ultra','Samsung Galaxy S25+','Samsung Galaxy S25',
+         'Samsung Galaxy S24 Ultra','Samsung Galaxy S24+','Samsung Galaxy S24',
+         'Samsung Galaxy A55','Samsung Galaxy A35','Samsung Galaxy A15',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'smartphones', subcategoria: 'modelos', nombre, activo: true, orden })),
+
+    // ── Accesorios / Fundas ──
+    ...['Funda Silicon Case (Original)','Funda Silicon Case (Genérica)','Funda Clear Case (Transparente)',
+        'Funda MagSafe','Funda Rugged (Antigolpes)','Funda Tipo Cuero / Leather',
+        'Funda Folio iPad','Funda Rugged iPad',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'fundas', nombre, activo: true, orden })),
+
+    // ── Accesorios / Protección ──
+    ...['Vidrio Templado Standard','Vidrio Templado Privacidad','Protector de Cámara',
+        'Hydrogel Frontal','Hydrogel Full Cover','Protector Pantalla iPad (Vidrio)','Protector Pantalla iPad (Mate tipo Papel)',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'proteccion', nombre, activo: true, orden })),
+
+    // ── Accesorios / Cargadores ──
+    ...['Cargador MagSafe Oficial','Cargador MagSafe Alternativo','Cargador Inalámbrico Qi',
+        'Soporte MagSafe Escritorio','Soporte MagSafe Auto',
+        'Power Bank MagSafe','Power Bank Tradicional',
+        'Battery Pack (tipo Apple)',
+        'Fuente 5W (USB-A)','Fuente 12W (iPad Clásica)','Fuente 20W (USB-C)',
+        'Fuente 30W','Fuente 35W','Fuente 60W','Fuente 96W (MacBook/iPad)',
+        'Cargador Auto USB','Cargador Auto USB-C',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'cargadores', nombre, activo: true, orden })),
+
+    // ── Accesorios / Cables ──
+    ...['Cable Lightning a USB-A','Cable Lightning a USB-C','Cable USB-C a USB-C',
+        'Cable USB-A a USB-C','Cable Magnético','Cable Corto (Portátil)',
+        'Cable Reforzado (Nylon)','Cable 3 en 1 (Lightning + C + Micro USB)',
+        'Cable MagSafe',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'cables', nombre, activo: true, orden })),
+
+    // ── Accesorios / Cables para armar ──
+    ...['Cable USB a Lightning (para armar)','Cable C a Lightning (para armar)','Cable C a C Mallado (para armar)',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'cables_armar', nombre, activo: true, orden })),
+
+    // ── Accesorios / Apple Pencil ──
+    ...['Apple Pencil 1ra Gen','Apple Pencil 2da Gen','Apple Pencil USB-C (nuevo)','Apple Pencil Pro',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'pencil', nombre, activo: true, orden })),
+
+    // ── Accesorios / iPad ──
+    ...['Teclado para iPad','Magic Keyboard iPad',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'ipad', nombre, activo: true, orden })),
+
+    // ── Accesorios / MagSafe & Soportes ──
+    ...['Wallet MagSafe (Tarjetero)','Soporte MagSafe Anillo / Grip','Trípode MagSafe',
+        'Soporte Magnético Varios','Batería MagSafe','Adaptador Bluetooth Auto','Adaptador AUX Lightning',
+        'Adaptador AUX USB-C','Soporte Auto MagSafe','Soporte Auto Clásico','Trípode para Celular',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'soportes_magsafe', nombre, activo: true, orden })),
+
+    // ── Accesorios / Conectividad ──
+    ...['Hub USB-C (Multiport)','Adaptador HDMI','Adaptador SD','Adaptador USB',
+        'Docking Station',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'conectividad', nombre, activo: true, orden })),
+
+    // ── Accesorios / Mac ──
+    ...['Magic Mouse','Magic Keyboard Mac','Magic Trackpad','Soporte para Notebook','SSD Externo',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'mac', nombre, activo: true, orden })),
+
+    // ── Accesorios / Streaming & Foto ──
+    ...['Aro de Luz','Micrófono Lavalier Lightning','Micrófono Lavalier USB-C',
+        'Gimbal (Estabilizador)','Soporte para Streaming',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'streaming', nombre, activo: true, orden })),
+
+    // ── Accesorios / Limpieza ──
+    ...['Kit Limpieza Pantalla','Paños Microfibra','Limpieza AirPods',
+        'Spray Limpiador','Gel Limpiador Teclado',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'limpieza', nombre, activo: true, orden })),
+
+    // ── Accesorios / AirTag ──
+    ...['AirTag Pack x1','AirTag Pack x4',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'accesorios', subcategoria: 'airtag', nombre, activo: true, orden })),
+
+    // ── Computadoras ──
+    ...['MacBook Air 13" M1','MacBook Air 13" M2','MacBook Air 13" M3',
+        'MacBook Air 15" M2','MacBook Air 15" M3',
+        'MacBook Pro 14" M3','MacBook Pro 14" M3 Pro','MacBook Pro 14" M3 Max',
+        'MacBook Pro 16" M3 Pro','MacBook Pro 16" M3 Max',
+        'MacBook Pro 14" M4','MacBook Pro 16" M4',
+        'Mac mini M2','Mac mini M4','iMac 24" M3','iMac 24" M4',
+        'Mac Studio M2 Ultra','Mac Pro M2 Ultra',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'computadoras', subcategoria: 'modelos', nombre, activo: true, orden })),
+
+    // ── Tablets ──
+    ...['iPad mini 6ta Gen','iPad mini 7ma Gen',
+        'iPad 10ma Gen','iPad 11va Gen',
+        'iPad Air 11" M2','iPad Air 13" M2','iPad Air 11" M3','iPad Air 13" M3',
+        'iPad Pro 11" M4','iPad Pro 13" M4',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'tablets', subcategoria: 'modelos', nombre, activo: true, orden })),
+
+    // ── Wearables ──
+    ...['Apple Watch SE 2da Gen','Apple Watch Series 8','Apple Watch Series 9',
+        'Apple Watch Series 10','Apple Watch Ultra 2',
+        'AirPods 2da Gen','AirPods 3ra Gen','AirPods 4ta Gen',
+        'AirPods Pro 2da Gen','AirPods Max',
+        'Apple Vision Pro',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'wearables', subcategoria: 'modelos', nombre, activo: true, orden })),
+
+    // ── Audio ──
+    ...['AirPods 2da Gen (Réplica)','AirPods 3ra Gen (Réplica)',
+        'AirPods Pro 2da Gen (Réplica)','AirPods Max (Réplica)',
+        'Auriculares Bluetooth','Speaker Bluetooth','Auriculares con Cable',
+    ].map((nombre, orden) => ({ workspaceId, categoria: 'audio', subcategoria: 'modelos', nombre, activo: true, orden })),
+  ]
+
+  // Subcategorías
+  const subcats: Omit<CatalogoSubcategoria, 'id' | 'creadoAt'>[] = [
+    { workspaceId, categoria: 'accesorios', nombre: 'Fundas', emoji: '📱', activo: true, orden: 0 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Protección', emoji: '🔲', activo: true, orden: 1 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Cargadores', emoji: '⚡', activo: true, orden: 2 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Cables', emoji: '🔌', activo: true, orden: 3 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Cables para armar', emoji: '🔧', activo: true, orden: 4 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Apple Pencil', emoji: '✏️', activo: true, orden: 5 },
+    { workspaceId, categoria: 'accesorios', nombre: 'iPad', emoji: '📟', activo: true, orden: 6 },
+    { workspaceId, categoria: 'accesorios', nombre: 'MagSafe & Soportes', emoji: '🧲', activo: true, orden: 7 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Conectividad', emoji: '🔗', activo: true, orden: 8 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Mac', emoji: '💻', activo: true, orden: 9 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Streaming & Foto', emoji: '🎥', activo: true, orden: 10 },
+    { workspaceId, categoria: 'accesorios', nombre: 'Limpieza', emoji: '✨', activo: true, orden: 11 },
+    { workspaceId, categoria: 'accesorios', nombre: 'AirTag', emoji: '🌎', activo: true, orden: 12 },
+    { workspaceId, categoria: 'computadoras', nombre: 'Mac', emoji: '💻', activo: true, orden: 0 },
+    { workspaceId, categoria: 'tablets', nombre: 'iPad', emoji: '📟', activo: true, orden: 0 },
+    { workspaceId, categoria: 'wearables', nombre: 'Apple Watch & AirPods', emoji: '⌚', activo: true, orden: 0 },
+    { workspaceId, categoria: 'audio', nombre: 'Auriculares', emoji: '🎧', activo: true, orden: 0 },
+  ]
+
+  // Insertar en batch (Firestore no soporta batch > 500, usamos addDoc en serie)
+  for (const item of items) await createCatalogoItem(workspaceId, item)
+  for (const sub of subcats) await createCatalogoSubcategoria(workspaceId, sub)
+}

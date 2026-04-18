@@ -5,6 +5,7 @@ import { Plus, Search, Pencil, Trash2, Check, X } from 'lucide-react'
 import {
   getStockiPhones, createStockiPhone, updateStockiPhone, deleteStockiPhone,
   getConfigIPhoneClub, getDolarConfig, fetchDolarBlue, saveDolarConfig,
+  getCatalogoItems,
 } from '@/lib/services'
 import { useAuthStore } from '@/store'
 import { MODELOS_IPHONE, getColoresModelo, getImagenModelo } from '@/lib/iphone-modelos'
@@ -12,7 +13,7 @@ import type { StockIPhone, AppleCondicion, ConfigIPhoneClub, DolarConfig } from 
 import { fmtARS, fmtUSD } from '@/lib/format'
 
 const STORAGES = ['64GB','128GB','256GB','512GB','1TB']
-const NOMBRES_MODELOS = MODELOS_IPHONE.map(m => m.nombre)
+const MODELOS_BASE = MODELOS_IPHONE.map(m => m.nombre)
 
 
 
@@ -30,6 +31,7 @@ export default function StockiPhones({ workspaceId, canEdit = true, canDelete = 
   const [items, setItems]   = useState<StockIPhone[]>([])
   const [config, setConfig] = useState<ConfigIPhoneClub|null>(null)
   const [dolar, setDolar]   = useState<DolarConfig|null>(null)
+  const [catalogoModelos, setCatalogoModelos] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab]       = useState<Tab>('usados')
   const [search, setSearch] = useState('')
@@ -39,6 +41,12 @@ export default function StockiPhones({ workspaceId, canEdit = true, canDelete = 
   const [saving, setSaving] = useState(false)
   const [editDolar, setEditDolar] = useState(false)
   const [dolarInput, setDolarInput] = useState('')
+
+  // Modelos combinados: base + catálogo
+  const NOMBRES_MODELOS = useMemo(() => {
+    const extra = catalogoModelos.filter(m => !MODELOS_BASE.includes(m))
+    return [...MODELOS_BASE, ...extra]
+  }, [catalogoModelos])
 
   // Colores disponibles para el modelo seleccionado
   const coloresModelo = useMemo(() => getColoresModelo(form.modelo), [form.modelo])
@@ -54,12 +62,14 @@ export default function StockiPhones({ workspaceId, canEdit = true, canDelete = 
 
   const load = async () => {
     try {
-      const [a,b,c] = await Promise.all([
+      const [a, b, c, cats] = await Promise.all([
         getStockiPhones(workspaceId),
         getConfigIPhoneClub(workspaceId),
         getDolarConfig(workspaceId),
+        getCatalogoItems(workspaceId, 'smartphones'),
       ])
       setItems(a); setConfig(b); setDolar(c)
+      setCatalogoModelos(cats.map(i => i.nombre))
     } finally { setLoading(false) }
   }
 

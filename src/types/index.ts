@@ -784,3 +784,28 @@ export interface VentaIPhone {
   fecha: Date
   creadoAt: Date
 }
+
+// ── CATÁLOGO EDITABLE ─────────────────────────────────────────────────────────
+// Cada item del catálogo es una opción en un desplegable
+
+export interface CatalogoItem {
+  id: string
+  workspaceId: string
+  categoria: string      // ej: 'accesorios', 'smartphones', 'computadoras'
+  subcategoria: string   // ej: 'fundas', 'cables', 'notebooks'
+  nombre: string         // ej: 'Funda Silicon Case'
+  activo: boolean
+  orden: number
+  creadoAt: Date
+}
+
+export interface CatalogoSubcategoria {
+  id: string
+  workspaceId: string
+  categoria: string      // categoría padre
+  nombre: string         // ej: 'Cables para armar'
+  emoji: string
+  activo: boolean
+  orden: number
+  creadoAt: Date
+}

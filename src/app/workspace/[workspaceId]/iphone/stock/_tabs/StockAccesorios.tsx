@@ -1,29 +1,30 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Plus, Pencil, Trash2, Search } from 'lucide-react'
 import {
   getStockAccesorios, createStockAccesorio,
   updateStockAccesorio, deleteStockAccesorio,
+  getCatalogoItems, getCatalogoSubcategorias,
 } from '@/lib/services'
 import { useAuthStore } from '@/store'
-import type { StockAccesorio, PrecioVolumen } from '@/types'
-import { fmtARS, fmtUSD, fmtMonto } from '@/lib/format'
+import type { StockAccesorio, PrecioVolumen, CatalogoItem, CatalogoSubcategoria } from '@/types'
+import { fmtMonto } from '@/lib/format'
 
-// ── Categorías disponibles ────────────────────────────────────────────────────
-const CATEGORIAS = [
-  { id: 'cargadores',       label: '⚡️ Cargadores',           moneda: 'ARS' as const },
-  { id: 'cargadores_armar', label: '🔧 Cargadores para armar', moneda: 'ARS' as const },
-  { id: 'cables',           label: '🔌 Cables',               moneda: 'ARS' as const },
-  { id: 'cables_armar',     label: '🔧 Cables para armar',    moneda: 'ARS' as const },
-  { id: 'fundas',           label: '📱 Fundas',               moneda: 'ARS' as const },
-  { id: 'fuente_original',  label: '⭐ Fuente Original',      moneda: 'USD' as const },
+// Categorías base — se complementan con las del catálogo
+const CATEGORIAS_BASE = [
+  { id: 'battery_pack',    label: '🔋 Battery Pack' },
+  { id: 'cargadores',      label: '⚡ Cargadores' },
+  { id: 'cargadores_armar',label: '🔧 p/armar' },
+  { id: 'cables',          label: '🔌 Cables' },
+  { id: 'cables_armar',    label: '🔧 Cables p/armar' },
+  { id: 'fundas',          label: '📱 Fundas' },
+  { id: 'templados',       label: '🔲 Templados' },
+  { id: 'pencil',          label: '✏️ Pencil' },
+  { id: 'airtag',          label: '🌎 AirTag' },
+  { id: 'audio',           label: '🎧 Audio' },
+  { id: 'otros',           label: '📦 Otros' },
 ]
-
-const fmtPrecio = (precio: number, moneda: 'ARS' | 'USD') =>
-  moneda === 'USD'
-    ? `U$S ${precio}`
-    : `$${precio.toLocaleString('es-AR')}`
 
 // ── Stock inicial desde el broadcast ─────────────────────────────────────────
 const STOCK_INICIAL: Omit<StockAccesorio, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>[] = [
@@ -113,6 +114,8 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
   const { user } = useAuthStore()
 
   const [items, setItems] = useState<StockAccesorio[]>([])
+  const [catalogoItems, setCatalogoItems] = useState<CatalogoItem[]>([])
+  const [catalogoSubcats, setCatalogoSubcats] = useState<CatalogoSubcategoria[]>([])
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('todos')
@@ -122,12 +125,38 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
   const [form, setForm] = useState<FormData>({ ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
 
+  // Sugerencias del catálogo para el nombre
+  const sugerenciasNombre = useMemo(() => {
+    if (!form.categoria || form.categoria === 'todos') return []
+    // Buscar en catálogo por subcategoría que coincida con la categoría seleccionada
+    return catalogoItems
+      .filter(i => i.subcategoria === form.categoria || i.categoria === 'accesorios')
+      .map(i => i.nombre)
+      .filter((n, idx, arr) => arr.indexOf(n) === idx)
+      .filter(n => !form.nombre || n.toLowerCase().includes(form.nombre.toLowerCase()))
+      .slice(0, 8)
+  }, [catalogoItems, form.categoria, form.nombre])
+
+  // Categorías combinadas: base + subcategorías del catálogo
+  const categoriasCombinadas = useMemo(() => {
+    const extra = catalogoSubcats
+      .filter(s => !CATEGORIAS_BASE.find(b => b.id === s.id || b.label.toLowerCase().includes(s.nombre.toLowerCase())))
+      .map(s => ({ id: s.id, label: `${s.emoji} ${s.nombre}` }))
+    return [...CATEGORIAS_BASE, ...extra]
+  }, [catalogoSubcats])
+
   useEffect(() => { load() }, [workspaceId])
 
   const load = async () => {
     try {
-      const data = await getStockAccesorios(workspaceId)
+      const [data, cats, subs] = await Promise.all([
+        getStockAccesorios(workspaceId),
+        getCatalogoItems(workspaceId, 'accesorios'),
+        getCatalogoSubcategorias(workspaceId, 'accesorios'),
+      ])
       setItems(data)
+      setCatalogoItems(cats)
+      setCatalogoSubcats(subs)
     } finally { setLoading(false) }
   }
 
@@ -262,7 +291,7 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
                 : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
               Todos
             </button>
-            {CATEGORIAS.map(c => (
+            {CATEGORIAS_BASE.map(c => (
               <button key={c.id} onClick={() => setCategoriaFiltro(c.id)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all"
                 style={categoriaFiltro === c.id
@@ -283,7 +312,7 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
           {/* Lista */}
           <div className="space-y-2">
             {filtered.map(item => {
-              const cat = CATEGORIAS.find(c => c.id === item.categoria)
+              const cat = CATEGORIAS_BASE.find(c => c.id === item.categoria)
               return (
                 <div key={item.id} className="px-3 py-3 rounded-xl"
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -367,19 +396,23 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
             </div>
 
             <div className="space-y-3">
-              {/* Nombre */}
+              {/* Nombre con sugerencias del catálogo */}
               <div>
                 <label className="label">Nombre</label>
                 <input className="input text-sm" placeholder="Ej: Cable C a Lightning"
-                  value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+                  value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus
+                  list="catalogo-acc-list" />
+                <datalist id="catalogo-acc-list">
+                  {sugerenciasNombre.map(n => <option key={n} value={n} />)}
+                </datalist>
               </div>
 
-              {/* Categoría */}
+              {/* Categoría — dinámica desde catálogo */}
               <div>
                 <label className="label">Categoría</label>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {CATEGORIAS.map(c => (
-                    <button key={c.id} onClick={() => setForm(f => ({ ...f, categoria: c.id, moneda: c.moneda }))}
+                  {categoriasCombinadas.map(c => (
+                    <button key={c.id} onClick={() => setForm(f => ({ ...f, categoria: c.id }))}
                       className="py-2 px-2 rounded-xl text-xs font-medium text-left transition-all"
                       style={form.categoria === c.id
                         ? { background: 'var(--brand)', color: '#fff' }

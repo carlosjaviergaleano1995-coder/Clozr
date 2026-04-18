@@ -60,6 +60,7 @@ export default function AjustesPage() {
         modulos.mostrarBroadcast    && { label: 'Accesorios',    desc: 'Cargadores, cables y fundas',    path: 'iphone/accesorios',   icon: Package },
         modulos.mostrarBroadcast    && { label: 'Ventas',        desc: 'Historial y ganancias',          path: 'iphone/ventas',       icon: TrendingUp },
         modulos.mostrarBroadcast    && { label: 'Resumen',       desc: 'Métricas y evolución mensual',   path: 'iphone/resumen',      icon: BarChart2 },
+        modulos.mostrarBroadcast    && { label: 'Catálogo',      desc: 'Productos, modelos y subcategorías', path: 'catalogo-iphone', icon: Package },
         modulos.mostrarRevendedores && { label: 'Revendedores',  desc: 'CRM de revendedores',            path: 'iphone/revendedores', icon: Users },
       ].filter(Boolean),
     },
