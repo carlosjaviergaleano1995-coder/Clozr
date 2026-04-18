@@ -18,7 +18,6 @@ export function useMemberRole(workspaceId: string) {
   const [role, setRole] = useState<MemberRole | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // ownerId del workspace como fallback (workspaces creados antes del sistema de roles)
   const ws = workspaces.find(w => w.id === workspaceId)
   const isOwnerByField = !!user && !!ws && ws.ownerId === user.uid
 
@@ -29,30 +28,27 @@ export function useMemberRole(workspaceId: string) {
         if (r) {
           setRole(r)
         } else if (isOwnerByField) {
-          // Workspace viejo sin registro en members — el ownerId coincide → owner
           setRole('owner')
         } else {
-          // Sin registro y no es owner → vendedor por defecto (puede ver y editar)
+          // Sin registro → vendedor por defecto (puede editar, no config)
           setRole('vendedor')
         }
       })
       .finally(() => setLoading(false))
   }, [workspaceId, user?.uid])
 
-  const effectiveRole = role ?? (isOwnerByField ? 'owner' : null)
+  const effectiveRole = role ?? (isOwnerByField ? 'owner' : 'vendedor')
 
-  const can = (minRole: MemberRole): boolean => {
-    if (!effectiveRole) return false
-    return ROLE_LEVEL[effectiveRole] >= ROLE_LEVEL[minRole]
-  }
+  const can = (minRole: MemberRole): boolean =>
+    ROLE_LEVEL[effectiveRole] >= ROLE_LEVEL[minRole]
 
   return {
-    role: effectiveRole,
+    role:         effectiveRole,
     loading,
-    isOwner:    effectiveRole === 'owner',
-    isAdmin:    effectiveRole === 'admin' || effectiveRole === 'owner',
-    isVendedor: can('vendedor'),
-    isViewer:   !!effectiveRole,
+    isOwner:      effectiveRole === 'owner',
+    isAdmin:      effectiveRole === 'admin' || effectiveRole === 'owner',
+    isVendedor:   can('vendedor'),                 // vendedor, admin u owner
+    isViewerOnly: effectiveRole === 'viewer',      // SOLO viewer — no puede editar
     can,
   }
 }

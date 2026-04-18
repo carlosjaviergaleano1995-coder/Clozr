@@ -22,8 +22,8 @@ export default function TareasPage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
   const { user } = useAuthStore()
-  const { isVendedor, isViewer } = useMemberRole(workspaceId)
-  const canEdit = !isViewer
+  const { isVendedor, isViewerOnly } = useMemberRole(workspaceId)
+  const canEdit = !isViewerOnly
 
   const [tareas, setTareas] = useState<Tarea[]>([])
   const [loading, setLoading] = useState(true)

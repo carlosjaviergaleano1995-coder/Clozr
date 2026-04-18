@@ -32,8 +32,8 @@ export default function StockPage() {
   const workspaceId = params.workspaceId as string
   const initialTab = (searchParams.get('tab') as TabId) ?? 'iphones'
   const [tab, setTab] = useState<TabId>(initialTab)
-  const { isVendedor, isViewer } = useMemberRole(workspaceId)
-  const canEdit   = !isViewer
+  const { isVendedor, isViewerOnly } = useMemberRole(workspaceId)
+  const canEdit   = !isViewerOnly
   const canDelete = isVendedor
 
   return (

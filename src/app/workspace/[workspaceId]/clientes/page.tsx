@@ -49,8 +49,8 @@ export default function ClientesPage() {
   const { workspaces } = useWorkspaceStore()
   const ws = workspaces.find(w => w.id === workspaceId)
   const esVerisure = ws?.config?.moduloVerisure === true
-  const { isVendedor, isViewer } = useMemberRole(workspaceId)
-  const canEdit = !isViewer
+  const { isVendedor, isViewerOnly } = useMemberRole(workspaceId)
+  const canEdit = !isViewerOnly
   const canDelete = isVendedor  // vendedor+ puede borrar sus propios, admin/owner todo
   const tiposDisponibles = esVerisure ? TIPOS_VERISURE : TIPOS
 
