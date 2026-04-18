@@ -28,7 +28,7 @@ const EMOJIS = ['📱','🔌','💻','📟','⌚','🎧','🎮','📦','⚡','�
 export default function CatalogoIPhonePage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
-  const { isAdmin } = useMemberRole(workspaceId)
+  const { isAdmin, loading: roleLoading } = useMemberRole(workspaceId)
 
   const [items, setItems]   = useState<CatalogoItem[]>([])
   const [subcats, setSubcats] = useState<CatalogoSubcategoria[]>([])
@@ -136,6 +136,12 @@ export default function CatalogoIPhonePage() {
       ...implicitas,
     ]
   }, [subcats, items])
+
+  if (roleLoading) return (
+    <div className="space-y-3 mt-2">
+      {[1,2,3].map(i => <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
+    </div>
+  )
 
   if (!isAdmin) return (
     <div className="text-center py-12">
