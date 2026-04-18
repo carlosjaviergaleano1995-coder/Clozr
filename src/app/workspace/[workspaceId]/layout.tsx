@@ -7,7 +7,9 @@ import { useAuthStore, useWorkspaceStore } from '@/store'
 import { getWorkspaces } from '@/lib/services'
 import { derivarNav } from '@/lib/workspace-config'
 import { ClozrIcon } from '@/components/ClozrLogo'
+import { SystemConfigProvider } from '@/providers/SystemConfigProvider'
 import type { Workspace } from '@/types'
+import type { SalesSystemDefinition } from '@/features/systems/types'
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -18,6 +20,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const { user, loading: authLoading } = useAuthStore()
   const { workspaces, setWorkspaces, setActiveWorkspace } = useWorkspaceStore()
   const [ws, setWs] = useState<Workspace | null>(null)
+  const [systemDef, setSystemDef] = useState<SalesSystemDefinition | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth')
@@ -36,7 +39,28 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
       setWorkspaces(allWs)
     }
     const found = allWs.find(w => w.id === workspaceId)
-    if (found) { setWs(found); setActiveWorkspace(workspaceId) }
+    if (found) {
+      setWs(found)
+      setActiveWorkspace(workspaceId)
+      // Load SystemDefinition if workspace has active system
+      if (found.config?.moduloVerisure || found.config?.moduloBroadcast) {
+        // Legacy: system is active via old config flags
+        // New: when activeSystemSlug exists, fetch from Firestore
+      }
+      // Fetch system definition from client if activeSystemSlug present
+      const slug = (found as any).activeSystemSlug
+      if (slug) {
+        import('@/lib/firebase').then(({ db }) => {
+          import('firebase/firestore').then(({ doc, getDoc }) => {
+            getDoc(doc(db, `system_definitions/${slug}`)).then(snap => {
+              if (snap.exists()) {
+                setSystemDef((snap.data() as any).definition as SalesSystemDefinition)
+              }
+            }).catch(() => {/* silently fail — use defaults */})
+          })
+        })
+      }
+    }
     else router.push('/dashboard')
   }
 
@@ -82,7 +106,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
       {/* Contenido */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-3 pb-24">
-        {children}
+        <SystemConfigProvider definition={systemDef}>
+          {children}
+        </SystemConfigProvider>
       </main>
 
       {/* Bottom Nav */}
