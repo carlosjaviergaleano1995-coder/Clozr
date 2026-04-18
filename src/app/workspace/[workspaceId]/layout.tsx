@@ -42,9 +42,18 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
   const navItems = ws ? derivarNav(ws.config ?? {}) : []
 
-  const activeTab = navItems.find(item =>
-    pathname.endsWith(`/${item.id}`) || pathname.includes(`/${item.id}/`)
-  )?.id ?? 'hoy'
+  const activeTab = (() => {
+    // Para iPhone Club, matchear por prefijo de ruta
+    for (const item of navItems) {
+      if (item.id.includes('/mas')) continue // "Más" nunca está activo
+      const base = item.id.split('?')[0]     // quitar querystring
+      const itemPath = `/workspace/${workspaceId}/${base}`
+      if (pathname === itemPath || pathname.startsWith(itemPath + '/') || pathname.startsWith(itemPath)) {
+        return item.id
+      }
+    }
+    return navItems[0]?.id ?? 'hoy'
+  })()
 
   if (!ws) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>

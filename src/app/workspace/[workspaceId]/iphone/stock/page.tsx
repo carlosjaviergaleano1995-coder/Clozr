@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { Smartphone, Watch, ShoppingBag, Calculator } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useMemberRole } from '@/hooks/useMemberRole'
@@ -12,10 +12,10 @@ const TabSkeleton = () => (
   </div>
 )
 
-const StockiPhones   = dynamic(() => import('./_tabs/StockiPhones'),   { ssr: false, loading: () => <TabSkeleton /> })
-const StockOtros     = dynamic(() => import('./_tabs/StockOtros'),     { ssr: false, loading: () => <TabSkeleton /> })
+const StockiPhones    = dynamic(() => import('./_tabs/StockiPhones'),    { ssr: false, loading: () => <TabSkeleton /> })
+const StockOtros      = dynamic(() => import('./_tabs/StockOtros'),      { ssr: false, loading: () => <TabSkeleton /> })
 const StockAccesorios = dynamic(() => import('./_tabs/StockAccesorios'), { ssr: false, loading: () => <TabSkeleton /> })
-const Cotizar        = dynamic(() => import('./_tabs/Cotizar'),        { ssr: false, loading: () => <TabSkeleton /> })
+const Cotizar         = dynamic(() => import('./_tabs/Cotizar'),         { ssr: false, loading: () => <TabSkeleton /> })
 
 const TABS = [
   { id: 'iphones',    label: 'iPhones',    icon: Smartphone },
@@ -28,14 +28,17 @@ type TabId = typeof TABS[number]['id']
 
 export default function StockPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const workspaceId = params.workspaceId as string
-  const [tab, setTab] = useState<TabId>('iphones')
+  const initialTab = (searchParams.get('tab') as TabId) ?? 'iphones'
+  const [tab, setTab] = useState<TabId>(initialTab)
   const { isVendedor, isViewer } = useMemberRole(workspaceId)
   const canEdit   = !isViewer
   const canDelete = isVendedor
 
   return (
     <div className="space-y-3 animate-fade-in">
+      {/* Sub-nav tabs */}
       <div className="flex gap-1 p-1 rounded-2xl sticky top-[57px] z-30"
         style={{ background: 'var(--surface-2)' }}>
         {TABS.map(t => {

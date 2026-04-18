@@ -2,6 +2,7 @@ import type { WorkspaceConfig, WorkspaceType } from '@/types'
 import {
   Sun, Users, Wallet, Settings,
   Package, ShoppingCart, History, Shield, BarChart2,
+  Radio, DollarSign, MoreHorizontal, Smartphone,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -19,7 +20,7 @@ export function derivarTipo(config: WorkspaceConfig): WorkspaceType {
 }
 
 export function derivarNav(config: WorkspaceConfig): NavItem[] {
-  // Verisure — nav completamente distinto, sin stock ni caja
+  // Verisure — nav completamente distinto
   if (config.moduloVerisure) {
     return [
       { id: 'hoy',               label: 'Hoy',      icon: Sun },
@@ -30,16 +31,24 @@ export function derivarNav(config: WorkspaceConfig): NavItem[] {
     ]
   }
 
-  // Nav base — siempre presente
-  const nav: NavItem[] = [{ id: 'hoy', label: 'Hoy', icon: Sun }]
+  // iPhone Club — nav propio
+  if (config.moduloBroadcast) {
+    return [
+      { id: 'iphone/stock',     label: 'Stock',      icon: Smartphone },
+      { id: 'iphone/ventas',    label: 'Ventas',     icon: DollarSign },
+      { id: 'iphone/resumen',   label: 'Resumen',    icon: BarChart2 },
+      { id: 'iphone/broadcast', label: 'Broadcast',  icon: Radio },
+      { id: 'iphone/mas',       label: 'Más',        icon: MoreHorizontal },
+    ]
+  }
 
+  // Nav base
+  const nav: NavItem[] = [{ id: 'hoy', label: 'Hoy', icon: Sun }]
   if (config.tieneStock || config.vendeProductos)
     nav.push({ id: 'inventario', label: 'Stock', icon: Package })
-
   nav.push({ id: 'clientes', label: 'Clientes', icon: Users })
   nav.push({ id: 'caja',     label: 'Caja',     icon: Wallet })
   nav.push({ id: 'ajustes',  label: 'Ajustes',  icon: Settings })
-
   return nav.slice(0, 5)
 }
 
