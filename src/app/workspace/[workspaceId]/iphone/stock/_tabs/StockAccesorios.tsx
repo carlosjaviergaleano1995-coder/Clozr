@@ -7,15 +7,14 @@ import {
   updateStockAccesorio, deleteStockAccesorio,
   getCatalogoItems, getCatalogoSubcategorias,
 } from '@/lib/services'
-import { useAuthStore } from '@/store'
 import type { StockAccesorio, PrecioVolumen, CatalogoItem, CatalogoSubcategoria } from '@/types'
 import { fmtMonto } from '@/lib/format'
 
-// Categorías base — se complementan con las del catálogo
+// Categorías base — se amplían con las del catálogo
 const CATEGORIAS_BASE = [
   { id: 'battery_pack',    label: '🔋 Battery Pack' },
   { id: 'cargadores',      label: '⚡ Cargadores' },
-  { id: 'cargadores_armar',label: '🔧 p/armar' },
+  { id: 'cargadores_armar',label: '🔧 Cargadores p/armar' },
   { id: 'cables',          label: '🔌 Cables' },
   { id: 'cables_armar',    label: '🔧 Cables p/armar' },
   { id: 'fundas',          label: '📱 Fundas' },
@@ -26,124 +25,31 @@ const CATEGORIAS_BASE = [
   { id: 'otros',           label: '📦 Otros' },
 ]
 
-// ── Stock inicial desde el broadcast ─────────────────────────────────────────
-const STOCK_INICIAL: Omit<StockAccesorio, 'id' | 'workspaceId' | 'createdAt' | 'updatedAt'>[] = [
-  // Cargadores
-  {
-    nombre: 'Fuente 5w', categoria: 'cargadores', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 5, precio: 7000 }, { cantidad: 10, precio: 6200 }, { cantidad: 30, precio: 5900 }, { cantidad: 50, precio: 5500 }],
-  },
-  {
-    nombre: 'Fuente 20w (Americano)', categoria: 'cargadores', moneda: 'USD', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 5, precio: 7.5 }, { cantidad: 10, precio: 7 }, { cantidad: 30, precio: 6.5 }, { cantidad: 50, precio: 5.5 }],
-  },
-  // Cargadores para armar
-  {
-    nombre: 'Fuente 20w (Americano)', categoria: 'cargadores_armar', moneda: 'USD', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 5, precio: 7.5 }, { cantidad: 10, precio: 7 }, { cantidad: 30, precio: 6.5 }, { cantidad: 50, precio: 4.7 }, { cantidad: 100, precio: 4 }, { cantidad: 250, precio: 3 }],
-  },
-  // Cables
-  {
-    nombre: 'Cable USB a Lightning', categoria: 'cables', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 3800 }, { cantidad: 30, precio: 3000 }, { cantidad: 50, precio: 2500 }, { cantidad: 100, precio: 2000 }],
-  },
-  {
-    nombre: 'Cable C a Lightning', categoria: 'cables', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 4300 }, { cantidad: 30, precio: 3800 }, { cantidad: 50, precio: 3300 }, { cantidad: 100, precio: 2800 }],
-  },
-  {
-    nombre: 'Cable C a C (Mallado)', categoria: 'cables', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 5000 }, { cantidad: 30, precio: 4000 }, { cantidad: 50, precio: 3500 }, { cantidad: 100, precio: 3000 }],
-  },
-  // Cables para armar
-  {
-    nombre: 'Cable USB a Lightning', categoria: 'cables_armar', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 50, precio: 1900 }, { cantidad: 100, precio: 1500 }, { cantidad: 300, precio: 1200 }, { cantidad: 500, precio: 1050 }],
-  },
-  {
-    nombre: 'Cable C a Lightning', categoria: 'cables_armar', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 50, precio: 2500 }, { cantidad: 100, precio: 1950 }, { cantidad: 300, precio: 1650 }, { cantidad: 500, precio: 1500 }],
-  },
-  {
-    nombre: 'Cable C a C (Mallado)', categoria: 'cables_armar', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 50, precio: 2300 }, { cantidad: 100, precio: 1900 }, { cantidad: 300, precio: 1750 }, { cantidad: 500, precio: 1600 }],
-  },
-  // Fundas
-  {
-    nombre: 'Transparente', categoria: 'fundas', descripcion: '11 a 16 Pro Max', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 2900 }, { cantidad: 30, precio: 2300 }, { cantidad: 50, precio: 1800 }],
-  },
-  {
-    nombre: 'Silicone Case', categoria: 'fundas', descripcion: '11 a 16 Pro Max', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 3600 }, { cantidad: 30, precio: 3100 }, { cantidad: 50, precio: 2700 }, { cantidad: 100, precio: 2300 }],
-  },
-  {
-    nombre: 'Silicone Case', categoria: 'fundas', descripcion: '17 a 17 Pro Max', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 5200 }, { cantidad: 30, precio: 4600 }, { cantidad: 50, precio: 4100 }, { cantidad: 100, precio: 3800 }],
-  },
-  {
-    nombre: 'Magsafe', categoria: 'fundas', descripcion: '11 a 16 Pro Max', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 3600 }, { cantidad: 30, precio: 3100 }, { cantidad: 50, precio: 2700 }, { cantidad: 100, precio: 2300 }],
-  },
-  {
-    nombre: 'Magsafe', categoria: 'fundas', descripcion: '17 a 17 Pro Max', moneda: 'ARS', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 10, precio: 5200 }, { cantidad: 30, precio: 4600 }, { cantidad: 50, precio: 4100 }, { cantidad: 100, precio: 3800 }],
-  },
-  // Fuente original importada
-  {
-    nombre: 'Fuente 20w Original', categoria: 'fuente_original', moneda: 'USD', stock: 0, activo: true,
-    preciosVolumen: [{ cantidad: 1, precio: 25 }, { cantidad: 10, precio: 20 }, { cantidad: 20, precio: 19 }, { cantidad: 50, precio: 17 }],
-  },
-]
-
 type FormData = {
-  nombre: string
-  categoria: string
-  descripcion: string
-  moneda: 'ARS' | 'USD'
-  stock: number
+  nombre: string; categoria: string; descripcion: string
+  moneda: 'ARS' | 'USD'; stock: number
   preciosVolumen: PrecioVolumen[]
 }
 
 const EMPTY_FORM: FormData = {
-  nombre: '', categoria: 'cargadores', descripcion: '',
-  moneda: 'ARS', stock: 0, preciosVolumen: [{ cantidad: 1, precio: 0 }],
+  nombre: '', categoria: 'cables', descripcion: '',
+  moneda: 'ARS', stock: 0,
+  preciosVolumen: [{ cantidad: 1, precio: 0 }],
 }
 
-export default function StockAccesorios({ workspaceId, canEdit = true, canDelete = true }: { workspaceId: string; canEdit?: boolean; canDelete?: boolean }) {
-  const { user } = useAuthStore()
-
-  const [items, setItems] = useState<StockAccesorio[]>([])
+export default function StockAccesorios({ workspaceId, canEdit = true, canDelete = true }: {
+  workspaceId: string; canEdit?: boolean; canDelete?: boolean
+}) {
+  const [items, setItems]         = useState<StockAccesorio[]>([])
   const [catalogoItems, setCatalogoItems] = useState<CatalogoItem[]>([])
   const [catalogoSubcats, setCatalogoSubcats] = useState<CatalogoSubcategoria[]>([])
-  const [loading, setLoading] = useState(true)
-  const [seeding, setSeeding] = useState(false)
-  const [categoriaFiltro, setCategoriaFiltro] = useState<string>('todos')
-  const [search, setSearch] = useState('')
-  const [showForm, setShowForm] = useState(false)
-  const [editando, setEditando] = useState<StockAccesorio | null>(null)
-  const [form, setForm] = useState<FormData>({ ...EMPTY_FORM })
-  const [saving, setSaving] = useState(false)
-
-  // Sugerencias del catálogo para el nombre
-  const sugerenciasNombre = useMemo(() => {
-    if (!form.categoria || form.categoria === 'todos') return []
-    // Buscar en catálogo por subcategoría que coincida con la categoría seleccionada
-    return catalogoItems
-      .filter(i => i.subcategoria === form.categoria || i.categoria === 'accesorios')
-      .map(i => i.nombre)
-      .filter((n, idx, arr) => arr.indexOf(n) === idx)
-      .filter(n => !form.nombre || n.toLowerCase().includes(form.nombre.toLowerCase()))
-      .slice(0, 8)
-  }, [catalogoItems, form.categoria, form.nombre])
-
-  // Categorías combinadas: base + subcategorías del catálogo
-  const categoriasCombinadas = useMemo(() => {
-    const extra = catalogoSubcats
-      .filter(s => !CATEGORIAS_BASE.find(b => b.id === s.id || b.label.toLowerCase().includes(s.nombre.toLowerCase())))
-      .map(s => ({ id: s.id, label: `${s.emoji} ${s.nombre}` }))
-    return [...CATEGORIAS_BASE, ...extra]
-  }, [catalogoSubcats])
+  const [loading, setLoading]     = useState(true)
+  const [catFiltro, setCatFiltro] = useState('todos')
+  const [search, setSearch]       = useState('')
+  const [showForm, setShowForm]   = useState(false)
+  const [editando, setEditando]   = useState<StockAccesorio | null>(null)
+  const [form, setForm]           = useState<FormData>({ ...EMPTY_FORM })
+  const [saving, setSaving]       = useState(false)
 
   useEffect(() => { load() }, [workspaceId])
 
@@ -160,51 +66,48 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
     } finally { setLoading(false) }
   }
 
-  // Carga el stock inicial desde el broadcast si no hay nada
-  const cargarStockInicial = async () => {
-    if (!user) return
-    setSeeding(true)
-    try {
-      for (const item of STOCK_INICIAL) {
-        await createStockAccesorio(workspaceId, { ...item, workspaceId })
-      }
-      await load()
-    } finally { setSeeding(false) }
-  }
+  // Categorías: base + extras del catálogo
+  const categorias = useMemo(() => {
+    const extra = catalogoSubcats
+      .filter(s => !CATEGORIAS_BASE.find(b => b.id === s.id))
+      .map(s => ({ id: s.id, label: `${s.emoji} ${s.nombre}` }))
+    return [...CATEGORIAS_BASE, ...extra]
+  }, [catalogoSubcats])
+
+  // Sugerencias de nombre desde el catálogo
+  const sugerencias = useMemo(() => {
+    if (!form.nombre) return []
+    return catalogoItems
+      .map(i => i.nombre)
+      .filter((n, i, arr) => arr.indexOf(n) === i)
+      .filter(n => n.toLowerCase().includes(form.nombre.toLowerCase()))
+      .slice(0, 10)
+  }, [catalogoItems, form.nombre])
 
   const filtered = items
-    .filter(i => categoriaFiltro === 'todos' || i.categoria === categoriaFiltro)
-    .filter(i => !search || i.nombre.toLowerCase().includes(search.toLowerCase()))
+    .filter(i => catFiltro === 'todos' || i.categoria === catFiltro)
+    .filter(i => !search || i.nombre.toLowerCase().includes(search.toLowerCase()) || i.descripcion?.toLowerCase().includes(search.toLowerCase()))
 
-  const openNew = () => {
-    setEditando(null)
-    setForm({ ...EMPTY_FORM })
-    setShowForm(true)
-  }
+  const openNew = () => { setEditando(null); setForm({ ...EMPTY_FORM }); setShowForm(true) }
 
   const openEdit = (item: StockAccesorio) => {
     setEditando(item)
     setForm({
-      nombre: item.nombre,
-      categoria: item.categoria,
-      descripcion: item.descripcion ?? '',
-      moneda: item.moneda,
-      stock: item.stock,
-      preciosVolumen: [...item.preciosVolumen],
+      nombre: item.nombre, categoria: item.categoria,
+      descripcion: item.descripcion ?? '', moneda: item.moneda,
+      stock: item.stock, preciosVolumen: [...item.preciosVolumen],
     })
     setShowForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.nombre || !user) return
+    if (!form.nombre) return
     setSaving(true)
     try {
       const data = {
-        nombre: form.nombre,
-        categoria: form.categoria,
+        nombre: form.nombre, categoria: form.categoria,
         descripcion: form.descripcion || undefined,
-        moneda: form.moneda,
-        stock: form.stock,
+        moneda: form.moneda, stock: form.stock,
         preciosVolumen: form.preciosVolumen.filter(p => p.cantidad > 0 && p.precio > 0),
         activo: true,
       }
@@ -225,17 +128,10 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
     setItems(prev => prev.filter(i => i.id !== item.id))
   }
 
-  const addPrecio = () => setForm(f => ({
-    ...f, preciosVolumen: [...f.preciosVolumen, { cantidad: 0, precio: 0 }],
-  }))
-
-  const updatePrecio = (idx: number, field: keyof PrecioVolumen, val: number) =>
-    setForm(f => ({
-      ...f,
-      preciosVolumen: f.preciosVolumen.map((p, i) => i === idx ? { ...p, [field]: val } : p),
-    }))
-
-  const removePrecio = (idx: number) =>
+  const addPrecio = () => setForm(f => ({ ...f, preciosVolumen: [...f.preciosVolumen, { cantidad: 0, precio: 0 }] }))
+  const updPrecio = (idx: number, field: keyof PrecioVolumen, val: number) =>
+    setForm(f => ({ ...f, preciosVolumen: f.preciosVolumen.map((p, i) => i === idx ? { ...p, [field]: val } : p) }))
+  const remPrecio = (idx: number) =>
     setForm(f => ({ ...f, preciosVolumen: f.preciosVolumen.filter((_, i) => i !== idx) }))
 
   if (loading) return (
@@ -245,59 +141,42 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
   )
 
   return (
-    <div className="space-y-4 animate-fade-in pb-4">
+    <div className="space-y-4 pb-4">
 
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Accesorios</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            Cargadores · Cables · Fundas
-          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{items.length} productos</p>
         </div>
         {canEdit && (
-          <button onClick={openNew} className="btn-primary gap-1 text-sm">
-            <Plus size={15} /> Nuevo
+          <button onClick={openNew} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white" style={{ background: 'var(--brand)' }}>
+            <Plus size={13} /> Agregar
           </button>
         )}
       </div>
 
-      {/* Empty state con carga inicial */}
-      {items.length === 0 && (
-        <div className="card text-center py-6">
-          <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-            Sin accesorios cargados
-          </p>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
-            Podés cargar tu lista completa de un solo toque
-          </p>
-          <button onClick={cargarStockInicial} disabled={seeding} className="btn-primary mx-auto">
-            {seeding ? 'Cargando...' : '⚡ Cargar mi lista completa'}
-          </button>
-          <p className="text-[10px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
-            Carga {STOCK_INICIAL.length} productos con sus precios. Podés editar stock y precios después.
+      {items.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Sin accesorios</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            Tocá Agregar para cargar tu primer producto
           </p>
         </div>
-      )}
-
-      {items.length > 0 && (
+      ) : (
         <>
           {/* Filtro categoría */}
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
-            <button onClick={() => setCategoriaFiltro('todos')}
-              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all"
-              style={categoriaFiltro === 'todos'
-                ? { background: 'var(--brand)', color: '#fff' }
-                : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-              Todos
+            <button onClick={() => setCatFiltro('todos')}
+              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap"
+              style={catFiltro === 'todos' ? { background: 'var(--brand)', color: '#fff' } : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+              Todos ({items.length})
             </button>
-            {CATEGORIAS_BASE.map(c => (
-              <button key={c.id} onClick={() => setCategoriaFiltro(c.id)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all"
-                style={categoriaFiltro === c.id
-                  ? { background: 'var(--brand)', color: '#fff' }
-                  : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-                {c.label}
+            {categorias.filter(c => items.some(i => i.categoria === c.id)).map(c => (
+              <button key={c.id} onClick={() => setCatFiltro(c.id)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap"
+                style={catFiltro === c.id ? { background: 'var(--brand)', color: '#fff' } : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
+                {c.label} ({items.filter(i => i.categoria === c.id).length})
               </button>
             ))}
           </div>
@@ -311,70 +190,67 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
 
           {/* Lista */}
           <div className="space-y-2">
-            {filtered.map(item => {
-              const cat = CATEGORIAS_BASE.find(c => c.id === item.categoria)
-              return (
-                <div key={item.id} className="px-3 py-3 rounded-xl"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {item.nombre}
+            {filtered.map(item => (
+              <div key={item.id} className="px-3 py-3 rounded-xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        {item.nombre}
+                      </span>
+                      {item.descripcion && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                          {item.descripcion}
                         </span>
-                        {item.descripcion && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                            style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                            {item.descripcion}
-                          </span>
-                        )}
-                        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {cat?.label}
-                        </span>
-                      </div>
-
-                      {/* Precios por volumen */}
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {item.preciosVolumen.map((pv, i) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
-                            style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
-                            x{pv.cantidad} {fmtMonto(pv.precio, item.moneda)}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Stock */}
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                          style={{
-                            background: item.stock > 0 ? 'var(--green-bg)' : 'var(--red-bg)',
-                            color: item.stock > 0 ? 'var(--green)' : 'var(--brand-light)',
-                          }}>
-                          {item.stock > 0 ? `${item.stock} u` : 'Sin stock'}
-                        </span>
-                      </div>
+                      )}
                     </div>
 
-                    <div className="flex gap-1.5 flex-shrink-0">
-                      {canEdit && (
-                        <button onClick={() => openEdit(item)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center"
-                          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                          <Pencil size={13} />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button onClick={() => handleDelete(item)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center"
-                          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                          <Trash2 size={13} />
-                        </button>
-                      )}
+                    {/* Precios por volumen */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {item.preciosVolumen.map((pv, i) => (
+                        <div key={i} className="flex flex-col items-center px-2.5 py-1.5 rounded-xl"
+                          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                          <span className="text-[9px] font-medium" style={{ color: 'var(--text-tertiary)' }}>x{pv.cantidad}</span>
+                          <span className="text-xs font-bold mt-0.5" style={{ color: 'var(--brand-light)' }}>
+                            {fmtMonto(pv.precio, item.moneda)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Stock */}
+                    <div className="mt-2">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                        style={{
+                          background: item.stock > 0 ? 'var(--green-bg)' : 'var(--red-bg)',
+                          color: item.stock > 0 ? 'var(--green)' : 'var(--brand-light)',
+                        }}>
+                        {item.stock > 0 ? `${item.stock} u` : 'Sin stock'}
+                      </span>
                     </div>
                   </div>
+
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    {canEdit && (
+                      <button onClick={() => openEdit(item)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center"
+                        style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                        <Pencil size={13} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button onClick={() => handleDelete(item)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center"
+                        style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )
-            })}
+              </div>
+            ))}
           </div>
         </>
       )}
@@ -396,22 +272,22 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
             </div>
 
             <div className="space-y-3">
-              {/* Nombre con sugerencias del catálogo */}
+              {/* Nombre con autocompletar del catálogo */}
               <div>
                 <label className="label">Nombre</label>
-                <input className="input text-sm" placeholder="Ej: Cable C a Lightning"
-                  value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus
-                  list="catalogo-acc-list" />
-                <datalist id="catalogo-acc-list">
-                  {sugerenciasNombre.map(n => <option key={n} value={n} />)}
+                <input className="input text-sm" placeholder="Ej: Cable USB-C a Lightning"
+                  value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+                  autoFocus list="acc-nombres" />
+                <datalist id="acc-nombres">
+                  {sugerencias.map(n => <option key={n} value={n} />)}
                 </datalist>
               </div>
 
-              {/* Categoría — dinámica desde catálogo */}
+              {/* Categoría */}
               <div>
                 <label className="label">Categoría</label>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {categoriasCombinadas.map(c => (
+                  {categorias.map(c => (
                     <button key={c.id} onClick={() => setForm(f => ({ ...f, categoria: c.id }))}
                       className="py-2 px-2 rounded-xl text-xs font-medium text-left transition-all"
                       style={form.categoria === c.id
@@ -423,17 +299,17 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
                 </div>
               </div>
 
-              {/* Descripción + Moneda + Stock */}
+              {/* Descripción + Stock */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="label">Descripción</label>
-                  <input className="input text-sm" placeholder="Ej: 11 a 16 Pro Max"
+                  <input className="input text-sm" placeholder="Ej: 1m Nylon"
                     value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
                 </div>
                 <div>
                   <label className="label">Stock</label>
                   <input type="number" min="0" className="input text-sm"
-                    value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} />
+                    value={form.stock || ''} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} />
                 </div>
               </div>
 
@@ -453,31 +329,29 @@ export default function StockAccesorios({ workspaceId, canEdit = true, canDelete
                 </div>
               </div>
 
-              {/* Precios por volumen */}
+              {/* Precios por cantidad */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="label mb-0">Precios por volumen</label>
+                  <label className="label mb-0">Precios por cantidad</label>
                   <button onClick={addPrecio}
-                    className="text-xs px-2 py-1 rounded-lg transition-all"
+                    className="text-xs px-2 py-1 rounded-lg"
                     style={{ background: 'var(--surface-2)', color: 'var(--brand-light)', border: '1px solid var(--border)' }}>
-                    + Agregar
+                    + Tramo
                   </button>
                 </div>
                 <div className="space-y-2">
                   {form.preciosVolumen.map((pv, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 flex-1">
-                        <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>x</span>
-                        <input type="number" min="1" className="input text-sm py-1.5 w-20"
-                          placeholder="cant" value={pv.cantidad || ''}
-                          onChange={e => updatePrecio(idx, 'cantidad', Number(e.target.value))} />
-                        <input type="number" min="0" className="input text-sm py-1.5 flex-1"
-                          placeholder={form.moneda === 'USD' ? 'precio USD' : 'precio ARS'}
-                          value={pv.precio || ''}
-                          onChange={e => updatePrecio(idx, 'precio', Number(e.target.value))} />
-                      </div>
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>x</span>
+                      <input type="number" min="1" className="input text-sm py-1.5 w-20"
+                        placeholder="cant" value={pv.cantidad || ''}
+                        onChange={e => updPrecio(idx, 'cantidad', Number(e.target.value))} />
+                      <input type="number" min="0" className="input text-sm py-1.5 flex-1"
+                        placeholder={form.moneda === 'USD' ? 'USD' : 'ARS'}
+                        value={pv.precio || ''}
+                        onChange={e => updPrecio(idx, 'precio', Number(e.target.value))} />
                       {form.preciosVolumen.length > 1 && (
-                        <button onClick={() => removePrecio(idx)}
+                        <button onClick={() => remPrecio(idx)}
                           className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
                           ✕

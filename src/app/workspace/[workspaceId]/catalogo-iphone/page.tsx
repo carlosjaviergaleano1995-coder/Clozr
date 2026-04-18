@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, Trash2, ChevronDown, ChevronUp, Zap } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   getCatalogoItems, getCatalogoSubcategorias,
   createCatalogoItem, deleteCatalogoItem,
   createCatalogoSubcategoria, deleteCatalogoSubcategoria,
-  seedCatalogo,
 } from '@/lib/services'
 import { useMemberRole } from '@/hooks/useMemberRole'
 import type { CatalogoItem, CatalogoSubcategoria } from '@/types'
@@ -33,7 +32,6 @@ export default function CatalogoIPhonePage() {
   const [items, setItems]   = useState<CatalogoItem[]>([])
   const [subcats, setSubcats] = useState<CatalogoSubcategoria[]>([])
   const [loading, setLoading] = useState(true)
-  const [seeding, setSeeding] = useState(false)
   const [categoriaActiva, setCategoriaActiva] = useState('accesorios')
   const [subcatActiva, setSubcatActiva] = useState<string | null>(null)
   const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
@@ -62,14 +60,6 @@ export default function CatalogoIPhonePage() {
     } finally { setLoading(false) }
   }
 
-  const handleSeed = async () => {
-    if (!confirm('¿Cargar el catálogo completo? Esto puede tardar unos segundos.')) return
-    setSeeding(true)
-    try {
-      await seedCatalogo(workspaceId)
-      await load()
-    } finally { setSeeding(false) }
-  }
 
   // Agrupar items por subcategoría
   const porSubcat = useMemo(() => {
@@ -153,19 +143,11 @@ export default function CatalogoIPhonePage() {
     <div className="space-y-4 animate-fade-in pb-4">
 
       {/* Header */}
-      <div className="flex items-center justify-between pt-1">
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Catálogo</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {items.length} productos · {subcats.length} subcategorías
-          </p>
-        </div>
-        <button onClick={handleSeed} disabled={seeding}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-          style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
-          <Zap size={13} />
-          {seeding ? 'Cargando...' : 'Seed completo'}
-        </button>
+      <div className="pt-1">
+        <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Catálogo</h2>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+          {items.length} productos · {subcats.length} subcategorías
+        </p>
       </div>
 
       {/* Selector categoría principal */}
