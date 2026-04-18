@@ -53,7 +53,7 @@ export function useCustomers(
     setError(null)
 
     let q = query(
-      collection(db, `workspaces/${workspaceId}/customers`),
+      collection(db, `workspaces/${workspaceId}/clientes`),
       orderBy('updatedAt', 'desc'),
       limit(options.maxResults ?? 200),
     )
@@ -141,7 +141,7 @@ export function useCustomerById(
     if (!workspaceId || !customerId) { setLoading(false); return }
 
     const { doc, onSnapshot: snap } = require('firebase/firestore') as typeof import('firebase/firestore')
-    const ref = doc(db, `workspaces/${workspaceId}/customers/${customerId}`)
+    const ref = doc(db, `workspaces/${workspaceId}/clientes/${customerId}`)
 
     const unsub = snap(
       ref,

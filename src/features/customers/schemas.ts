@@ -20,6 +20,7 @@ export const CreateCustomerSchema = z.object({
   direccion:  z.string().max(200).optional(),
   dni:        z.string().max(20).optional(),
   referidoPor: z.string().optional(),
+  referido:    z.string().max(100).optional(),  // compatibilidad con datos existentes
   notas:      z.string().max(1000).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
   tags:       z.array(z.string().max(30)).max(10).optional(),

@@ -10,15 +10,17 @@ import type { Customer, CustomerType, CustomerStatus } from '../types'
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
 const ESTADO_COLORS: Record<CustomerStatus, { bg: string; color: string }> = {
-  activo:    { bg: 'rgba(34,197,94,.12)',  color: '#4ade80' },
-  potencial: { bg: 'rgba(251,191,36,.12)', color: '#fbbf24' },
-  inactivo:  { bg: 'rgba(156,163,175,.12)',color: '#9ca3af' },
-  perdido:   { bg: 'rgba(239,68,68,.12)',  color: '#f87171' },
+  activo:    { bg: 'rgba(34,197,94,.12)',   color: '#4ade80' },
+  potencial: { bg: 'rgba(251,191,36,.12)',  color: '#fbbf24' },
+  dormido:   { bg: 'rgba(251,191,36,.12)',  color: '#fbbf24' },
+  inactivo:  { bg: 'rgba(156,163,175,.12)', color: '#9ca3af' },
+  perdido:   { bg: 'rgba(239,68,68,.12)',   color: '#f87171' },
 }
 
 const ESTADO_LABELS: Record<CustomerStatus, string> = {
   activo:    'Activo',
   potencial: 'Potencial',
+  dormido:   'Dormido',
   inactivo:  'Inactivo',
   perdido:   'Perdido',
 }

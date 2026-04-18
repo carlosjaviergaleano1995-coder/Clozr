@@ -29,6 +29,7 @@ const DEFAULT_TYPES: Record<CustomerType, string> = {
 const DEFAULT_STATES: Record<CustomerStatus, string> = {
   activo:    'Activo',
   potencial: 'Potencial',
+  dormido:   'Dormido',
   inactivo:  'Inactivo',
   perdido:   'Perdido',
 }

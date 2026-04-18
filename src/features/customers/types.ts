@@ -1,5 +1,6 @@
+// CustomerStatus incluye 'dormido' para compatibilidad con datos existentes
 export type CustomerType   = 'final' | 'revendedor' | 'mayorista' | 'empresa'
-export type CustomerStatus = 'activo' | 'potencial' | 'inactivo' | 'perdido'
+export type CustomerStatus = 'activo' | 'potencial' | 'dormido' | 'inactivo' | 'perdido'
 
 export interface Customer {
   id: string
@@ -12,15 +13,15 @@ export interface Customer {
   barrio?: string
   direccion?: string
   dni?: string
-  referidoPor?: string          // id de otro Customer
+  // Campo viejo: 'referido' (nombre string). Campo nuevo: 'referidoPor' (id).
+  // Ambos opcionales para compatibilidad
+  referido?: string
+  referidoPor?: string
   notas?: string
-  // Desnormalizado — para cards sin join extra
   lastInteractionAt?: Date
   totalSales: number
-  // Campos custom del sistema activo
   customFields?: Record<string, unknown>
   tags?: string[]
-  // Tokens de búsqueda — generados al crear/editar
   searchTokens?: string[]
   creadoPor: string
   createdAt: Date

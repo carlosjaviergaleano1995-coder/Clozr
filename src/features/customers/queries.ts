@@ -17,7 +17,7 @@ export async function listCustomers(
   options: ListCustomersOptions = {},
 ): Promise<Customer[]> {
   let q = adminDb
-    .collection(`workspaces/${workspaceId}/customers`)
+    .collection(`workspaces/${workspaceId}/clientes`)
     .orderBy(options.orderBy ?? 'updatedAt', 'desc')
     .limit(options.limit ?? 200) as FirebaseFirestore.Query
 
@@ -45,7 +45,7 @@ export async function getCustomerById(
   customerId: string,
 ): Promise<Customer | null> {
   const doc = await adminDb
-    .doc(`workspaces/${workspaceId}/customers/${customerId}`)
+    .doc(`workspaces/${workspaceId}/clientes/${customerId}`)
     .get()
   if (!doc.exists) return null
   return { id: doc.id, ...doc.data() } as Customer

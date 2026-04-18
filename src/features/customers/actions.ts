@@ -42,7 +42,7 @@ export async function createCustomer(
     const searchTokens = generateSearchTokens(input)
 
     const batch = adminDb.batch()
-    const ref   = adminDb.collection(`workspaces/${workspaceId}/customers`).doc()
+    const ref   = adminDb.collection(`workspaces/${workspaceId}/clientes`).doc()
 
     batch.set(ref, {
       workspaceId,
@@ -131,7 +131,7 @@ export async function updateCustomer(
     if (input.telefono === '') updates.telefono = null
 
     await adminDb
-      .doc(`workspaces/${workspaceId}/customers/${customerId}`)
+      .doc(`workspaces/${workspaceId}/clientes/${customerId}`)
       .update(updates)
 
     writeAuditLog(workspaceId, user.uid, user.displayName, 'customer.updated', {
@@ -165,7 +165,7 @@ export async function deleteCustomer(
 
     const batch = adminDb.batch()
 
-    batch.delete(adminDb.doc(`workspaces/${workspaceId}/customers/${customerId}`))
+    batch.delete(adminDb.doc(`workspaces/${workspaceId}/clientes/${customerId}`))
 
     batch.update(adminDb.doc(`workspaces/${workspaceId}`), {
       customerCount: FieldValue.increment(-1),
