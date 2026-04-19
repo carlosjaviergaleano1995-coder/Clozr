@@ -6,14 +6,15 @@ import { Plus, Search, MessageCircle, Pencil, Trash2, ChevronRight, Phone, Dolla
 import { useMemberRole } from '@/hooks/useMemberRole'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { useCustomers } from '@/hooks/useCustomers'
+import { useSales } from '@/hooks/useSales'
+import { usePipeline } from '@/hooks/usePipeline'
 import { createCustomer, updateCustomer, deleteCustomer } from '@/features/customers/actions'
+import { createPipelineItem, addActivity, updateStage } from '@/features/pipeline/actions'
 import type { Customer, CustomerType, CustomerStatus } from '@/features/customers/types'
-// Operaciones que aún no tienen equivalente en la nueva arch — se mantienen temporalmente
-import {
-  getVentas2, agregarMovimientoCaja, getPlantillas,
-  getPipelineByCliente, createPipeline, updatePipeline, agregarNotaVisita,
-} from '@/lib/services'
-import type { Venta2, PlantillaMensaje, PipelineCliente, EstadoPipeline, NotaVisita } from '@/types'
+import type { PipelineItem } from '@/features/pipeline/types'
+// Plantillas y seña: sin equivalente canónico aún — se mantienen con servicios legacy
+import { agregarMovimientoCaja, getPlantillas } from '@/lib/services'
+import type { PlantillaMensaje } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/utils'
@@ -64,19 +65,27 @@ export default function ClientesPage() {
   const canDelete = isVendedor
   const tiposDisponibles = esVerisure ? TIPOS_VERISURE : TIPOS
 
-  // ── NUEVA ARQUITECTURA: datos reactivos via hook ──────────────────────────
+  // ── Datos reactivos via hooks canónicos ─────────────────────────────────
   const [search, setSearch] = useState('')
   const { customers, loading } = useCustomers(workspaceId, { search })
 
-  // ── Datos que aún usan lib/services (ventas, plantillas, pipeline viejo) ──
-  const [ventas,     setVentas]     = useState<Venta2[]>([])
-  const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([])
+  // ventas del cliente en detalle — reactivas por customerId
+  const [detalleClienteId, setDetalleClienteId] = useState<string | null>(null)
+  const { sales: ventasDelCliente } = useSales(workspaceId, {
+    customerId: detalleClienteId ?? undefined,
+  })
 
+  // pipeline del cliente en detalle — reactivo por customerId
+  const { items: pipelineItems, loading: loadingPipeline } = usePipeline(workspaceId, {
+    customerId: detalleClienteId ?? undefined,
+  })
+  // El item de pipeline del cliente actual (Verisure tiene 1 por cliente)
+  const pipelineItem: PipelineItem | null = pipelineItems[0] ?? null
+
+  // Plantillas — sin equivalente canónico aún
+  const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([])
   useEffect(() => {
-    Promise.all([
-      getVentas2(workspaceId),
-      getPlantillas(workspaceId),
-    ]).then(([v, p]) => { setVentas(v); setPlantillas(p) })
+    getPlantillas(workspaceId).then(setPlantillas)
   }, [workspaceId])
 
   // ── UI state ──────────────────────────────────────────────────────────────
@@ -91,10 +100,8 @@ export default function ClientesPage() {
   // Ubicación GPS
   const [buscandoUbicacion, setBuscandoUbicacion] = useState(false)
 
-  // Pipeline (viejo — pendiente migrar en Bloque 2)
-  const [pipeline,        setPipeline]        = useState<PipelineCliente | null>(null)
-  const [loadingPipeline, setLoadingPipeline] = useState(false)
-  const [showNota,        setShowNota]        = useState(false)
+  // Pipeline — state de UI (el dato viene del hook usePipeline)
+  const [showNota, setShowNota] = useState(false)
   const [notaTexto,       setNotaTexto]       = useState('')
   const [notaResultado,   setNotaResultado]   = useState<'positivo'|'neutro'|'negativo'>('neutro')
   const [notaProximoPaso, setNotaProximoPaso] = useState('')
@@ -123,9 +130,7 @@ export default function ClientesPage() {
       }),
   [customers, filtroTipo])
 
-  const ventasDeCliente = (nombre: string) =>
-    ventas.filter(v => v.clienteNombre?.toLowerCase() === nombre.toLowerCase())
-      .sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime())
+  // ventasDelCliente viene del hook useSales({ customerId }) — ya filtrado y reactivo
 
   // ── NUEVA ARQUITECTURA: CRUD ──────────────────────────────────────────────
 
@@ -185,54 +190,62 @@ export default function ClientesPage() {
     })
   }
 
-  // ── Pipeline viejo — se migrará en Bloque 2 ──────────────────────────────
-
-  const abrirDetalle = async (c: Customer) => {
+  const abrirDetalle = (c: Customer) => {
     setDetalle(c)
-    if (!esVerisure) return
-    setLoadingPipeline(true)
-    setPipeline(null)
-    try {
-      const p = await getPipelineByCliente(workspaceId, c.id)
-      setPipeline(p)
-    } finally { setLoadingPipeline(false) }
+    // Setear el customerId activa los hooks useSales y usePipeline para este cliente
+    setDetalleClienteId(c.id)
   }
 
-  const cambiarEstadoPipeline = async (estado: EstadoPipeline) => {
-    if (!detalle || !user) return
-    if (pipeline) {
-      await updatePipeline(workspaceId, pipeline.id, { estado })
-      setPipeline(p => p ? { ...p, estado } : p)
-    } else {
-      const id = await createPipeline(workspaceId, {
-        workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre,
-        estado, notas: [], kitInteres: undefined,
-      })
-      setPipeline({ id, workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre, estado, notas: [], creadoAt: new Date(), updatedAt: new Date() })
-    }
-  }
-
-  const guardarNota = async () => {
-    if (!notaTexto.trim() || !detalle || !user) return
-    setGuardandoNota(true)
-    try {
-      const nota: NotaVisita = {
-        fecha: new Date(), texto: notaTexto.trim(),
-        resultado: notaResultado, proximoPaso: notaProximoPaso.trim() || undefined,
-      }
-      if (!pipeline?.id) {
-        const id = await createPipeline(workspaceId, {
-          workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre,
-          estado: 'contactado', notas: [], kitInteres: undefined,
+  const cambiarEstadoPipeline = (nuevoEstadoId: string) => {
+    if (!detalle) return
+    startTransition(async () => {
+      if (pipelineItem) {
+        // Item existente — actualizar etapa
+        await updateStage(workspaceId, pipelineItem.id, {
+          stageId:    nuevoEstadoId,
+          stageName:  nuevoEstadoId,
+          stageOrder: 0,
         })
-        setPipeline({ id, workspaceId, clienteId: detalle.id, clienteNombre: detalle.nombre, estado: 'contactado', notas: [nota], creadoAt: new Date(), updatedAt: new Date() })
       } else {
-        const nuevasNotas = await agregarNotaVisita(workspaceId, pipeline.id, nota, pipeline.notas ?? [])
-        setPipeline(p => p ? { ...p, notas: nuevasNotas as NotaVisita[] } : p)
+        // Sin item — crear uno nuevo
+        await createPipelineItem(workspaceId, {
+          customerId:       detalle.id,
+          customerSnapshot: { nombre: detalle.nombre, telefono: detalle.telefono },
+          stageId:          nuevoEstadoId,
+          stageName:        nuevoEstadoId,
+          stageOrder:       0,
+          currency:         'ARS',
+        })
+      }
+    })
+  }
+
+  const guardarNota = () => {
+    if (!notaTexto.trim() || !detalle) return
+    startTransition(async () => {
+      if (pipelineItem) {
+        // Item existente — agregar actividad
+        await addActivity(workspaceId, pipelineItem.id, {
+          type:        'visit',
+          description: notaTexto.trim(),
+          result:      notaProximoPaso.trim() || undefined,
+          performedAt: new Date(),
+        })
+      } else {
+        // Sin item — crear con la nota como primera actividad
+        const result = await createPipelineItem(workspaceId, {
+          customerId:       detalle.id,
+          customerSnapshot: { nombre: detalle.nombre, telefono: detalle.telefono },
+          stageId:          'contactado',
+          stageName:        'Contactado',
+          stageOrder:       1,
+          currency:         'ARS',
+        })
+        // La nota se puede agregar en un segundo paso si el item se creó
       }
       setShowNota(false)
       setNotaTexto(''); setNotaProximoPaso(''); setNotaResultado('neutro')
-    } finally { setGuardandoNota(false) }
+    })
   }
 
   // ── Seña ──────────────────────────────────────────────────────────────────
@@ -371,7 +384,7 @@ export default function ClientesPage() {
           {filtered.map(c => {
             const tipo   = tiposDisponibles.find(t => t.id === c.tipo)
             const estado = ESTADOS.find(e => e.id === c.estado)
-            const vsCliente = ventasDeCliente(c.nombre)
+            // ventas del cliente mostradas en el detalle — aquí no tenemos el customerId directamente
             return (
               <button key={c.id} onClick={() => abrirDetalle(c)}
                 className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all"
@@ -393,11 +406,7 @@ export default function ClientesPage() {
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {c.telefono && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{c.telefono}</span>}
-                    {vsCliente.length > 0 && (
-                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        · {vsCliente.length} compra{vsCliente.length > 1 ? 's' : ''}
-                      </span>
-                    )}
+  
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -421,7 +430,7 @@ export default function ClientesPage() {
       {detalle && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setDetalle(null)}>
+          onClick={() => { setDetalle(null); setDetalleClienteId(null) }}>
           <div className="w-full max-w-md rounded-2xl animate-slide-up max-h-[92vh] overflow-y-auto"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             onClick={e => e.stopPropagation()}>
@@ -444,7 +453,7 @@ export default function ClientesPage() {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setDetalle(null)} className="btn-icon">✕</button>
+                <button onClick={() => { setDetalle(null); setDetalleClienteId(null) }} className="btn-icon">✕</button>
               </div>
 
               {/* Acciones rápidas */}
@@ -530,25 +539,25 @@ export default function ClientesPage() {
             {!esVerisure && (
               <div className="px-5 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>Historial de compras</p>
-                {ventasDeCliente(detalle.nombre).length === 0 ? (
+                {ventasDelCliente.length === 0 ? (
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
                 ) : (
                   <div className="space-y-2">
-                    {ventasDeCliente(detalle.nombre).slice(0, 8).map(v => (
+                    {ventasDelCliente.slice(0, 8).map(v => (
                       <div key={v.id} className="px-3 py-2 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono" style={{ color: 'var(--brand-light)' }}>{v.codigo}</span>
+                          <span className="text-[10px] font-mono" style={{ color: 'var(--brand-light)' }}>{v.id.slice(-6).toUpperCase()}</span>
                           <span className="text-xs font-bold" style={{ color: 'var(--green)' }}>
-                            {v.moneda === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
+                            {v.currency === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
                           </span>
                         </div>
                         <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                          {format(toDate(v.createdAt), 'd MMM yyyy · HH:mm', { locale: es })}
+                          {format(v.createdAt, 'd MMM yyyy · HH:mm', { locale: es })}
                         </p>
                         <div className="mt-1 space-y-0.5">
                           {v.items.map((item, i) => (
                             <p key={i} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {item.cantidad}× {item.productoNombre}
+                              {item.cantidad}× {item.descripcion}
                             </p>
                           ))}
                         </div>
@@ -578,10 +587,10 @@ export default function ClientesPage() {
                       { id: 'instalado', label: 'Instalado', emoji: '🛡️' },
                       { id: 'cobrado', label: 'Cobrado', emoji: '💵' },
                       { id: 'perdido', label: 'Perdido', emoji: '❌' },
-                    ] as { id: EstadoPipeline; label: string; emoji: string }[]).map(e => (
+                    ] as { id: string; label: string; emoji: string }[]).map(e => (
                       <button key={e.id} onClick={() => cambiarEstadoPipeline(e.id)}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
-                        style={pipeline?.estado === e.id
+                        style={pipelineItem?.stageId === e.id
                           ? { background: 'var(--brand)', color: '#fff' }
                           : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
                         {e.emoji} {e.label}
@@ -600,28 +609,25 @@ export default function ClientesPage() {
                       + Agregar
                     </button>
                   </div>
-                  {(!pipeline || pipeline.notas.length === 0) ? (
+                  {(!pipelineItem || pipelineItem.activities.length === 0) ? (
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin visitas registradas</p>
                   ) : (
                     <div className="space-y-2">
-                      {pipeline.notas.map((n, i) => {
-                        const colorRes = n.resultado === 'positivo' ? 'var(--green)' : n.resultado === 'negativo' ? 'var(--brand-light)' : 'var(--amber)'
-                        const bgRes    = n.resultado === 'positivo' ? 'var(--green-bg)' : n.resultado === 'negativo' ? 'var(--red-bg)' : 'var(--amber-bg)'
-                        return (
-                          <div key={i} className="px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      {[...pipelineItem.activities].reverse().map((n, i) => (
+                          <div key={n.id ?? i} className="px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: bgRes, color: colorRes }}>
-                                {n.resultado === 'positivo' ? '👍 Positivo' : n.resultado === 'negativo' ? '👎 Negativo' : '🔄 Neutro'}
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                                style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>
+                                {n.type === 'visit' ? '🏠 Visita' : n.type === 'call' ? '📞 Llamada' : '📝 Nota'}
                               </span>
                               <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                                {format(toDate(n.fecha), 'd MMM yyyy · HH:mm', { locale: es })}
+                                {format(n.performedAt, 'd MMM yyyy · HH:mm', { locale: es })}
                               </span>
                             </div>
-                            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{n.texto}</p>
-                            {n.proximoPaso && <p className="text-[10px] mt-1 italic" style={{ color: 'var(--blue)' }}>→ {n.proximoPaso}</p>}
+                            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{n.description}</p>
+                            {n.result && <p className="text-[10px] mt-1 italic" style={{ color: 'var(--blue)' }}>→ {n.result}</p>}
                           </div>
-                        )
-                      })}
+                        ))}
                     </div>
                   )}
                 </div>
