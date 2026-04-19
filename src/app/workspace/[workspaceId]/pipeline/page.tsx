@@ -2,48 +2,188 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, ChevronRight, MessageCircle, Bell } from 'lucide-react'
+import { Plus, MessageCircle, Clock, ChevronRight, Bell } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import { useCustomers } from '@/hooks/useCustomers'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { fmtARS } from '@/lib/format'
 
-// ── Nueva arquitectura: hook + actions
 import { usePipeline } from '@/hooks/usePipeline'
-import { addActivity, updateStage, closePipelineItem, createPipelineItem } from '@/features/pipeline/actions'
+import { addActivity, updateStage, createPipelineItem } from '@/features/pipeline/actions'
 import { useSystemConfig } from '@/hooks/useSystemConfig'
-
-// ── Tipos compatibles con ambas estructuras
-// El hook usePipeline devuelve PipelineItem (nueva arch)
-// Los datos existentes son PipelineCliente (vieja arch) — en la misma colección 'pipeline'
-// Leemos los campos que están en AMBOS: id, clienteId, customerSnapshot/clienteNombre, status/estado, activities/notas, updatedAt
 import type { PipelineItem } from '@/features/pipeline/types'
 import { getCustomerName, getKitInteres, getLastActivity } from '@/features/pipeline/adapters'
 
-// ── Tipos de UI (constantes de estados) ──────────────────────────────────────
+// ── UI constants ──────────────────────────────────────────────────────────────
 
-// Estados por defecto — se sobreescriben con los del sistema si hay uno activo
 const ESTADOS_DEFAULT = [
-  { id: 'prospecto',       label: 'Prospecto',       emoji: '👤', color: 'var(--text-tertiary)', bg: 'var(--surface-2)'      },
-  { id: 'contactado',      label: 'Contactado',      emoji: '📞', color: 'var(--blue)',          bg: 'var(--blue-bg)'        },
-  { id: 'visita_agendada', label: 'Visita agendada', emoji: '📅', color: '#a855f7',              bg: 'rgba(168,85,247,0.12)' },
-  { id: 'presupuestado',   label: 'Presupuestado',   emoji: '📋', color: 'var(--amber)',         bg: 'var(--amber-bg)'       },
-  { id: 'aprobado',        label: 'Aprobado',        emoji: '✅', color: 'var(--green)',         bg: 'var(--green-bg)'       },
-  { id: 'instalado',       label: 'Instalado',       emoji: '🛡️', color: 'var(--green)',         bg: 'var(--green-bg)'       },
-  { id: 'cobrado',         label: 'Cobrado',         emoji: '💰', color: 'var(--green)',         bg: 'var(--green-bg)'       },
-  { id: 'perdido',         label: 'Perdido',         emoji: '❌', color: 'var(--text-tertiary)', bg: 'var(--surface-2)'      },
+  { id: 'prospecto',       label: 'Prospecto',       color: 'var(--text-tertiary)', bg: 'rgba(255,255,255,0.06)' },
+  { id: 'contactado',      label: 'Contactado',      color: 'var(--blue)',          bg: 'var(--blue-bg)'         },
+  { id: 'visita_agendada', label: 'Visita agendada', color: '#a855f7',              bg: 'rgba(168,85,247,0.12)'  },
+  { id: 'presupuestado',   label: 'Presupuestado',   color: 'var(--amber)',         bg: 'var(--amber-bg)'        },
+  { id: 'aprobado',        label: 'Aprobado',        color: 'var(--green)',         bg: 'var(--green-bg)'        },
+  { id: 'instalado',       label: 'Instalado',       color: 'var(--green)',         bg: 'var(--green-bg)'        },
+  { id: 'cobrado',         label: 'Cobrado',         color: 'var(--green)',         bg: 'var(--green-bg)'        },
+  { id: 'perdido',         label: 'Perdido',         color: 'var(--text-tertiary)', bg: 'rgba(255,255,255,0.04)' },
 ]
-
-const KITS = ['Catálogo', 'Alto', 'Medio', 'Bajo', 'Catálogo +', 'Alto +', 'Medio/Bajo +']
+const KITS           = ['Catálogo', 'Alto', 'Medio', 'Bajo', 'Catálogo +', 'Alto +', 'Medio/Bajo +']
 const ESTADOS_ACTIVOS = ['prospecto','contactado','visita_agendada','presupuestado','aprobado','instalado']
 
+// ── Helper: initials ──────────────────────────────────────────────────────────
+function initials(name: string): string {
+  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+}
 
+// ── Helper: inactivity days ───────────────────────────────────────────────────
+function diasInactivo(item: any): number {
+  return Math.max(
+    item.inactiveDays ?? 0,
+    Math.floor((Date.now() - (item.updatedAt?.getTime?.() ?? 0)) / 86400000),
+  )
+}
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function Skeleton() {
+  return (
+    <div className="space-y-4 pt-1 animate-pulse pb-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1.5">
+          <div className="h-6 w-28 rounded-lg" style={{ background: 'var(--surface-2)' }} />
+          <div className="h-3.5 w-20 rounded" style={{ background: 'var(--surface-2)' }} />
+        </div>
+        <div className="h-9 w-24 rounded-xl" style={{ background: 'var(--surface-2)' }} />
+      </div>
+      <div className="flex gap-2 overflow-hidden">
+        {[80,100,90].map((w,i) => (
+          <div key={i} className="h-4 rounded-full flex-shrink-0" style={{ background: 'var(--surface-2)', width: `${w}px` }} />
+        ))}
+      </div>
+      <div className="space-y-2">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="h-20 rounded-2xl" style={{ background: 'var(--surface-2)' }} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
+// ── Pipeline card ─────────────────────────────────────────────────────────────
+function PipelineCard({
+  item, estado, dias, telefono, onClick,
+}: {
+  item: any; estado: any; dias: number; telefono?: string; onClick: () => void
+}) {
+  const name     = getCustomerName(item)
+  const kit      = getKitInteres(item)
+  const lastAct  = getLastActivity(item)
+  const critical = dias >= 14
+  const warning  = dias >= 7 && dias < 14
+  const hasAlert = dias >= 7
 
+  const borderColor = critical ? 'rgba(232,0,29,0.5)'
+                    : warning  ? 'rgba(255,214,10,0.4)'
+                    : 'var(--border)'
 
+  const lastActText = lastAct?.description ?? (lastAct as any)?.texto ?? ''
+  const lastActDate = lastAct?.performedAt instanceof Date ? lastAct.performedAt
+                    : (lastAct as any)?.fecha instanceof Date ? (lastAct as any).fecha
+                    : null
 
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left press"
+      style={{
+        background:   'var(--surface)',
+        border:       `1px solid ${borderColor}`,
+        borderRadius: '16px',
+        padding:      '12px 14px',
+        display:      'flex',
+        flexDirection: 'column',
+        gap:          '10px',
+      }}
+    >
+      {/* Row 1: avatar + name + days badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Avatar */}
+        <div style={{
+          width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+          background: estado.bg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '12px', fontWeight: 700, color: estado.color,
+          border: `1px solid ${borderColor}`,
+        }}>
+          {initials(name)}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+            {name}
+          </p>
+          {kit && (
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+              {kit}
+            </p>
+          )}
+        </div>
+
+        {/* Days badge */}
+        {hasAlert && (
+          <span style={{
+            fontSize: '11px', fontWeight: 700, padding: '3px 7px',
+            borderRadius: '20px', flexShrink: 0,
+            background: critical ? 'var(--red-bg)' : 'var(--amber-bg)',
+            color:      critical ? 'var(--brand-light)' : 'var(--amber)',
+          }}>
+            {dias}d
+          </span>
+        )}
+      </div>
+
+      {/* Row 2: last activity + whatsapp */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {lastActText ? (
+            <p style={{
+              fontSize: '11.5px', color: 'var(--text-tertiary)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3,
+            }}>
+              {lastActDate
+                ? formatDistanceToNow(lastActDate, { locale: es, addSuffix: true }) + ' · '
+                : ''
+              }{lastActText}
+            </p>
+          ) : (
+            <p style={{ fontSize: '11.5px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Clock size={11} style={{ flexShrink: 0 }} /> Sin actividad
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+          {telefono && (
+            <a
+              href={`https://wa.me/54${telefono.replace(/\D/g, '')}`}
+              target="_blank"
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '28px', height: '28px', borderRadius: '8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--green-bg)', color: 'var(--green)',
+              }}
+            >
+              <MessageCircle size={13} />
+            </a>
+          )}
+          <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function PipelinePage() {
   const params      = useParams()
   const workspaceId = params.workspaceId as string
@@ -51,11 +191,9 @@ export default function PipelinePage() {
   const { workspaces } = useWorkspaceStore()
   const ws          = workspaces.find(w => w.id === workspaceId)
 
-  // ── Sistema config — para etapas dinámicas
   const { getPipelineStages, hasSystem } = useSystemConfig()
   const systemStages = getPipelineStages()
 
-  // Construir ESTADOS desde el sistema activo o usar defaults
   const ESTADOS = useMemo(() => {
     if (hasSystem && systemStages.length > 0) {
       const colorMap: Record<string, string> = {
@@ -63,13 +201,13 @@ export default function PipelinePage() {
         green: 'var(--green)', red: 'var(--brand-light)', purple: '#a855f7',
       }
       const bgMap: Record<string, string> = {
-        neutral: 'var(--surface-2)', blue: 'var(--blue-bg)', amber: 'var(--amber-bg)',
+        neutral: 'rgba(255,255,255,0.06)', blue: 'var(--blue-bg)', amber: 'var(--amber-bg)',
         green: 'var(--green-bg)', red: 'var(--red-bg)', purple: 'rgba(168,85,247,0.12)',
       }
       return systemStages.map(s => ({
-        id: s.id, label: s.nombre, emoji: s.isWon ? '✅' : s.isLost ? '❌' : '📋',
+        id: s.id, label: s.nombre,
         color: colorMap[s.color] ?? 'var(--text-secondary)',
-        bg:    bgMap[s.color]   ?? 'var(--surface-2)',
+        bg:    bgMap[s.color]   ?? 'rgba(255,255,255,0.06)',
       }))
     }
     return ESTADOS_DEFAULT
@@ -77,69 +215,59 @@ export default function PipelinePage() {
 
   const getEstado = (id: string) => ESTADOS.find(e => e.id === id) ?? ESTADOS[0]
 
-  // ── Datos — nueva arquitectura ──────────────────────────────────────────
   const { items: rawItems, loading } = usePipeline(workspaceId)
   const pipelineItems = rawItems as any[]
   const { customers } = useCustomers(workspaceId)
 
   const [isPending, startTransition] = useTransition()
-  const [filtro,    setFiltro]  = useState<string>('todos')
-  const [detalle,   setDetalle] = useState<any | null>(null)
-  const [showNota,  setShowNota]  = useState(false)
+  const [filtro,    setFiltro]   = useState<string>('todos')
+  const [detalle,   setDetalle]  = useState<any | null>(null)
+  const [showNota,  setShowNota] = useState(false)
   const [showNuevo, setShowNuevo] = useState(false)
 
-  // Form nota
   const [nTexto,       setNTexto]       = useState('')
   const [nResultado,   setNResultado]   = useState<'positivo'|'neutro'|'negativo'>('neutro')
   const [nProximoPaso, setNProximoPaso] = useState('')
+  const [pClienteId,  setPClienteId]   = useState('')
+  const [pKitInteres, setPKitInteres]  = useState('')
 
-  // Form nuevo item
-  const [pClienteId,  setPClienteId]  = useState('')
-  const [pKitInteres, setPKitInteres] = useState('')
-
-  // ── Alertas de inactividad ──────────────────────────────────────────────
   const ahora = new Date()
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const activos = useMemo(() =>
+    pipelineItems.filter(p => ESTADOS_ACTIVOS.includes(p.stageId)), [pipelineItems])
+
   const alertas = useMemo(() =>
     pipelineItems
       .filter(p => ESTADOS_ACTIVOS.includes(p.stageId))
-      .map(p => {
-        const dias = Math.floor((ahora.getTime() - p.updatedAt.getTime()) / 86400000)
-        return { ...p, diasSinActividad: Math.max(p.inactiveDays ?? 0, dias) }
-      })
+      .map(p => ({ ...p, diasSinActividad: diasInactivo(p) }))
       .filter(p => p.diasSinActividad >= 7)
       .sort((a, b) => b.diasSinActividad - a.diasSinActividad),
-    [pipelineItems]
-  )
+    [pipelineItems])
 
   const conteos = useMemo(() => {
     const m: Record<string, number> = {}
-    pipelineItems.forEach(p => {
-      const e = p.stageId
-      m[e] = (m[e] ?? 0) + 1
-    })
+    pipelineItems.forEach(p => { m[p.stageId] = (m[p.stageId] ?? 0) + 1 })
     return m
   }, [pipelineItems])
 
   const filtered = useMemo(() =>
-    filtro === 'todos'
-      ? pipelineItems
-      : pipelineItems.filter(p => p.stageId === filtro),
-    [pipelineItems, filtro]
-  )
+    filtro === 'todos' ? pipelineItems : pipelineItems.filter(p => p.stageId === filtro),
+    [pipelineItems, filtro])
 
-  // ── Clientes sin pipeline ───────────────────────────────────────────────
   const clientesSinPipeline = customers.filter(c =>
-    !pipelineItems.some(p => p.customerId === c.id)
-  )
+    !pipelineItems.some(p => p.customerId === c.id))
 
-  // ── Acciones ────────────────────────────────────────────────────────────
+  // ── Summary metrics ───────────────────────────────────────────────────────
+  const wonTotal = pipelineItems
+    .filter(p => p.status === 'won')
+    .reduce((sum: number, p: any) => sum + (p.estimatedValue ?? p.presupuesto ?? 0), 0)
 
+  // ── Actions ───────────────────────────────────────────────────────────────
   const cambiarEstado = (item: any, nuevoEstadoId: string) => {
     const nuevoEstado = ESTADOS.find(e => e.id === nuevoEstadoId)
     if (!nuevoEstado) return
-
     startTransition(async () => {
-      // Todos los items son PipelineItem canónico (el adapter ya normalizó el legacy)
       await updateStage(workspaceId, item.id, {
         stageId:    nuevoEstado.id,
         stageName:  nuevoEstado.label,
@@ -154,12 +282,9 @@ export default function PipelinePage() {
   const guardarNota = () => {
     if (!nTexto.trim() || !detalle) return
     startTransition(async () => {
-      // Todos los items son PipelineItem canónico — siempre usamos addActivity
       await addActivity(workspaceId, detalle.id, {
-        type:        'note',
-        description: nTexto,
-        result:      nProximoPaso || undefined,
-        performedAt: new Date(),
+        type: 'note', description: nTexto,
+        result: nProximoPaso || undefined, performedAt: new Date(),
       })
       setShowNota(false)
       setNTexto(''); setNResultado('neutro'); setNProximoPaso('')
@@ -171,7 +296,6 @@ export default function PipelinePage() {
     const cliente = customers.find(c => c.id === pClienteId)
     if (!cliente) return
     const primerEstado = ESTADOS[0]
-
     startTransition(async () => {
       await createPipelineItem(workspaceId, {
         customerId:       pClienteId,
@@ -187,296 +311,251 @@ export default function PipelinePage() {
     })
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
-
-  if (loading) return (
-    <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
-    </div>
-  )
-
-  const activos = pipelineItems.filter(p => ESTADOS_ACTIVOS.includes(p.stageId))
+  if (loading) return <Skeleton />
 
   return (
-    <div className="space-y-4 animate-fade-in pb-4">
+    <div className="animate-fade-in pb-6" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between pt-1">
+      {/* ── 1. HEADER ────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: '4px' }}>
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Pipeline</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+          <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.4px' }}>
+            Pipeline
+          </h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
             {activos.length} activos · {pipelineItems.length} total
+            {alertas.length > 0 && (
+              <span style={{ color: 'var(--amber)', marginLeft: '6px', fontWeight: 600 }}>
+                · {alertas.length} vencidos
+              </span>
+            )}
           </p>
         </div>
-        <button onClick={() => setShowNuevo(true)} className="btn-primary gap-1 text-sm">
-          <Plus size={15} /> Agregar
+        <button
+          onClick={() => setShowNuevo(true)}
+          className="btn-primary press"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 13px', borderRadius: '12px' }}
+        >
+          <Plus size={13} /> Agregar
         </button>
       </div>
 
-      {/* Alertas */}
-      {alertas.length > 0 && (
-        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--amber)', background: 'var(--amber-bg)' }}>
-          <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: '1px solid rgba(255,214,10,0.2)' }}>
-            <Bell size={13} style={{ color: 'var(--amber)', flexShrink: 0 }} />
-            <p className="text-xs font-semibold" style={{ color: 'var(--amber)' }}>
-              {alertas.length} {alertas.length === 1 ? 'cliente sin seguimiento' : 'clientes sin seguimiento'}
+      {/* ── 2. SUMMARY METRICS ───────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '2px', marginLeft: '-16px', marginRight: '-16px', paddingLeft: '16px', paddingRight: '16px' }}>
+        {[
+          { label: 'Activos',  value: activos.length,      color: 'var(--text-primary)' },
+          { label: 'Vencidos', value: alertas.length,       color: alertas.length > 0 ? 'var(--amber)' : 'var(--text-primary)' },
+          { label: 'Cerrados', value: pipelineItems.filter(p => p.status === 'won').length, color: 'var(--green)' },
+          ...(wonTotal > 0 ? [{ label: 'Ganado', value: fmtARS(wonTotal), color: 'var(--green)' }] : []),
+        ].map(m => (
+          <div key={m.label}
+            style={{
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: '14px', padding: '12px 16px', flexShrink: 0, minWidth: '80px',
+            }}>
+            <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>
+              {m.label}
+            </p>
+            <p style={{ fontSize: '22px', fontWeight: 800, color: m.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
+              {m.value}
             </p>
           </div>
-          <div className="divide-y" style={{ borderColor: 'rgba(255,214,10,0.15)' }}>
-            {alertas.slice(0, 5).map(p => {
-              const esCritico = p.diasSinActividad >= 14
-              return (
-                <button key={p.id} onClick={() => setDetalle(p)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-left">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                      {getCustomerName(p)}
-                    </p>
-                    <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {getEstado(p.stageId).emoji} {getEstado(p.stageId).label}
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0 ml-2"
-                    style={{
-                      background: esCritico ? 'var(--red-bg)' : 'var(--amber-bg)',
-                      color:      esCritico ? 'var(--brand-light)' : 'var(--amber)',
-                      border:     `1px solid ${esCritico ? 'var(--brand-light)' : 'var(--amber)'}`,
-                    }}>
-                    {p.diasSinActividad}d
-                  </span>
-                </button>
-              )
-            })}
-            {alertas.length > 5 && (
-              <p className="text-[10px] text-center py-2" style={{ color: 'var(--text-tertiary)' }}>
-                +{alertas.length - 5} más
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Filtros */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
-        <button onClick={() => setFiltro('todos')}
-          className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap"
-          style={filtro === 'todos'
-            ? { background: 'var(--brand)', color: '#fff' }
-            : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-          Todos ({pipelineItems.length})
-        </button>
-        {ESTADOS.map(e => {
-          const count = conteos[e.id] ?? 0
-          if (count === 0 && filtro !== e.id) return null
+      {/* ── 3. STAGE FILTER TABS ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', marginLeft: '-16px', marginRight: '-16px', paddingLeft: '16px', paddingRight: '16px' }}>
+        {[{ id: 'todos', label: `Todos`, count: pipelineItems.length }, ...ESTADOS.map(e => ({ id: e.id, label: e.label, count: conteos[e.id] ?? 0 }))].map(tab => {
+          if (tab.id !== 'todos' && tab.count === 0 && filtro !== tab.id) return null
+          const isActive = filtro === tab.id
           return (
-            <button key={e.id} onClick={() => setFiltro(e.id)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap"
-              style={filtro === e.id
-                ? { background: 'var(--brand)', color: '#fff' }
-                : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-              {e.emoji} {e.label} ({count})
+            <button
+              key={tab.id}
+              onClick={() => setFiltro(tab.id)}
+              style={{
+                flexShrink: 0, padding: '6px 12px', borderRadius: '20px',
+                fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap',
+                background: isActive ? 'var(--brand)' : 'var(--surface)',
+                color:      isActive ? '#fff' : 'var(--text-secondary)',
+                border:     isActive ? 'none' : '1px solid var(--border)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab.label} {tab.count > 0 && !isActive && <span style={{ opacity: 0.6 }}>({tab.count})</span>}
             </button>
           )
         })}
       </div>
 
-      {/* Lista */}
+      {/* ── 4. CARDS ─────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
-        <div className="text-center py-10">
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Sin clientes en este estado</p>
+        <div style={{ textAlign: 'center', padding: '48px 0' }}>
+          <p style={{ fontSize: '32px', marginBottom: '12px' }}>📋</p>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Sin leads en esta etapa</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            {filtro === 'todos' ? 'Agregá tu primer lead al pipeline' : 'Cambiá el filtro o agregá uno nuevo'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {filtered.map(item => {
             const estadoId = item.stageId
             const estado   = getEstado(estadoId)
-            const notas    = item.activities
-            const ultimaNota = notas.length > 0 ? notas[notas.length - 1] : null
-            const clienteId = item.customerId
-            const cliente = customers.find(c => c.id === clienteId)
             const esActivo = ESTADOS_ACTIVOS.includes(estadoId)
-            const dias = esActivo
-              ? Math.max(
-                  item.inactiveDays ?? 0,
-                  Math.floor((ahora.getTime() - item.updatedAt.getTime()) / 86400000)
-                )
-              : 0
-            const tieneAlerta = esActivo && dias >= 7
-
-            // Texto de la última actividad
-            const ultimoTexto = ultimaNota
-              ? (ultimaNota.description ?? ultimaNota.texto ?? '')
-              : ''
-            const ultimaFecha = ultimaNota
-              ? (ultimaNota.performedAt instanceof Date ? ultimaNota.performedAt : ultimaNota.fecha instanceof Date ? ultimaNota.fecha : null)
-              : null
+            const dias     = esActivo ? diasInactivo(item) : 0
+            const cliente  = customers.find(c => c.id === item.customerId)
+            const telefono = cliente?.telefono ?? item.customerSnapshot?.telefono
 
             return (
-              <button key={item.id} onClick={() => setDetalle(item)}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left"
-                style={{
-                  background: 'var(--surface)',
-                  border: `1px solid ${tieneAlerta ? (dias >= 14 ? 'var(--brand-light)' : 'var(--amber)') : ['aprobado','instalado'].includes(estadoId) ? 'var(--green)' : 'var(--border)'}`,
-                }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                  style={{ background: estado.bg }}>
-                  {estado.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {getCustomerName(item)}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: estado.bg, color: estado.color }}>
-                      {estado.label}
-                    </span>
-                    {(item.systemData?.kitInteres ?? item.kitInteres) && (
-                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        {item.systemData?.kitInteres ?? item.kitInteres}
-                      </span>
-                    )}
-                  </div>
-                  {ultimoTexto ? (
-                    <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>
-                      {ultimaFecha ? format(ultimaFecha, 'd MMM', { locale: es }) + ' · ' : ''}{ultimoTexto}
-                    </p>
-                  ) : (
-                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Sin actividad</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {tieneAlerta && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-lg"
-                      style={{
-                        background: dias >= 14 ? 'var(--red-bg)' : 'var(--amber-bg)',
-                        color:      dias >= 14 ? 'var(--brand-light)' : 'var(--amber)',
-                      }}>
-                      {dias}d
-                    </span>
-                  )}
-                  {(cliente?.telefono ?? item.customerSnapshot?.telefono) && (
-                    <a href={`https://wa.me/54${(cliente?.telefono ?? item.customerSnapshot?.telefono ?? '').replace(/\D/g,'')}`}
-                      target="_blank" onClick={e => e.stopPropagation()}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center"
-                      style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
-                      <MessageCircle size={13} />
-                    </a>
-                  )}
-                  <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
-                </div>
-              </button>
+              <PipelineCard
+                key={item.id}
+                item={item}
+                estado={estado}
+                dias={dias}
+                telefono={telefono}
+                onClick={() => setDetalle(item)}
+              />
             )
           })}
         </div>
       )}
 
-      {/* ── Detalle ──────────────────────────────────────────────────────── */}
+      {/* ── DETALLE SHEET ────────────────────────────────────────────────── */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setDetalle(null)}>
-          <div className="w-full max-w-md rounded-2xl animate-slide-up max-h-[92vh] overflow-y-auto"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
+          onClick={() => setDetalle(null)}
+        >
+          <div
+            className="w-full max-w-md animate-slide-up"
+            style={{
+              background: 'var(--surface)', border: '1px solid var(--border-strong)',
+              borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Sheet handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+              <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border-strong)' }} />
+            </div>
 
-            <div className="px-5 pt-5 pb-3">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-                    {getCustomerName(detalle)}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: getEstado(detalle.stageId).bg, color: getEstado(detalle.stageId).color }}>
-                      {getEstado(detalle.stageId).emoji} {getEstado(detalle.stageId).label}
-                    </span>
-                    {(detalle.systemData?.kitInteres ?? detalle.kitInteres) && (
-                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                        Kit: {detalle.systemData?.kitInteres ?? detalle.kitInteres}
+            {/* Header */}
+            <div style={{ padding: '12px 20px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '44px', height: '44px', borderRadius: '50%',
+                    background: getEstado(detalle.stageId).bg,
+                    border:     `1px solid ${getEstado(detalle.stageId).color}40`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '14px', fontWeight: 700, color: getEstado(detalle.stageId).color,
+                  }}>
+                    {initials(getCustomerName(detalle))}
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                      {getCustomerName(detalle)}
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px',
+                        background: getEstado(detalle.stageId).bg,
+                        color:      getEstado(detalle.stageId).color,
+                      }}>
+                        {getEstado(detalle.stageId).label}
                       </span>
-                    )}
-                    {detalle.presupuesto && (
-                      <span className="text-[11px] font-semibold" style={{ color: 'var(--green)' }}>
-                        {fmtARS(detalle.presupuesto)}
-                      </span>
-                    )}
+                      {getKitInteres(detalle) && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                          {getKitInteres(detalle)}
+                        </span>
+                      )}
+                      {(detalle.estimatedValue ?? detalle.presupuesto) > 0 && (
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--green)' }}>
+                          {fmtARS(detalle.estimatedValue ?? detalle.presupuesto)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => setDetalle(null)} className="btn-icon">✕</button>
+                <button onClick={() => setDetalle(null)} className="btn-icon" style={{ marginTop: '2px' }}>✕</button>
               </div>
 
-              {/* Grid de estados */}
-              <div className="grid grid-cols-4 gap-1">
-                {ESTADOS.map(e => (
-                  <button key={e.id} onClick={() => cambiarEstado(detalle, e.id)}
-                    disabled={isPending}
-                    className="flex flex-col items-center py-1.5 rounded-xl text-center transition-all"
-                    style={detalle.stageId === e.id
-                      ? { background: e.bg, border: `1.5px solid ${e.color}` }
-                      : { background: 'var(--surface-2)', border: '1.5px solid transparent' }}>
-                    <span className="text-sm">{e.emoji}</span>
-                    <span className="text-[8px] mt-0.5 font-medium leading-tight"
-                      style={{ color: detalle.stageId === e.id ? e.color : 'var(--text-tertiary)' }}>
-                      {e.label.split(' ')[0]}
-                    </span>
-                  </button>
-                ))}
+              {/* Stage selector */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {ESTADOS.map(e => {
+                  const isActive = detalle.stageId === e.id
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={() => cambiarEstado(detalle, e.id)}
+                      disabled={isPending}
+                      style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        padding: '8px 4px', borderRadius: '10px', gap: '3px',
+                        background: isActive ? e.bg : 'var(--surface-2)',
+                        border:     isActive ? `1.5px solid ${e.color}` : '1.5px solid transparent',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: isActive ? e.color : 'var(--text-tertiary)', textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-word' }}>
+                        {e.label.split(' ')[0]}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            <div style={{ borderTop: '1px solid var(--border)' }} />
+            <div style={{ height: '1px', background: 'var(--border)' }} />
 
-            {/* Historial */}
-            <div className="px-5 py-3">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+            {/* Activity history */}
+            <div style={{ padding: '16px 20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-tertiary)' }}>
                   Historial de visitas
                 </p>
-                <button onClick={() => setShowNota(true)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold"
-                  style={{ background: 'var(--brand)', color: '#fff' }}>
+                <button
+                  onClick={() => setShowNota(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    fontSize: '12px', fontWeight: 600, padding: '6px 11px',
+                    borderRadius: '10px', background: 'var(--brand)', color: '#fff', border: 'none',
+                  }}
+                >
                   <Plus size={12} /> Agregar nota
                 </button>
               </div>
 
               {detalle.activities.length === 0 ? (
-                <div className="text-center py-6">
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Sin notas todavía</p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Registrá cada visita, llamada o contacto</p>
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Sin actividad registrada</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px', opacity: 0.7 }}>
+                    Registrá visitas, llamadas o contactos
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {[...detalle.activities].reverse().map((nota: any, i: number) => {
-                    // Compatibilidad: PipelineActivity (nueva) o NotaVisita (vieja)
-                    const texto      = nota.description ?? nota.texto ?? ''
-                    const resultado  = nota.result ?? nota.resultado ?? 'neutro'
+                    const texto       = nota.description ?? nota.texto ?? ''
                     const proximoPaso = nota.result ?? nota.proximoPaso ?? ''
-                    const fecha = nota.performedAt instanceof Date ? nota.performedAt
-                      : nota.fecha instanceof Date ? nota.fecha
-                      : typeof nota.performedAt?.toDate === 'function' ? nota.performedAt.toDate()
-                      : typeof nota.fecha?.toDate === 'function' ? nota.fecha.toDate()
-                      : new Date()
-                    const colorRes = resultado === 'positivo' ? 'var(--green)' : resultado === 'negativo' ? 'var(--brand-light)' : 'var(--amber)'
-                    const bgRes    = resultado === 'positivo' ? 'var(--green-bg)' : resultado === 'negativo' ? 'var(--red-bg)' : 'var(--amber-bg)'
+                    const fecha       = nota.performedAt instanceof Date ? nota.performedAt
+                                      : nota.fecha instanceof Date ? nota.fecha
+                                      : typeof nota.performedAt?.toDate === 'function' ? nota.performedAt.toDate()
+                                      : typeof nota.fecha?.toDate === 'function' ? nota.fecha.toDate()
+                                      : new Date()
                     return (
-                      <div key={i} className="px-3 py-3 rounded-xl"
-                        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-[11px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>
-                            {format(fecha, "d 'de' MMMM · HH:mm", { locale: es })}
-                          </p>
-                          {resultado !== 'neutro' && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold capitalize"
-                              style={{ background: bgRes, color: colorRes }}>
-                              {resultado}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{texto}</p>
+                      <div key={i} style={{
+                        background: 'var(--surface-2)', border: '1px solid var(--border)',
+                        borderRadius: '12px', padding: '12px 14px',
+                      }}>
+                        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px' }}>
+                          {format(fecha, "d 'de' MMMM · HH:mm", { locale: es })}
+                        </p>
+                        <p style={{ fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: 1.4 }}>{texto}</p>
                         {proximoPaso && (
-                          <p className="text-[11px] mt-1.5 font-medium" style={{ color: 'var(--amber)' }}>
-                            → Próximo paso: {proximoPaso}
+                          <p style={{ fontSize: '12px', color: 'var(--amber)', marginTop: '6px', fontWeight: 500 }}>
+                            → {proximoPaso}
                           </p>
                         )}
                       </div>
@@ -489,22 +568,26 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* ── Modal nota ────────────────────────────────────────────────────── */}
+      {/* ── NOTA MODAL ───────────────────────────────────────────────────── */}
       {showNota && detalle && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowNota(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
+          onClick={() => setShowNota(false)}
+        >
+          <div
+            className="w-full max-w-md animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '24px', padding: '20px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Nueva nota</h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{getCustomerName(detalle)}</p>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Nueva nota</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{getCustomerName(detalle)}</p>
               </div>
               <button onClick={() => setShowNota(false)} className="btn-icon">✕</button>
             </div>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label className="label">¿Qué pasó?</label>
                 <textarea className="input text-sm resize-none" rows={3}
@@ -513,13 +596,15 @@ export default function PipelinePage() {
               </div>
               <div>
                 <label className="label">Resultado</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                   {(['positivo','neutro','negativo'] as const).map(r => (
                     <button key={r} onClick={() => setNResultado(r)}
-                      className="py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={nResultado === r
-                        ? { background: 'var(--brand)', color: '#fff' }
-                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      style={{
+                        padding: '8px', borderRadius: '10px', fontSize: '12px', fontWeight: 600,
+                        background: nResultado === r ? 'var(--brand)' : 'var(--surface-2)',
+                        color:      nResultado === r ? '#fff' : 'var(--text-secondary)',
+                        border:     nResultado === r ? 'none' : '1px solid var(--border)',
+                      }}>
                       {r === 'positivo' ? '👍 Positivo' : r === 'neutro' ? '😐 Neutro' : '👎 Negativo'}
                     </button>
                   ))}
@@ -531,7 +616,7 @@ export default function PipelinePage() {
                   value={nProximoPaso} onChange={e => setNProximoPaso(e.target.value)} />
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={guardarNota} disabled={!nTexto.trim() || isPending} className="btn-primary flex-1">
                 {isPending ? 'Guardando...' : 'Guardar nota'}
               </button>
@@ -541,45 +626,50 @@ export default function PipelinePage() {
         </div>
       )}
 
-      {/* ── Modal nuevo item ───────────────────────────────────────────────── */}
+      {/* ── NUEVO ITEM MODAL ─────────────────────────────────────────────── */}
       {showNuevo && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowNuevo(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Agregar al pipeline</h3>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
+          onClick={() => setShowNuevo(false)}
+        >
+          <div
+            className="w-full max-w-md animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '24px', padding: '20px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Agregar al pipeline</h3>
               <button onClick={() => setShowNuevo(false)} className="btn-icon">✕</button>
             </div>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label className="label">Cliente *</label>
                 {clientesSinPipeline.length > 0 ? (
-                  <select className="input text-sm" value={pClienteId}
-                    onChange={e => setPClienteId(e.target.value)}>
+                  <select className="input text-sm" value={pClienteId} onChange={e => setPClienteId(e.target.value)}>
                     <option value="">Seleccioná un cliente...</option>
                     {clientesSinPipeline.map(c => (
                       <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
                   </select>
                 ) : (
-                  <p className="text-xs py-2" style={{ color: 'var(--text-tertiary)' }}>
+                  <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', padding: '8px 0' }}>
                     Todos tus clientes ya están en el pipeline.
                   </p>
                 )}
               </div>
-              {ws?.config?.moduloVerisure && (
+              {(ws?.config as any)?.moduloVerisure && (
                 <div>
                   <label className="label">Kit de interés</label>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {KITS.map(k => (
                       <button key={k} onClick={() => setPKitInteres(pKitInteres === k ? '' : k)}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
-                        style={pKitInteres === k
-                          ? { background: 'var(--brand)', color: '#fff' }
-                          : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        style={{
+                          padding: '6px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 500,
+                          background: pKitInteres === k ? 'var(--brand)' : 'var(--surface-2)',
+                          color:      pKitInteres === k ? '#fff' : 'var(--text-secondary)',
+                          border:     pKitInteres === k ? 'none' : '1px solid var(--border)',
+                        }}>
                         {k}
                       </button>
                     ))}
@@ -587,7 +677,7 @@ export default function PipelinePage() {
                 </div>
               )}
             </div>
-            <div className="flex gap-2 mt-4">
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={crearItem} disabled={!pClienteId || isPending} className="btn-primary flex-1">
                 {isPending ? 'Creando...' : 'Agregar al pipeline'}
               </button>
