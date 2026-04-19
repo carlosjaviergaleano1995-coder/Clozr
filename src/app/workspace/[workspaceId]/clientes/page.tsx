@@ -521,7 +521,7 @@ export default function ClientesPage() {
 
             {/* Cambiar estado */}
             <div className="px-5 pb-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>Estado</p>
+              <p className="section-label mb-2" style={{ color: 'var(--text-tertiary)' }}>Estado</p>
               <div className="flex gap-1.5 flex-wrap">
                 {ESTADOS.map(e => (
                   <button key={e.id} onClick={() => cambiarEstado(detalle, e.id)}
@@ -540,7 +540,7 @@ export default function ClientesPage() {
             {/* Historial de compras (no-Verisure) */}
             {!esVerisure && (
               <div className="px-5 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>Historial de compras</p>
+                <p className="section-label mb-2" style={{ color: 'var(--text-tertiary)' }}>Historial de compras</p>
                 {ventasDelCliente.length === 0 ? (
                   <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
                 ) : (

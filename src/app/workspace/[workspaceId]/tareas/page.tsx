@@ -276,7 +276,7 @@ function TareaRow({
           style={{ color: done ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
           {t.titulo}
         </p>
-        <span className="text-[10px] font-semibold" style={{ color }}>
+        <span className="text-[11px] font-semibold" style={{ color }}>
           {freqLabel}
         </span>
       </div>

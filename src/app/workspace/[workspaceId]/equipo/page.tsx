@@ -217,7 +217,7 @@ export default function EquipoPage() {
         className="rounded-2xl p-3 space-y-1.5"
         style={{ background: 'var(--surface-2)' }}
       >
-        <p className="text-[10px] font-semibold uppercase tracking-wide mb-2"
+        <p className="section-label mb-2"
           style={{ color: 'var(--text-tertiary)' }}>
           Niveles de acceso
         </p>
@@ -230,7 +230,7 @@ export default function EquipoPage() {
           <div key={r.role} className="flex items-start gap-2">
             <span className="text-xs">{r.icon}</span>
             <div>
-              <span className="text-[10px] font-semibold" style={{ color: ROLE_COLOR[r.role] }}>
+              <span className="text-[11px] font-semibold" style={{ color: ROLE_COLOR[r.role] }}>
                 {ROLE_LABEL[r.role]}
               </span>
               <span className="text-[10px] ml-1" style={{ color: 'var(--text-tertiary)' }}>

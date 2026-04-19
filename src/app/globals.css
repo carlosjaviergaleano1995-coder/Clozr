@@ -195,3 +195,107 @@ option { background: #1c1c1e; color: #f5f5f5; }
 @keyframes fadeIn  { from { opacity: 0 }                          to { opacity: 1 } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.95) }  to { opacity: 1; transform: scale(1) } }
+
+/* ── DESIGN SYSTEM v2 ── */
+
+/* Radius tokens */
+:root {
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-2xl: 24px;
+
+  /* Spacing tokens (mobile-first) */
+  --space-section: 20px;  /* gap entre secciones en páginas */
+  --space-card:    16px;  /* padding interno de cards */
+  --space-item:    12px;  /* padding interno de list items */
+
+  /* Typography scale */
+  --text-display: 22px;  /* títulos de página */
+  --text-title:   17px;  /* subtítulos y nombres */
+  --text-body:    14px;  /* texto principal */
+  --text-label:   12px;  /* labels, chips */
+  --text-micro:   10px;  /* metadatos, fechas, badges */
+}
+
+/* Section label — "TAREAS DE HOY", "VENTAS DEL MES", etc. */
+.section-label {
+  font-size: var(--text-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+/* Row item — base para filas de lista */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-item) 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+.row-pressable {
+  cursor: pointer;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.row-pressable:active { background: var(--surface-2); }
+
+/* Icon container — para iconos en rows y cards */
+.icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.icon-box-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+}
+
+/* Chip / pill badge */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: var(--text-micro);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip-green  { background: var(--green-bg);  color: var(--green); }
+.chip-amber  { background: var(--amber-bg);  color: var(--amber); }
+.chip-blue   { background: var(--blue-bg);   color: var(--blue); }
+.chip-red    { background: var(--red-bg);     color: var(--brand-light); }
+.chip-muted  { background: var(--surface-3); color: var(--text-secondary); }
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 -4px;
+}
+
+/* Stat number — número grande en cards de métricas */
+.stat-number {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Press feedback para botones touch */
+.press { transition: transform 0.1s; }
+.press:active { transform: scale(0.97); }

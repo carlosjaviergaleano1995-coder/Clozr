@@ -269,7 +269,7 @@ export default function CatalogoPage() {
       {Object.entries(porCategoria).map(([categoria, catItems]) => (
         <div key={categoria}>
           <p
-            className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1"
+            className="section-label mb-2 px-1"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {categoria} · {catItems.length}

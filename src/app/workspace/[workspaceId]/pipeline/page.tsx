@@ -397,7 +397,7 @@ export default function PipelinePage() {
                       </span>
                     )}
                     {detalle.presupuesto && (
-                      <span className="text-[10px] font-semibold" style={{ color: 'var(--green)' }}>
+                      <span className="text-[11px] font-semibold" style={{ color: 'var(--green)' }}>
                         {fmtARS(detalle.presupuesto)}
                       </span>
                     )}
@@ -463,7 +463,7 @@ export default function PipelinePage() {
                       <div key={i} className="px-3 py-3 rounded-xl"
                         style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-[10px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>
+                          <p className="text-[11px] font-semibold" style={{ color: 'var(--text-tertiary)' }}>
                             {format(fecha, "d 'de' MMMM · HH:mm", { locale: es })}
                           </p>
                           {resultado !== 'neutro' && (
