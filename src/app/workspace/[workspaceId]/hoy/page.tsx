@@ -1,681 +1,301 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, Check, Package, Wrench, MessageCircle, ChevronRight, Clock, Calendar, Bell, ShoppingCart, DollarSign } from 'lucide-react'
-import {
-  getTurnosHoy, getTurnosFuturos, createTurno, updateTurno,
-  generarCodigo, getOrdenesTrabajo, getProductos2,
-  getCajaHoy, getMovimientosCaja, getTareas, toggleTarea,
-} from '@/lib/services'
-import { useAuthStore, useWorkspaceStore } from '@/store'
-import type { Turno, OrdenTrabajo, Producto2, Tarea } from '@/types'
-import { format, isToday, isTomorrow } from 'date-fns'
+import { Bell, CheckSquare, Square } from 'lucide-react'
+import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { toDate } from '@/lib/utils'
-// ── Nueva arquitectura: métricas reales ──────────────────────────────────────
+import { useWorkspaceStore } from '@/store'
+import { useMemberRole } from '@/hooks/useMemberRole'
+import { useTransition } from 'react'
+
+// ── Nueva arquitectura ────────────────────────────────────────────────────────
 import { useDashboardMetrics } from '@/hooks/useDashboard'
 import { useTasks } from '@/hooks/useTasks'
 import { useCustomers } from '@/hooks/useCustomers'
+import { usePipeline } from '@/hooks/usePipeline'
+import { useSales } from '@/hooks/useSales'
+import { completeTask } from '@/features/tasks/actions'
+import { MetricCard } from '@/features/dashboard/components/MetricCard'
+import { QuickActions } from '@/features/dashboard/components/QuickActions'
+import { useSystemConfig } from '@/hooks/useSystemConfig'
+import { getCustomerName, getKitInteres, getLastActivity } from '@/features/pipeline/adapters'
+import { fmtARS, fmtUSD } from '@/lib/format'
 
-const MOTIVOS_GENERAL = [
-  { id: 'compra',      label: 'Compra equipo',  emoji: '📱', esCompra: true },
-  { id: 'plan_canje',  label: 'Plan canje',     emoji: '💱', esCompra: true },
-  { id: 'reparacion',  label: 'Reparación',     emoji: '🔧' },
-  { id: 'consulta',    label: 'Consulta',       emoji: '🛒' },
-  { id: 'presupuesto', label: 'Presupuesto',    emoji: '📋' },
-  { id: 'retiro',      label: 'Retiro equipo',  emoji: '👋' },
-  { id: 'otro',        label: 'Otro',           emoji: '📌' },
-]
-
-const MOTIVOS_VERISURE = [
-  { id: 'visita',       label: 'Visita comercial', emoji: '🏠' },
-  { id: 'presupuesto',  label: 'Presupuesto',      emoji: '📋' },
-  { id: 'instalacion',  label: 'Instalación',      emoji: '🔧' },
-  { id: 'seguimiento',  label: 'Seguimiento',      emoji: '🔄' },
-  { id: 'cobranza',     label: 'Cobranza',         emoji: '💰' },
-  { id: 'otro',         label: 'Otro',             emoji: '📌' },
-]
-
-
-const fmtUSD = (n: number) => `U$S ${n}`
+function saludo(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buenos días'
+  if (h < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
 
 export default function HoyPage() {
-  const params = useParams()
-  const router = useRouter()
+  const params      = useParams()
+  const router      = useRouter()
   const workspaceId = params.workspaceId as string
-  const { user } = useAuthStore()
   const { workspaces } = useWorkspaceStore()
-  const ws = workspaces.find(w => w.id === workspaceId)
+  const ws  = workspaces.find(w => w.id === workspaceId)
+  const { labels, hasSystem } = useSystemConfig()
+  const { isViewerOnly } = useMemberRole(workspaceId)
+  const [isPending, startTransition] = useTransition()
 
-  // ── Nueva arquitectura — métricas reales ──────────────────────────────────
-  const { metrics } = useDashboardMetrics(workspaceId)
-  const { rutinas, puntuales } = useTasks(workspaceId)
-  const { customers } = useCustomers(workspaceId)
-  const tareasActivas = rutinas.filter(t => !t.completada).length + puntuales.length
+  // ── Datos del core ────────────────────────────────────────────────────────
+  const { metrics }                           = useDashboardMetrics(workspaceId)
+  const { customers }                         = useCustomers(workspaceId)
+  const { rutinas, puntuales }                = useTasks(workspaceId)
+  const { items: pipelineItems, withAlerts }  = usePipeline(workspaceId)
+  const { thisMonthSales, totalThisMonth }    = useSales(workspaceId)
 
-  const [turnosHoy, setTurnosHoy] = useState<Turno[]>([])
-  const [turnosFuturos, setTurnosFuturos] = useState<Turno[]>([])
-  const [ordenes, setOrdenes] = useState<OrdenTrabajo[]>([])
-  const [stockCritico, setStockCritico] = useState<Producto2[]>([])
-  const [caja, setCaja] = useState<any>(null)
-  const [ingresoHoy, setIngresoHoy] = useState(0)
-  const [tareas, setTareas] = useState<Tarea[]>([])
-  const [loading, setLoading] = useState(true)
+  // Métricas calculadas en cliente — sin depender de aggregate/summary
+  const pipelineOpen       = pipelineItems.filter(i => i.status === 'open').length
+  const tareasActivas      = rutinas.filter(t => !t.completada).length + puntuales.length
+  const rutinasCompletadas = rutinas.filter(t => t.completada).length
+  const progreso           = rutinas.length > 0
+    ? Math.round((rutinasCompletadas / rutinas.length) * 100)
+    : 0
 
-  // Modal turno
-  const [showTurno, setShowTurno] = useState(false)
-  const [tNombre, setTNombre] = useState('')
-  const [tTelefono, setTTelefono] = useState('')
-  const [tMotivo, setTMotivo] = useState('compra')
-  const [tAgendado, setTAgendado] = useState(false)
-  const [tFechaHora, setTFechaHora] = useState('')
-  const [tNotas, setTNotas] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [showAccion, setShowAccion] = useState<Turno | null>(null)
+  // Labels dinámicos del sistema activo (con fallback)
+  const customerLabel   = hasSystem ? labels.customer.plural : 'Clientes'
+  const createCustLabel = hasSystem ? labels.createCustomer  : 'Nuevo cliente'
+  const createSaleLabel = hasSystem ? labels.createSale      : 'Nueva venta'
 
-  useEffect(() => { load() }, [workspaceId])
-
-  const load = async () => {
-    try {
-      const hoyStr = new Date().toISOString().slice(0, 10)
-      const [th, tf, ots, prods, cajaData, movs, tars] = await Promise.all([
-        getTurnosHoy(workspaceId),
-        getTurnosFuturos(workspaceId),
-        getOrdenesTrabajo(workspaceId),
-        getProductos2(workspaceId),
-        getCajaHoy(workspaceId),
-        getMovimientosCaja(workspaceId, hoyStr),
-        getTareas(workspaceId),
-      ])
-      // Ordenar turnos de hoy: agendados por hora, walk-ins al final
-      const ordenados = [...th].sort((a, b) => {
-        if (a.esAgendado && b.esAgendado && a.fechaHora && b.fechaHora)
-          return toDate(a.fechaHora).getTime() - toDate(b.fechaHora).getTime()
-        if (a.esAgendado) return -1
-        if (b.esAgendado) return 1
-        return toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime()
-      })
-      setTurnosHoy(ordenados)
-      setTurnosFuturos(tf.slice(0, 5))
-      setOrdenes(ots)
-      setStockCritico(prods.filter(p => p.stock === 0).slice(0, 5))
-      setCaja(cajaData)
-      setIngresoHoy(movs.filter(m => m.esIngreso && m.moneda === 'USD').reduce((a,m) => a+m.monto, 0))
-      setTareas(tars.filter(t => !t.completada && (t.frecuencia === 'diaria' || t.frecuencia === 'unica')))
-    } finally { setLoading(false) }
+  function toggleTarea(taskId: string) {
+    if (isViewerOnly) return
+    startTransition(async () => { await completeTask(workspaceId, taskId) })
   }
-
-  const isVerisure = ws?.config?.moduloVerisure === true
-
-  const MOTIVOS = isVerisure ? MOTIVOS_VERISURE : MOTIVOS_GENERAL
-  const pendientes = turnosHoy.filter(t => !t.atendido)
-  const listos = ordenes.filter(o => o.estado === 'listo')
-  const enLab = ordenes.filter(o => o.estado === 'en_laboratorio')
-
-  // Acciones rápidas según workspace
-  const accionesRapidas = isVerisure ? [
-    { label: 'Visita',   icon: Clock,        action: () => setShowTurno(true),                                            color: 'var(--brand)' },
-    { label: 'Venta',    icon: ShoppingCart, action: () => router.push(`/workspace/${workspaceId}/ventas-verisure`),      color: 'var(--green)' },
-    { label: 'Cliente',  icon: MessageCircle,action: () => router.push(`/workspace/${workspaceId}/clientes`),             color: 'var(--blue)'  },
-    { label: 'Resumen',  icon: DollarSign,   action: () => router.push(`/workspace/${workspaceId}/resumen-verisure`),     color: 'var(--amber)' },
-  ] : [
-    { label: 'Turno',    icon: Clock,        action: () => setShowTurno(true),                                            color: 'var(--brand)' },
-    { label: 'Venta',    icon: ShoppingCart, action: () => router.push(`/workspace/${workspaceId}/inventario`),           color: 'var(--green)' },
-    { label: 'OT',       icon: Wrench,       action: () => router.push(`/workspace/${workspaceId}/ordenes`),              color: '#a855f7'      },
-    { label: 'Caja',     icon: DollarSign,   action: () => router.push(`/workspace/${workspaceId}/caja`),                 color: 'var(--amber)' },
-  ]
-
-  const handleCrearTurno = async () => {
-    if (!user) return
-    setSaving(true)
-    try {
-      const codigo = await generarCodigo(workspaceId, 'T')
-      await createTurno(workspaceId, {
-        codigo, workspaceId,
-        clienteNombre: tNombre || undefined,
-        clienteTelefono: tTelefono || undefined,
-        motivo: tMotivo,
-        atendido: false,
-        esAgendado: tAgendado,
-        fechaHora: tAgendado && tFechaHora ? new Date(tFechaHora) : undefined,
-        notas: tNotas || undefined,
-      })
-      await load()
-      setShowTurno(false)
-      setTNombre(''); setTTelefono(''); setTMotivo('compra')
-      setTAgendado(false); setTFechaHora(''); setTNotas('')
-    } finally { setSaving(false) }
-  }
-
-  const marcarAtendido = async (t: Turno) => {
-    await updateTurno(workspaceId, t.id, { atendido: true })
-    setTurnosHoy(prev => prev.map(x => x.id === t.id ? { ...x, atendido: true } : x))
-    const motivoInfo = MOTIVOS.find(m => m.id === t.motivo)
-    if ((motivoInfo as any)?.esCompra) setShowAccion({ ...t, atendido: true })
-  }
-
-  const irAStock = (t: Turno) => {
-    setShowAccion(null)
-    const p = new URLSearchParams({ cliente: t.clienteNombre ?? '', from: 'turno' })
-    router.push(`/workspace/${workspaceId}/inventario?${p.toString()}`)
-  }
-
-  const saludo = () => {
-    const h = new Date().getHours()
-    if (h < 12) return 'Buenos días'
-    if (h < 19) return 'Buenas tardes'
-    return 'Buenas noches'
-  }
-
-  // Calendario semanal
-  const [vistaCalendario, setVistaCalendario] = useState(false)
-  const [semanaOffset, setSemanaOffset] = useState(0) // 0 = semana actual
-
-  const diasSemana = useMemo(() => {
-    const hoy = new Date()
-    const lunes = new Date(hoy)
-    const diaSemana = hoy.getDay() === 0 ? 6 : hoy.getDay() - 1
-    lunes.setDate(hoy.getDate() - diaSemana + semanaOffset * 7)
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(lunes)
-      d.setDate(lunes.getDate() + i)
-      return d
-    })
-  }, [semanaOffset])
-
-  // Turnos agrupados por fecha para el calendario
-  const turnosPorFecha = useMemo(() => {
-    const map: Record<string, Turno[]> = {}
-    const allTurnos = [...turnosHoy, ...turnosFuturos]
-    allTurnos.forEach(t => {
-      const fecha = t.esAgendado && t.fechaHora
-        ? toDate(t.fechaHora).toISOString().slice(0, 10)
-        : toDate(t.createdAt).toISOString().slice(0, 10)
-      if (!map[fecha]) map[fecha] = []
-      map[fecha].push(t)
-    })
-    return map
-  }, [turnosHoy, turnosFuturos])
-
-  if (loading) return (
-    <div className="space-y-3 mt-4">
-      {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
-    </div>
-  )
 
   return (
-    <div className="space-y-4 animate-fade-in pb-6">
+    <div className="space-y-5 animate-fade-in pb-6">
 
-      {/* ── Panel métricas (nueva arquitectura) ──────────────────────────── */}
-      <div className="grid grid-cols-3 gap-2 pt-1">
-        {[
-          { label: 'Clientes', value: customers.length, emoji: '👥', path: 'clientes' },
-          { label: 'Pipeline', value: metrics?.pipelineOpenCount ?? 0, emoji: '📊', path: 'pipeline' },
-          { label: 'Tareas',   value: tareasActivas, emoji: '✅', path: 'tareas' },
-        ].map(m => (
-          <button key={m.label} onClick={() => router.push(`/workspace/${workspaceId}/${m.path}`)}
-            className="flex flex-col items-center py-3 px-2 rounded-2xl text-center transition-all"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <span className="text-xl">{m.emoji}</span>
-            <span className="text-lg font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{m.value}</span>
-            <span className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{m.label}</span>
-          </button>
-        ))}
+      {/* Saludo */}
+      <div className="pt-1">
+        <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          {saludo()} 👋
+        </p>
+        <p className="text-sm capitalize mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+          {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          {ws && ` · ${ws.nombre}`}
+        </p>
       </div>
 
-      {/* Header con toggle de calendario */}
-      <div className="pt-1 flex items-start justify-between">
-        <div>
-          <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-            {saludo()} 👋
-          </p>
-          <p className="text-sm capitalize mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
-          </p>
-        </div>
-        <button onClick={() => setVistaCalendario(!vistaCalendario)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all mt-1"
-          style={vistaCalendario
-            ? { background: 'var(--brand)', color: '#fff' }
-            : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-          <Calendar size={13} />
-          Semana
-        </button>
+      {/* Métricas */}
+      <div className="grid grid-cols-3 gap-2">
+        <MetricCard
+          label={customerLabel}
+          value={customers.length}
+          emoji="👥"
+          onClick={() => router.push(`/workspace/${workspaceId}/clientes`)}
+        />
+        <MetricCard
+          label="Pipeline"
+          value={pipelineOpen}
+          emoji="📊"
+          onClick={() => router.push(`/workspace/${workspaceId}/pipeline`)}
+          accent={withAlerts.length > 0}
+        />
+        <MetricCard
+          label="Tareas"
+          value={tareasActivas}
+          emoji="✅"
+          sub={rutinas.length > 0 ? `${progreso}% listo` : undefined}
+          onClick={() => router.push(`/workspace/${workspaceId}/tareas`)}
+        />
       </div>
 
-      {/* Vista calendario semanal */}
-      {vistaCalendario && (
-        <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          {/* Nav semana */}
-          <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
-            <button onClick={() => setSemanaOffset(o => o - 1)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
-              ‹
-            </button>
-            <p className="text-xs font-semibold capitalize" style={{ color: 'var(--text-primary)' }}>
-              {format(diasSemana[0], "d MMM", { locale: es })} – {format(diasSemana[6], "d MMM", { locale: es })}
-              {semanaOffset === 0 && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--brand)', color: '#fff' }}>Esta semana</span>}
+      {/* Alertas de inactividad */}
+      {withAlerts.length > 0 && (
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ border: '1px solid var(--amber)', background: 'var(--amber-bg)' }}
+        >
+          <div
+            className="flex items-center gap-2 px-3 py-2.5"
+            style={{ borderBottom: '1px solid rgba(255,214,10,0.2)' }}
+          >
+            <Bell size={13} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+            <p className="text-xs font-semibold" style={{ color: 'var(--amber)' }}>
+              {withAlerts.length} {withAlerts.length === 1 ? 'cliente sin contactar' : 'clientes sin contactar'}
             </p>
-            <button onClick={() => setSemanaOffset(o => o + 1)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}>
-              ›
+          </div>
+          {withAlerts.slice(0, 3).map(item => {
+            const lastAct = getLastActivity(item)
+            return (
+              <button
+                key={item.id}
+                onClick={() => router.push(`/workspace/${workspaceId}/pipeline`)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                style={{ borderBottom: '1px solid rgba(255,214,10,0.1)' }}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                    {getCustomerName(item)}
+                  </p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {item.stageName}
+                    {getKitInteres(item) ? ` · ${getKitInteres(item)}` : ''}
+                    {lastAct ? ` · últ. ${format(lastAct.performedAt, 'd MMM', { locale: es })}` : ''}
+                  </p>
+                </div>
+                <span
+                  className="text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0 ml-2"
+                  style={{
+                    background: item.inactiveDays >= 14 ? 'var(--red-bg)' : 'var(--amber-bg)',
+                    color:      item.inactiveDays >= 14 ? 'var(--brand-light)' : 'var(--amber)',
+                    border: `1px solid ${item.inactiveDays >= 14 ? 'var(--brand-light)' : 'var(--amber)'}`,
+                  }}
+                >
+                  {item.inactiveDays}d
+                </span>
+              </button>
+            )
+          })}
+          {withAlerts.length > 3 && (
+            <button
+              onClick={() => router.push(`/workspace/${workspaceId}/pipeline`)}
+              className="w-full py-2 text-[10px] text-center"
+              style={{ color: 'var(--amber)' }}
+            >
+              +{withAlerts.length - 3} más en pipeline →
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Tareas */}
+      {(puntuales.length > 0 || rutinas.length > 0) && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide px-1"
+              style={{ color: 'var(--text-tertiary)' }}>
+              Tareas de hoy
+            </p>
+            <button
+              onClick={() => router.push(`/workspace/${workspaceId}/tareas`)}
+              className="text-[10px] font-semibold"
+              style={{ color: 'var(--brand)' }}
+            >
+              Ver todas →
             </button>
           </div>
 
-          {/* Días */}
-          <div className="grid grid-cols-7">
-            {diasSemana.map((dia, idx) => {
-              const fechaStr = dia.toISOString().slice(0, 10)
-              const hoyStr = new Date().toISOString().slice(0, 10)
-              const esHoy = fechaStr === hoyStr
-              const turnos = turnosPorFecha[fechaStr] ?? []
-              const DIAS = ['L','M','M','J','V','S','D']
-              return (
-                <div key={idx} className="flex flex-col items-center py-2.5 px-1"
-                  style={{ borderRight: idx < 6 ? '1px solid var(--border)' : 'none' }}>
-                  <p className="text-[9px] font-semibold uppercase mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                    {DIAS[idx]}
+          {rutinas.length > 0 && (
+            <div className="h-1.5 rounded-full overflow-hidden mb-2"
+              style={{ background: 'var(--surface-2)' }}>
+              <div className="h-full rounded-full transition-all"
+                style={{
+                  width: `${progreso}%`,
+                  background: progreso === 100 ? 'var(--green)' : 'var(--brand)',
+                }} />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            {puntuales.slice(0, 2).map(t => (
+              <div key={t.id}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <button onClick={() => toggleTarea(t.id)} disabled={isPending}
+                  style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                  <Square size={18} />
+                </button>
+                <span className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{t.titulo}</span>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--amber)' }}>Hoy</span>
+              </div>
+            ))}
+            {rutinas.filter(t => !t.completada).slice(0, 3).map(t => (
+              <div key={t.id}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <button onClick={() => toggleTarea(t.id)} disabled={isPending}
+                  style={{ color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                  <Square size={18} />
+                </button>
+                <span className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{t.titulo}</span>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--brand)' }}>Rutina</span>
+              </div>
+            ))}
+            {rutinas.filter(t => t.completada).slice(0, 2).map(t => (
+              <div key={t.id}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl opacity-40"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <CheckSquare size={18} style={{ color: 'var(--green)', flexShrink: 0 }} />
+                <span className="text-sm flex-1 line-through"
+                  style={{ color: 'var(--text-tertiary)' }}>{t.titulo}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ventas del mes */}
+      {thisMonthSales.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide px-1"
+              style={{ color: 'var(--text-tertiary)' }}>
+              Ventas del mes · {thisMonthSales.length}
+            </p>
+            <button
+              onClick={() => router.push(`/workspace/${workspaceId}/ventas`)}
+              className="text-[10px] font-semibold"
+              style={{ color: 'var(--brand)' }}
+            >
+              Ver todas →
+            </button>
+          </div>
+
+          <div className="px-4 py-3 rounded-2xl mb-2"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Total acumulado</p>
+            <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--green)' }}>
+              {fmtARS(totalThisMonth)}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            {thisMonthSales.slice(0, 3).map(v => (
+              <div key={v.id}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                    {v.customerName || 'Sin cliente'}
                   </p>
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-1`}
-                    style={{
-                      background: esHoy ? 'var(--brand)' : 'transparent',
-                      color: esHoy ? '#fff' : 'var(--text-primary)',
-                    }}>
-                    {dia.getDate()}
-                  </div>
-                  {turnos.length > 0 && (
-                    <div className="flex flex-col gap-0.5 w-full">
-                      {turnos.slice(0, 3).map((t, i) => {
-                        const motivoInfo = MOTIVOS.find(m => m.id === t.motivo)
-                        const hora = t.esAgendado && t.fechaHora
-                          ? format(toDate(t.fechaHora), "HH:mm")
-                          : ''
-                        return (
-                          <div key={i} className="rounded px-0.5 py-0.5 text-center"
-                            style={{ background: t.atendido ? 'var(--surface-2)' : 'rgba(232,0,29,0.12)' }}>
-                            <p className="text-[8px] leading-tight font-medium truncate"
-                              style={{ color: t.atendido ? 'var(--text-tertiary)' : 'var(--brand)' }}>
-                              {hora || motivoInfo?.emoji || '•'}
-                            </p>
-                          </div>
-                        )
-                      })}
-                      {turnos.length > 3 && (
-                        <p className="text-[8px] text-center" style={{ color: 'var(--text-tertiary)' }}>
-                          +{turnos.length - 3}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {format(v.fecha, 'dd/MM', { locale: es })} · {v.formaPago}
+                    {!v.pagado && ' · ⏳'}
+                  </p>
                 </div>
-              )
-            })}
+                <p className="text-sm font-bold flex-shrink-0 ml-3" style={{ color: 'var(--text-primary)' }}>
+                  {v.currency === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {/* Acciones rápidas */}
-      <div className="grid grid-cols-4 gap-2">
-        {accionesRapidas.map(({ label, icon: Icon, action, color }) => (
-          <button key={label} onClick={action}
-            className="flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: color + '18' }}>
-              <Icon size={18} style={{ color }} />
-            </div>
-            <span className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+      <QuickActions
+        workspaceId={workspaceId}
+        createCustomerLabel={createCustLabel}
+        createSaleLabel={createSaleLabel}
+      />
+
+      {/* Empty state */}
+      {customers.length === 0 && thisMonthSales.length === 0 && tareasActivas === 0 && (
+        <div className="text-center py-8">
+          <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+            Todo listo para empezar 🚀
+          </p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
+            Agregá tu primer cliente para que aparezcan las métricas
+          </p>
+          <button
+            onClick={() => router.push(`/workspace/${workspaceId}/clientes`)}
+            className="btn-primary mt-4"
+          >
+            {createCustLabel}
           </button>
-        ))}
-      </div>
-
-      {/* Alertas activas — solo para workspaces no-Verisure */}
-      {!isVerisure && (listos.length > 0 || enLab.length > 0 || stockCritico.length > 0 || !caja) && (
-        <div className="space-y-2">
-          {!caja && (
-            <button onClick={() => router.push(`/workspace/${workspaceId}/caja`)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
-              style={{ background: 'var(--amber-bg)', border: '1px solid var(--amber)' }}>
-              <Bell size={16} style={{ color: 'var(--amber)' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--amber)' }}>Caja sin abrir</span>
-              <ChevronRight size={14} className="ml-auto" style={{ color: 'var(--amber)' }} />
-            </button>
-          )}
-          {listos.length > 0 && (
-            <button onClick={() => router.push(`/workspace/${workspaceId}/ordenes`)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
-              style={{ background: 'var(--green-bg)', border: '1px solid var(--green)' }}>
-              <Package size={16} style={{ color: 'var(--green)' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--green)' }}>
-                {listos.length} equipo{listos.length > 1 ? 's' : ''} listo{listos.length > 1 ? 's' : ''} para entregar
-              </span>
-              <ChevronRight size={14} className="ml-auto" style={{ color: 'var(--green)' }} />
-            </button>
-          )}
-          {enLab.length > 0 && (
-            <button onClick={() => router.push(`/workspace/${workspaceId}/ordenes`)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl"
-              style={{ background: 'var(--blue-bg)', border: '1px solid var(--blue)' }}>
-              <Wrench size={16} style={{ color: 'var(--blue)' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--blue)' }}>
-                {enLab.length} en laboratorio
-              </span>
-              <ChevronRight size={14} className="ml-auto" style={{ color: 'var(--blue)' }} />
-            </button>
-          )}
-          {stockCritico.length > 0 && (
-            <button onClick={() => router.push(`/workspace/${workspaceId}/inventario`)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl"
-              style={{ background: 'var(--red-bg)', border: '1px solid rgba(232,0,29,0.3)' }}>
-              <Package size={16} style={{ color: 'var(--brand-light)' }} />
-              <span className="text-sm font-medium" style={{ color: 'var(--brand-light)' }}>
-                {stockCritico.length} producto{stockCritico.length > 1 ? 's' : ''} sin stock
-              </span>
-              <ChevronRight size={14} className="ml-auto" style={{ color: 'var(--brand-light)' }} />
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Turnos de hoy */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-            Turnos de hoy
-          </p>
-          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            {pendientes.length} pendientes
-          </span>
-        </div>
-
-        {turnosHoy.length === 0 ? (
-          <button onClick={() => setShowTurno(true)}
-            className="w-full flex items-center justify-center gap-2 py-6 rounded-2xl transition-all"
-            style={{ background: 'var(--surface)', border: '1px dashed var(--border)' }}>
-            <Plus size={16} style={{ color: 'var(--text-tertiary)' }} />
-            <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Agregar primer turno del día</span>
-          </button>
-        ) : (
-          <div className="space-y-2">
-            {turnosHoy.map((t, idx) => {
-              const motivoInfo = MOTIVOS.find(m => m.id === t.motivo)
-              const hora = t.esAgendado && t.fechaHora
-                ? format(toDate(t.fechaHora), "HH:mm")
-                : format(toDate(t.createdAt), "HH:mm")
-
-              return (
-                <div key={t.id}
-                  className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all"
-                  style={{
-                    background: t.atendido ? 'transparent' : 'var(--surface)',
-                    border: `1px solid ${t.atendido ? 'var(--border)' : t.esAgendado ? 'rgba(232,0,29,0.2)' : 'var(--border)'}`,
-                    opacity: t.atendido ? 0.5 : 1,
-                  }}>
-                  {/* Hora */}
-                  <div className="w-12 text-center flex-shrink-0">
-                    <p className="text-sm font-bold" style={{ color: t.atendido ? 'var(--text-tertiary)' : 'var(--brand)' }}>
-                      {hora}
-                    </p>
-                    {t.esAgendado && (
-                      <p className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>agend.</p>
-                    )}
-                  </div>
-
-                  <div className="w-px h-8 flex-shrink-0" style={{ background: 'var(--border)' }} />
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {motivoInfo && <span className="text-sm">{motivoInfo.emoji}</span>}
-                      <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        {t.clienteNombre || 'Sin nombre'}
-                      </span>
-                      {motivoInfo && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                          style={{ background: 'var(--surface-2)', color: 'var(--text-tertiary)' }}>
-                          {motivoInfo.label}
-                        </span>
-                      )}
-                    </div>
-                    {t.clienteTelefono && (
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                        {t.clienteTelefono}
-                      </p>
-                    )}
-                    {t.notas && (
-                      <p className="text-[10px] mt-0.5 italic" style={{ color: 'var(--text-tertiary)' }}>
-                        {t.notas}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    {t.clienteTelefono && !t.atendido && (
-                      <a href={`https://wa.me/54${t.clienteTelefono.replace(/\D/g,'')}`} target="_blank"
-                        className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
-                        <MessageCircle size={14} />
-                      </a>
-                    )}
-                    {!t.atendido && (
-                      <button onClick={() => marcarAtendido(t)}
-                        className="w-8 h-8 rounded-xl flex items-center justify-center"
-                        style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
-                        <Check size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-
-            <button onClick={() => setShowTurno(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all"
-              style={{ background: 'var(--surface-2)', border: '1px dashed var(--border)' }}>
-              <Plus size={14} style={{ color: 'var(--text-tertiary)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Agregar turno</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Próximos turnos (días futuros) */}
-      {turnosFuturos.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>
-            Próximos
-          </p>
-          <div className="space-y-1.5">
-            {turnosFuturos.map(t => {
-              const motivoInfo = MOTIVOS.find(m => m.id === t.motivo)
-              const fecha = toDate(t.fechaHora!)
-              const fechaLabel = isToday(fecha) ? 'Hoy'
-                : isTomorrow(fecha) ? 'Mañana'
-                : format(fecha, "EEEE d/M", { locale: es })
-              return (
-                <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                  <Calendar size={14} style={{ color: 'var(--blue)' }} className="flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {t.clienteNombre || 'Sin nombre'} {motivoInfo && `· ${motivoInfo.emoji} ${motivoInfo.label}`}
-                    </p>
-                  </div>
-                  <span className="text-xs flex-shrink-0 font-semibold capitalize" style={{ color: 'var(--blue)' }}>
-                    {fechaLabel} {format(fecha, "HH:mm")}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Tareas del día */}
-      {tareas.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>
-            Tareas pendientes
-          </p>
-          <div className="space-y-1.5">
-            {tareas.slice(0, 4).map(t => (
-              <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <button onClick={async () => {
-                  await toggleTarea(workspaceId, t.id, true)
-                  setTareas(prev => prev.filter(x => x.id !== t.id))
-                }}
-                  className="w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all"
-                  style={{ borderColor: 'var(--border-strong)' }} />
-                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.titulo}</span>
-                <span className="text-[10px] ml-auto flex-shrink-0"
-                  style={{ color: t.frecuencia === 'diaria' ? 'var(--brand)' : 'var(--text-tertiary)' }}>
-                  {t.frecuencia === 'diaria' ? 'Diaria' : 'Hoy'}
-                </span>
-              </div>
-            ))}
-            {tareas.length > 4 && (
-              <button onClick={() => router.push(`/workspace/${workspaceId}/tareas`)}
-                className="w-full text-center text-xs py-2" style={{ color: 'var(--text-tertiary)' }}>
-                +{tareas.length - 4} más → ir a Tareas
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal nuevo turno */}
-      {showTurno && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowTurno(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up max-h-[92vh] overflow-y-auto"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
-
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Nuevo turno</h3>
-              <button onClick={() => setShowTurno(false)} className="btn-icon">✕</button>
-            </div>
-
-            <div className="space-y-3">
-              {/* ¿Ahora o agendado? */}
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setTAgendado(false)}
-                  className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={!tAgendado
-                    ? { background: 'var(--brand)', color: '#fff' }
-                    : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                  🚶 Ahora
-                </button>
-                <button onClick={() => setTAgendado(true)}
-                  className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={tAgendado
-                    ? { background: 'var(--brand)', color: '#fff' }
-                    : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                  📅 Agendar
-                </button>
-              </div>
-
-              {/* Fecha y hora si es agendado */}
-              {tAgendado && (
-                <div>
-                  <label className="label">Fecha y hora</label>
-                  <input type="datetime-local" className="input text-sm"
-                    value={tFechaHora} onChange={e => setTFechaHora(e.target.value)}
-                    min={new Date().toISOString().slice(0, 16)} />
-                </div>
-              )}
-
-              {/* Motivo */}
-              <div>
-                <label className="label">Motivo</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {MOTIVOS.map(m => (
-                    <button key={m.id} onClick={() => setTMotivo(m.id)}
-                      className="flex items-center gap-2 py-2.5 px-3 rounded-xl text-left transition-all"
-                      style={tMotivo === m.id
-                        ? { background: 'var(--brand)', border: '1.5px solid var(--brand)' }
-                        : { background: 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
-                      <span>{m.emoji}</span>
-                      <span className="text-xs font-medium"
-                        style={{ color: tMotivo === m.id ? '#fff' : 'var(--text-secondary)' }}>
-                        {m.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Cliente */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="label">Nombre</label>
-                  <input className="input text-sm" placeholder="Cliente"
-                    value={tNombre} onChange={e => setTNombre(e.target.value)} autoFocus />
-                </div>
-                <div>
-                  <label className="label">Teléfono</label>
-                  <input className="input text-sm" placeholder="221..."
-                    value={tTelefono} onChange={e => setTTelefono(e.target.value)} />
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Notas</label>
-                <input className="input text-sm" placeholder="Ej: busca iPhone 16 negro 128gb"
-                  value={tNotas} onChange={e => setTNotas(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              <button onClick={handleCrearTurno} disabled={saving} className="btn-primary flex-1">
-                {saving ? 'Creando...' : tAgendado ? '📅 Agendar turno' : `🚶 Crear turno · #${pendientes.length + 1}`}
-              </button>
-              <button onClick={() => setShowTurno(false)} className="btn-secondary">Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal post-atención compra */}
-      {showAccion && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => setShowAccion(null)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: 'var(--green-bg)' }}>
-                <Check size={20} style={{ color: 'var(--green)' }} />
-              </div>
-              <div>
-                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Turno atendido ✓</p>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  {showAccion.codigo} · {showAccion.clienteNombre}
-                </p>
-              </div>
-            </div>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-              ¿Compraste el equipo? Cargalo al inventario ahora.
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => irAStock(showAccion)}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
-                style={{ background: 'var(--brand)', color: '#fff' }}>
-                <Package size={16} /> Cargar al inventario
-              </button>
-              <button onClick={() => setShowAccion(null)}
-                className="px-4 py-3 rounded-xl text-sm font-medium"
-                style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                Después
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
