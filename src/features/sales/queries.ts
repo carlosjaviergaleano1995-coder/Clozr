@@ -1,5 +1,6 @@
 import { adminDb } from '@/server/firebase-admin'
 import type { Sale } from './types'
+import { adaptVentaDoc } from './adapters'
 
 export async function listSales(
   workspaceId: string,
@@ -35,5 +36,5 @@ export async function getSaleById(
 ): Promise<Sale | null> {
   const doc = await adminDb.doc(`workspaces/${workspaceId}/ventas/${saleId}`).get()
   if (!doc.exists) return null
-  return { id: doc.id, ...doc.data() } as Sale
+  return adaptVentaDoc(doc.id, doc.data()!)
 }

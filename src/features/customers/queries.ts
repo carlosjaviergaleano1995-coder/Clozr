@@ -3,6 +3,7 @@
 
 import { adminDb } from '@/server/firebase-admin'
 import type { Customer, CustomerStatus, CustomerType } from './types'
+import { adaptClienteDoc } from './adapters'
 
 interface ListCustomersOptions {
   estado?:    CustomerStatus
@@ -37,7 +38,7 @@ export async function listCustomers(
   }
 
   const snap = await q.get()
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Customer))
+  return snap.docs.map(d => adaptClienteDoc(d.id, d.data()))
 }
 
 export async function getCustomerById(
@@ -48,5 +49,5 @@ export async function getCustomerById(
     .doc(`workspaces/${workspaceId}/clientes/${customerId}`)
     .get()
   if (!doc.exists) return null
-  return { id: doc.id, ...doc.data() } as Customer
+  return adaptClienteDoc(doc.id, doc.data()!)
 }

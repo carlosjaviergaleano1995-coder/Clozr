@@ -1,5 +1,6 @@
 import { adminDb } from '@/server/firebase-admin'
 import type { PipelineItem, PipelineStatus } from './types'
+import { adaptPipelineDoc } from './adapters'
 
 export async function listPipelineItems(
   workspaceId: string,
@@ -17,7 +18,7 @@ export async function listPipelineItems(
   }
 
   const snap = await q.limit(500).get()
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as PipelineItem))
+  return snap.docs.map(d => adaptPipelineDoc(d.id, d.data()))
 }
 
 export async function getPipelineItemById(
@@ -26,7 +27,7 @@ export async function getPipelineItemById(
 ): Promise<PipelineItem | null> {
   const doc = await adminDb.doc(`workspaces/${workspaceId}/pipeline/${itemId}`).get()
   if (!doc.exists) return null
-  return { id: doc.id, ...doc.data() } as PipelineItem
+  return adaptPipelineDoc(doc.id, doc.data()!)
 }
 
 // Items con más de N días sin actividad — para alertas en HOY
@@ -41,5 +42,5 @@ export async function listInactivePipelineItems(
     .orderBy('inactiveDays', 'desc')
     .limit(50)
     .get()
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as PipelineItem))
+  return snap.docs.map(d => adaptPipelineDoc(d.id, d.data()))
 }

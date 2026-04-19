@@ -19,6 +19,7 @@ import { useSystemConfig } from '@/hooks/useSystemConfig'
 // Los datos existentes son PipelineCliente (vieja arch) — en la misma colección 'pipeline'
 // Leemos los campos que están en AMBOS: id, clienteId, customerSnapshot/clienteNombre, status/estado, activities/notas, updatedAt
 import type { PipelineItem } from '@/features/pipeline/types'
+import { getCustomerName, getKitInteres, getLastActivity } from '@/features/pipeline/adapters'
 
 // ── Tipos de UI (constantes de estados) ──────────────────────────────────────
 
@@ -37,26 +38,11 @@ const ESTADOS_DEFAULT = [
 const KITS = ['Catálogo', 'Alto', 'Medio', 'Bajo', 'Catálogo +', 'Alto +', 'Medio/Bajo +']
 const ESTADOS_ACTIVOS = ['prospecto','contactado','visita_agendada','presupuestado','aprobado','instalado']
 
-// Normaliza un item — soporta tanto PipelineItem (nueva arch) como PipelineCliente (vieja)
-function getNombreCliente(item: any): string {
-  return item.customerSnapshot?.nombre ?? item.clienteNombre ?? '(sin nombre)'
-}
-function getEstadoItem(item: any): string {
-  return item.stageId ?? item.estado ?? 'prospecto'
-}
-function getClienteId(item: any): string {
-  return item.customerId ?? item.clienteId ?? ''
-}
-function getNotas(item: any): any[] {
-  return item.activities ?? item.notas ?? []
-}
-function getUpdatedAt(item: any): Date {
-  const raw = item.updatedAt
-  if (!raw) return new Date()
-  if (raw instanceof Date) return raw
-  if (typeof raw.toDate === 'function') return raw.toDate()
-  return new Date(raw)
-}
+
+
+
+
+
 
 export default function PipelinePage() {
   const params      = useParams()
@@ -115,9 +101,9 @@ export default function PipelinePage() {
   const ahora = new Date()
   const alertas = useMemo(() =>
     pipelineItems
-      .filter(p => ESTADOS_ACTIVOS.includes(getEstadoItem(p)))
+      .filter(p => ESTADOS_ACTIVOS.includes(p.stageId))
       .map(p => {
-        const dias = Math.floor((ahora.getTime() - getUpdatedAt(p).getTime()) / 86400000)
+        const dias = Math.floor((ahora.getTime() - p.updatedAt.getTime()) / 86400000)
         return { ...p, diasSinActividad: Math.max(p.inactiveDays ?? 0, dias) }
       })
       .filter(p => p.diasSinActividad >= 7)
@@ -128,7 +114,7 @@ export default function PipelinePage() {
   const conteos = useMemo(() => {
     const m: Record<string, number> = {}
     pipelineItems.forEach(p => {
-      const e = getEstadoItem(p)
+      const e = p.stageId
       m[e] = (m[e] ?? 0) + 1
     })
     return m
@@ -137,13 +123,13 @@ export default function PipelinePage() {
   const filtered = useMemo(() =>
     filtro === 'todos'
       ? pipelineItems
-      : pipelineItems.filter(p => getEstadoItem(p) === filtro),
+      : pipelineItems.filter(p => p.stageId === filtro),
     [pipelineItems, filtro]
   )
 
   // ── Clientes sin pipeline ───────────────────────────────────────────────
   const clientesSinPipeline = customers.filter(c =>
-    !pipelineItems.some(p => getClienteId(p) === c.id)
+    !pipelineItems.some(p => p.customerId === c.id)
   )
 
   // ── Acciones ────────────────────────────────────────────────────────────
@@ -224,7 +210,7 @@ export default function PipelinePage() {
     </div>
   )
 
-  const activos = pipelineItems.filter(p => ESTADOS_ACTIVOS.includes(getEstadoItem(p)))
+  const activos = pipelineItems.filter(p => ESTADOS_ACTIVOS.includes(p.stageId))
 
   return (
     <div className="space-y-4 animate-fade-in pb-4">
@@ -259,10 +245,10 @@ export default function PipelinePage() {
                   className="w-full flex items-center justify-between px-3 py-2.5 text-left">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
-                      {getNombreCliente(p)}
+                      {getCustomerName(p)}
                     </p>
                     <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {getEstado(getEstadoItem(p)).emoji} {getEstado(getEstadoItem(p)).label}
+                      {getEstado(p.stageId).emoji} {getEstado(p.stageId).label}
                     </p>
                   </div>
                   <span className="text-xs font-bold px-2 py-1 rounded-lg flex-shrink-0 ml-2"
@@ -317,17 +303,17 @@ export default function PipelinePage() {
       ) : (
         <div className="space-y-2">
           {filtered.map(item => {
-            const estadoId = getEstadoItem(item)
+            const estadoId = item.stageId
             const estado   = getEstado(estadoId)
-            const notas    = getNotas(item)
+            const notas    = item.activities
             const ultimaNota = notas.length > 0 ? notas[notas.length - 1] : null
-            const clienteId = getClienteId(item)
+            const clienteId = item.customerId
             const cliente = customers.find(c => c.id === clienteId)
             const esActivo = ESTADOS_ACTIVOS.includes(estadoId)
             const dias = esActivo
               ? Math.max(
                   item.inactiveDays ?? 0,
-                  Math.floor((ahora.getTime() - getUpdatedAt(item).getTime()) / 86400000)
+                  Math.floor((ahora.getTime() - item.updatedAt.getTime()) / 86400000)
                 )
               : 0
             const tieneAlerta = esActivo && dias >= 7
@@ -354,7 +340,7 @@ export default function PipelinePage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {getNombreCliente(item)}
+                      {getCustomerName(item)}
                     </span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                       style={{ background: estado.bg, color: estado.color }}>
@@ -413,12 +399,12 @@ export default function PipelinePage() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-                    {getNombreCliente(detalle)}
+                    {getCustomerName(detalle)}
                   </p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: getEstado(getEstadoItem(detalle)).bg, color: getEstado(getEstadoItem(detalle)).color }}>
-                      {getEstado(getEstadoItem(detalle)).emoji} {getEstado(getEstadoItem(detalle)).label}
+                      style={{ background: getEstado(detalle.stageId).bg, color: getEstado(detalle.stageId).color }}>
+                      {getEstado(detalle.stageId).emoji} {getEstado(detalle.stageId).label}
                     </span>
                     {(detalle.systemData?.kitInteres ?? detalle.kitInteres) && (
                       <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
@@ -441,12 +427,12 @@ export default function PipelinePage() {
                   <button key={e.id} onClick={() => cambiarEstado(detalle, e.id)}
                     disabled={isPending}
                     className="flex flex-col items-center py-1.5 rounded-xl text-center transition-all"
-                    style={getEstadoItem(detalle) === e.id
+                    style={detalle.stageId === e.id
                       ? { background: e.bg, border: `1.5px solid ${e.color}` }
                       : { background: 'var(--surface-2)', border: '1.5px solid transparent' }}>
                     <span className="text-sm">{e.emoji}</span>
                     <span className="text-[8px] mt-0.5 font-medium leading-tight"
-                      style={{ color: getEstadoItem(detalle) === e.id ? e.color : 'var(--text-tertiary)' }}>
+                      style={{ color: detalle.stageId === e.id ? e.color : 'var(--text-tertiary)' }}>
                       {e.label.split(' ')[0]}
                     </span>
                   </button>
@@ -469,14 +455,14 @@ export default function PipelinePage() {
                 </button>
               </div>
 
-              {getNotas(detalle).length === 0 ? (
+              {detalle.activities.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Sin notas todavía</p>
                   <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Registrá cada visita, llamada o contacto</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {[...getNotas(detalle)].reverse().map((nota: any, i: number) => {
+                  {[...detalle.activities].reverse().map((nota: any, i: number) => {
                     // Compatibilidad: PipelineActivity (nueva) o NotaVisita (vieja)
                     const texto      = nota.description ?? nota.texto ?? ''
                     const resultado  = nota.result ?? nota.resultado ?? 'neutro'
@@ -529,7 +515,7 @@ export default function PipelinePage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Nueva nota</h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{getNombreCliente(detalle)}</p>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{getCustomerName(detalle)}</p>
               </div>
               <button onClick={() => setShowNota(false)} className="btn-icon">✕</button>
             </div>
