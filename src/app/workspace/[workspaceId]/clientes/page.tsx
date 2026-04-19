@@ -281,6 +281,8 @@ export default function ClientesPage() {
       barrio: c.barrio ?? '', referido: c.referido ?? '',
     })
     setFieldErrors({})
+    // Limpiar el detalle activo para que useSales y usePipeline no sigan suscritos
+    setDetalleClienteId(null)
     setShowForm(true)
   }
 

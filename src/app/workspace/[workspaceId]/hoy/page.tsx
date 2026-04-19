@@ -39,11 +39,12 @@ export default function HoyPage() {
   const [isPending, startTransition] = useTransition()
 
   // ── Datos del core ────────────────────────────────────────────────────────
-  const { metrics }                           = useDashboardMetrics(workspaceId)
-  const { customers }                         = useCustomers(workspaceId)
-  const { rutinas, puntuales }                = useTasks(workspaceId)
-  const { items: pipelineItems, withAlerts }  = usePipeline(workspaceId)
-  const { thisMonthSales, totalThisMonth }    = useSales(workspaceId)
+  const { metrics }                                    = useDashboardMetrics(workspaceId)
+  const { customers,  loading: loadingCustomers }      = useCustomers(workspaceId)
+  const { rutinas, puntuales, loading: loadingTasks }  = useTasks(workspaceId)
+  const { items: pipelineItems, withAlerts }           = usePipeline(workspaceId)
+  const { thisMonthSales, totalThisMonth }             = useSales(workspaceId)
+  const isLoading = loadingCustomers || loadingTasks
 
   // Métricas calculadas en cliente — sin depender de aggregate/summary
   const pipelineOpen       = pipelineItems.filter(i => i.status === 'open').length
@@ -62,6 +63,17 @@ export default function HoyPage() {
     if (isViewerOnly) return
     startTransition(async () => { await completeTask(workspaceId, taskId) })
   }
+
+  if (isLoading) return (
+    <div className="space-y-4 pt-2">
+      <div className="h-10 rounded-xl animate-pulse" style={{ background: 'var(--surface-2)', width: '60%' }} />
+      <div className="grid grid-cols-3 gap-2">
+        {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
+      </div>
+      <div className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />
+      <div className="h-24 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />
+    </div>
+  )
 
   return (
     <div className="space-y-5 animate-fade-in pb-6">

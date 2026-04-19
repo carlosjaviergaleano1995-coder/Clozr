@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useParams } from 'next/navigation'
 import { UserX, Plus, Shield, Eye } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
@@ -9,11 +9,8 @@ import { useMemberRole } from '@/hooks/useMemberRole'
 // ── Nueva arquitectura ────────────────────────────────────────────────────────
 import { changeMemberRole, removeMember } from '@/features/team/actions'
 import { InviteMemberForm } from '@/features/invitations/components/InviteMemberForm'
+import { useMembers } from '@/hooks/useMembers'
 import type { Membership, MemberRole } from '@/features/team/types'
-
-// Lectura de miembros — usa Admin SDK via service legacy hasta que se implemente hook cliente
-import { getMembers } from '@/lib/services'
-import type { WorkspaceMember } from '@/types'
 
 const ROLE_LABEL: Record<MemberRole, string> = {
   owner:    'Owner',
@@ -41,26 +38,17 @@ export default function EquipoPage() {
   const { role: myRole, isAdmin } = useMemberRole(workspaceId)
   const canManage = isAdmin  // admin u owner pueden gestionar el equipo
 
-  const [members,    setMembers]    = useState<WorkspaceMember[]>([])
-  const [loading,    setLoading]    = useState(true)
+  const { members, loading } = useMembers(workspaceId)
   const [showInvite, setShowInvite] = useState(false)
   const [isPending,  startTransition] = useTransition()
   const [error,      setError]      = useState<string | null>(null)
-
-  useEffect(() => {
-    getMembers(workspaceId)
-      .then(setMembers)
-      .finally(() => setLoading(false))
-  }, [workspaceId])
 
   function handleChangeMemberRole(targetUid: string, newRole: MemberRole) {
     setError(null)
     startTransition(async () => {
       const result = await changeMemberRole(workspaceId, { targetUid, newRole })
       if (!result.ok) { setError(result.error); return }
-      setMembers(prev => prev.map(m =>
-        m.userId === targetUid ? { ...m, role: newRole } : m
-      ))
+      // useMembers onSnapshot actualiza automáticamente
     })
   }
 
@@ -70,7 +58,7 @@ export default function EquipoPage() {
     startTransition(async () => {
       const result = await removeMember(workspaceId, targetUid)
       if (!result.ok) { setError(result.error); return }
-      setMembers(prev => prev.filter(m => m.userId !== targetUid))
+      // useMembers onSnapshot actualiza automáticamente
     })
   }
 
@@ -153,7 +141,7 @@ export default function EquipoPage() {
 
             return (
               <div
-                key={member.userId}
+                key={member.id}
                 className="px-3 py-3 rounded-2xl"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
               >

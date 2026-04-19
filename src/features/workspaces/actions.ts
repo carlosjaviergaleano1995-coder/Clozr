@@ -3,7 +3,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/server/firebase-admin'
-import { requireAuth } from '@/server/auth'
+import { requireAuth, requireMembership } from '@/server/auth'
 import { assertCanCreate } from '@/server/services/plan-limits.service'
 import { writeAuditLog } from '@/server/audit'
 import { CreateWorkspaceSchema, UpdateWorkspaceSchema } from './schemas'
@@ -94,18 +94,14 @@ export async function updateWorkspace(
       return fail('Datos inválidos', 'VALIDATION_ERROR', parseZodError(result.error))
     }
 
-    const { user, membership } = await (await import('@/server/auth')).requireMembership(
-      workspaceId,
-      'admin',
-    )
-    void user  // usado para audit
+    const { user, membership } = await requireMembership(workspaceId, 'admin')
 
     await adminDb.doc(`workspaces/${workspaceId}`).update({
       ...result.data,
       updatedAt: FieldValue.serverTimestamp(),
     })
 
-    writeAuditLog(workspaceId, user.uid, user.displayName, 'customer.updated', {
+    writeAuditLog(workspaceId, user.uid, user.displayName, 'system.activated', {
       entityType: 'workspace',
       entityId:   workspaceId,
       after:      result.data,

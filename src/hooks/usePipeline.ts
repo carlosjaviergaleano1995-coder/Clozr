@@ -1,8 +1,8 @@
 'use client'
 
-// REGLA: hook solo, Client SDK + onSnapshot.
-// El adapter detecta si el doc es legacy (PipelineCliente) o nuevo (PipelineItem)
-// y retorna siempre PipelineItem canónico.
+// El adapter detecta legacy (clienteId) vs nuevo (customerId) y normaliza al canónico.
+// Importante: Firestore no puede filtrar por customerId en docs legacy que usan clienteId.
+// Por eso: se trae todo y se filtra localmente cuando hay customerId.
 
 import { useState, useEffect } from 'react'
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
@@ -12,7 +12,7 @@ import { adaptPipelineDoc } from '@/features/pipeline/adapters'
 
 interface UsePipelineOptions {
   status?:     PipelineStatus
-  customerId?: string
+  customerId?: string   // filtra localmente para compat legacy
 }
 
 export function usePipeline(workspaceId: string, options: UsePipelineOptions = {}) {
@@ -29,14 +29,27 @@ export function usePipeline(workspaceId: string, options: UsePipelineOptions = {
       limit(300),
     )
 
-    if (options.customerId) q = query(q, where('customerId',  '==', options.customerId))
-    if (options.status)     q = query(q, where('status',      '==', options.status))
+    // Solo filtramos por status en Firestore si no hay customerId
+    // (combinar where('status') + where('customerId') requiere índice compuesto
+    // y además no funciona con docs legacy que usan 'clienteId')
+    if (options.status && !options.customerId) {
+      q = query(q, where('status', '==', options.status))
+    }
 
     const unsub = onSnapshot(
       q,
       snap => {
-        // adaptPipelineDoc detecta legacy vs nuevo y normaliza al canónico
-        setItems(snap.docs.map(d => adaptPipelineDoc(d.id, d.data())))
+        let all = snap.docs.map(d => adaptPipelineDoc(d.id, d.data()))
+
+        // Filtrado local — garantiza compat con legacy (clienteId) y nuevo (customerId)
+        if (options.customerId) {
+          all = all.filter(i => i.customerId === options.customerId)
+        }
+        if (options.status) {
+          all = all.filter(i => i.status === options.status)
+        }
+
+        setItems(all)
         setLoading(false)
       },
       err => { setError(err); setLoading(false) }
@@ -46,7 +59,7 @@ export function usePipeline(workspaceId: string, options: UsePipelineOptions = {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, options.status, options.customerId])
 
-  const byStage = items.reduce<Record<string, PipelineItem[]>>((acc, item) => {
+  const byStage    = items.reduce<Record<string, PipelineItem[]>>((acc, item) => {
     if (!acc[item.stageId]) acc[item.stageId] = []
     acc[item.stageId].push(item)
     return acc
