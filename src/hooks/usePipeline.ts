@@ -13,6 +13,7 @@ import { adaptPipelineDoc } from '@/features/pipeline/adapters'
 interface UsePipelineOptions {
   status?:     PipelineStatus
   customerId?: string   // filtra localmente para compat legacy
+  limit?:      number   // default 300
 }
 
 export function usePipeline(workspaceId: string, options: UsePipelineOptions = {}) {
@@ -26,7 +27,7 @@ export function usePipeline(workspaceId: string, options: UsePipelineOptions = {
     let q = query(
       collection(db, `workspaces/${workspaceId}/pipeline`),
       orderBy('updatedAt', 'desc'),
-      limit(300),
+      limit(options.limit ?? 300),
     )
 
     // Solo filtramos por status en Firestore si no hay customerId

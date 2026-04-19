@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Plus, ChevronRight, LogOut, Pencil, Trash2, Check, Shield } from 'lucide-react'
 import { useAuthStore, useWorkspaceStore } from '@/store'
 import {
-  getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace,
+  getWorkspaces, updateWorkspace, deleteWorkspace,
   getNegocios, createNegocio, updateNegocio, deleteNegocio, logOut,
 } from '@/lib/services'
+import { createWorkspace as createWorkspaceAction } from '@/features/workspaces/actions'
 import { derivarTipo, descripcionWs } from '@/lib/workspace-config'
 import type { Workspace, WorkspaceConfig, Negocio } from '@/types'
 import { ClozrLogo, ClozrIcon } from '@/components/ClozrLogo'
@@ -141,8 +142,22 @@ export default function DashboardPage() {
         await updateWorkspace(editWs.id, { nombre, tipo, config })
         setWorkspaces(workspaces.map(w => w.id === editWs.id ? { ...w, nombre, tipo, config } : w))
       } else {
-        const id = await createWorkspace({ nombre, tipo, config, emoji: emojiMap[tipo] ?? '🛒', color: colorMap[tipo] ?? '#2563eb', negocioId: wsNegId ?? undefined, ownerId: user.uid, miembros: [user.uid] } as any)
-        setWorkspaces([...workspaces, { id, nombre, tipo, config, emoji: emojiMap[tipo] ?? '🛒', color: colorMap[tipo] ?? '#2563eb', negocioId: wsNegId ?? undefined, ownerId: user.uid, miembros: [user.uid], createdAt: new Date(), updatedAt: new Date() }])
+        const result = await createWorkspaceAction({
+          nombre,
+          emoji: emojiMap[tipo] ?? '🛒',
+          color: colorMap[tipo] ?? '#2563eb',
+          config: {
+            vendeProductos: config.vendeProductos ?? false,
+            vendeServicios: config.vendeServicios ?? false,
+            tieneOrdenes:   config.tieneOrdenes   ?? false,
+            moneda: 'ARS',
+          },
+        })
+        if (!result.ok) { console.error('createWorkspace:', result.error); return }
+        const id = result.data.id
+        // Recargar workspaces para que aparezca el nuevo
+        const fresh = await getWorkspaces(user.uid)
+        setWorkspaces(fresh)
       }
       setShowWs(false)
     } finally { setSaving(false) }

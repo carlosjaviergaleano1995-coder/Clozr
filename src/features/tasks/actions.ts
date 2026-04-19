@@ -9,7 +9,7 @@ import { CreateTaskSchema } from './schemas'
 import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
 
-const revalidate = (wid: string) => revalidatePath(`/workspace/${wid}/tareas`)
+const revalidate = (wid: string) => { revalidatePath(`/workspace/${wid}/tareas`); revalidatePath(`/workspace/${wid}/hoy`) }
 
 export async function createTask(
   workspaceId: string,

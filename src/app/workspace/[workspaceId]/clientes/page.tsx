@@ -105,7 +105,7 @@ export default function ClientesPage() {
   const [notaTexto,       setNotaTexto]       = useState('')
   const [notaResultado,   setNotaResultado]   = useState<'positivo'|'neutro'|'negativo'>('neutro')
   const [notaProximoPaso, setNotaProximoPaso] = useState('')
-  const [guardandoNota,   setGuardandoNota]   = useState(false)
+  // guardandoNota eliminado — usar isPending de startTransition
 
   // Seña
   const [showSena,    setShowSena]    = useState(false)
@@ -682,8 +682,8 @@ export default function ClientesPage() {
               </div>
             </div>
             <div className="flex gap-2 mt-4">
-              <button onClick={guardarNota} disabled={!notaTexto.trim() || guardandoNota} className="btn-primary flex-1">
-                {guardandoNota ? 'Guardando...' : 'Guardar visita'}
+              <button onClick={guardarNota} disabled={!notaTexto.trim() || isPending} className="btn-primary flex-1">
+                {isPending ? 'Guardando...' : 'Guardar visita'}
               </button>
               <button onClick={() => setShowNota(false)} className="btn-secondary">Cancelar</button>
             </div>

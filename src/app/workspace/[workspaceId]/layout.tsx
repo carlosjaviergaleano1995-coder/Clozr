@@ -8,6 +8,7 @@ import { getWorkspaces } from '@/lib/services'
 import { derivarNav } from '@/lib/workspace-config'
 import { ClozrIcon } from '@/components/ClozrLogo'
 import { SystemConfigProvider } from '@/providers/SystemConfigProvider'
+import { useWorkspace } from '@/hooks/useWorkspace'
 import type { Workspace } from '@/types'
 import type { SalesSystemDefinition } from '@/features/systems/types'
 
@@ -21,6 +22,11 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const { workspaces, setWorkspaces, setActiveWorkspace } = useWorkspaceStore()
   const [ws, setWs] = useState<Workspace | null>(null)
   const [systemDef, setSystemDef] = useState<SalesSystemDefinition | null>(null)
+
+  // Hook reactivo para detectar cambios en tiempo real (sistema activo, nombre, etc.)
+  const { workspace: wsLive } = useWorkspace(workspaceId)
+  // Si el workspace live tiene activeSystemSlug y el local no, actualizar
+  const effectiveWs = wsLive ?? ws
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth')
@@ -79,7 +85,8 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     return navItems[0]?.id ?? 'hoy'
   })()
 
-  if (!ws) return (
+  const displayWs = effectiveWs ?? ws
+  if (!displayWs) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
       <ClozrIcon size={48} className="animate-pulse" />
     </div>
@@ -96,10 +103,10 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
               <ChevronLeft size={18} />
             </button>
             <div className="w-6 h-6 rounded-lg flex items-center justify-center text-sm"
-              style={{ background: ws.color + '20' }}>
-              {ws.emoji}
+              style={{ background: displayWs.color + '20' }}>
+              {displayWs.emoji}
             </div>
-            <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{ws.nombre}</span>
+            <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{displayWs.nombre}</span>
           </div>
         </div>
       </header>
