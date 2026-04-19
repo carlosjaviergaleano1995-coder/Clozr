@@ -16,7 +16,7 @@ import {
 import type { Venta2, PlantillaMensaje, PipelineCliente, EstadoPipeline, NotaVisita } from '@/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { toDate } from '@/lib/services'
+import { toDate } from '@/lib/utils'
 import { fmtARS, fmtUSD } from '@/lib/format'
 
 // ── Constantes de UI ──────────────────────────────────────────────────────────

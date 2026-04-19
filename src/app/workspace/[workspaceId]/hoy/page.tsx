@@ -12,7 +12,7 @@ import { useAuthStore, useWorkspaceStore } from '@/store'
 import type { Turno, OrdenTrabajo, Producto2, Tarea } from '@/types'
 import { format, isToday, isTomorrow } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { toDate } from '@/lib/services'
+import { toDate } from '@/lib/utils'
 // ── Nueva arquitectura: métricas reales ──────────────────────────────────────
 import { useDashboardMetrics } from '@/hooks/useDashboard'
 import { useTasks } from '@/hooks/useTasks'

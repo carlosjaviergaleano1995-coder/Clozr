@@ -139,20 +139,14 @@ export default function PipelinePage() {
     if (!nuevoEstado) return
 
     startTransition(async () => {
-      // Si el item es de la nueva arquitectura tiene stageId
-      if (item.stageId !== undefined) {
-        await updateStage(workspaceId, item.id, {
-          stageId:    nuevoEstado.id,
-          stageName:  nuevoEstado.label,
-          stageOrder: ESTADOS.findIndex(e => e.id === nuevoEstadoId),
-        })
-      } else {
-        // Item viejo — usar service viejo temporalmente
-        const { updatePipeline } = await import('@/lib/services')
-        await updatePipeline(workspaceId, item.id, { estado: nuevoEstadoId as any })
-      }
+      // Todos los items son PipelineItem canónico (el adapter ya normalizó el legacy)
+      await updateStage(workspaceId, item.id, {
+        stageId:    nuevoEstado.id,
+        stageName:  nuevoEstado.label,
+        stageOrder: ESTADOS.findIndex(e => e.id === nuevoEstadoId),
+      })
       if (detalle?.id === item.id) {
-        setDetalle((d: any) => d ? { ...d, stageId: nuevoEstadoId, estado: nuevoEstadoId } : d)
+        setDetalle((d: any) => d ? { ...d, stageId: nuevoEstadoId } : d)
       }
     })
   }
@@ -160,22 +154,13 @@ export default function PipelinePage() {
   const guardarNota = () => {
     if (!nTexto.trim() || !detalle) return
     startTransition(async () => {
-      if (detalle.stageId !== undefined) {
-        // Nueva arquitectura
-        await addActivity(workspaceId, detalle.id, {
-          type:        'note',
-          description: nTexto,
-          result:      nProximoPaso || undefined,
-          performedAt: new Date(),
-        })
-      } else {
-        // Vieja arquitectura
-        const { updatePipeline } = await import('@/lib/services')
-        const nota = { fecha: new Date(), texto: nTexto, resultado: nResultado, proximoPaso: nProximoPaso || undefined }
-        const notas = [...(detalle.notas ?? []), nota]
-        await updatePipeline(workspaceId, detalle.id, { notas })
-        setDetalle((d: any) => d ? { ...d, notas } : d)
-      }
+      // Todos los items son PipelineItem canónico — siempre usamos addActivity
+      await addActivity(workspaceId, detalle.id, {
+        type:        'note',
+        description: nTexto,
+        result:      nProximoPaso || undefined,
+        performedAt: new Date(),
+      })
       setShowNota(false)
       setNTexto(''); setNResultado('neutro'); setNProximoPaso('')
     })
