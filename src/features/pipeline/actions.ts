@@ -155,15 +155,30 @@ export async function updateStage(
       performedByName: user.displayName,
     }
 
-    await adminDb.doc(`workspaces/${workspaceId}/pipeline/${pipelineItemId}`).update({
+    // Detectar si la etapa implica cierre automático
+    // Las etapas predeterminadas: cobrado/instalado → won, perdido → lost
+    const WON_STAGES  = ['cobrado', 'instalado', 'cerrado']
+    const LOST_STAGES = ['perdido', 'lost']
+    const newStatus = WON_STAGES.includes(input.stageId)  ? 'won'
+                    : LOST_STAGES.includes(input.stageId) ? 'lost'
+                    : 'open'
+
+    const updatePayload: Record<string, unknown> = {
       stageId:        input.stageId,
       stageName:      input.stageName,
       stageOrder:     input.stageOrder,
+      status:         newStatus,
       activities:     FieldValue.arrayUnion(activity),
       lastActivityAt: FieldValue.serverTimestamp(),
       inactiveDays:   0,
       updatedAt:      FieldValue.serverTimestamp(),
-    })
+    }
+
+    if (newStatus !== 'open' && current.status === 'open') {
+      updatePayload.closedAt = FieldValue.serverTimestamp()
+    }
+
+    await adminDb.doc(`workspaces/${workspaceId}/pipeline/${pipelineItemId}`).update(updatePayload)
 
     writeAuditLog(workspaceId, user.uid, user.displayName, 'pipeline.stage_changed', {
       entityType: 'pipeline_item',

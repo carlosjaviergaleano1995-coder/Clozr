@@ -48,6 +48,19 @@ export async function createTask(
   }
 }
 
+// ── Helper: busca el doc en 'tasks' primero, luego en 'tareas' (legacy)
+// Garantiza compat con workspaces que tienen datos en la colección vieja.
+async function findTaskDoc(workspaceId: string, taskId: string) {
+  const newRef = adminDb.doc(`workspaces/${workspaceId}/tasks/${taskId}`)
+  const newDoc = await newRef.get()
+  if (newDoc.exists) return newDoc
+
+  const legacyRef = adminDb.doc(`workspaces/${workspaceId}/tareas/${taskId}`)
+  const legacyDoc = await legacyRef.get()
+  return legacyDoc.exists ? legacyDoc : null
+}
+
+
 export async function completeTask(
   workspaceId: string,
   taskId: string,
@@ -56,10 +69,8 @@ export async function completeTask(
     const { user, membership } = await requireMembership(workspaceId)
     requirePermission(membership.role, 'task:complete')
 
-    const taskDoc = await adminDb
-      .doc(`workspaces/${workspaceId}/tasks/${taskId}`)
-      .get()
-    if (!taskDoc.exists) return fail('Tarea no encontrada', 'NOT_FOUND')
+    const taskDoc = await findTaskDoc(workspaceId, taskId)
+    if (!taskDoc) return fail('Tarea no encontrada', 'NOT_FOUND')
 
     const task = taskDoc.data()!
 
@@ -124,7 +135,8 @@ export async function deleteTask(
     const { membership } = await requireMembership(workspaceId)
     requirePermission(membership.role, 'task:create')
 
-    await adminDb.doc(`workspaces/${workspaceId}/tasks/${taskId}`).delete()
+    const taskDocToDel = await findTaskDoc(workspaceId, taskId)
+    if (taskDocToDel) await taskDocToDel.ref.delete()
 
     revalidate(workspaceId)
     return ok(undefined)

@@ -37,6 +37,24 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
     loadWorkspace()
   }, [user, workspaceId])
 
+  // Detectar cambios de sistema activo en tiempo real via useWorkspace hook
+  useEffect(() => {
+    const slug = (wsLive as any)?.activeSystemSlug
+    if (!slug) {
+      setSystemDef(null)
+      return
+    }
+    import('@/lib/firebase').then(({ db }) => {
+      import('firebase/firestore').then(({ doc, getDoc }) => {
+        getDoc(doc(db, `system_definitions/${slug}`)).then(snap => {
+          if (snap.exists()) {
+            setSystemDef((snap.data() as any).definition as SalesSystemDefinition)
+          }
+        }).catch(() => {})
+      })
+    })
+  }, [(wsLive as any)?.activeSystemSlug])
+
   const loadWorkspace = async () => {
     if (!user) return
     let allWs = workspaces

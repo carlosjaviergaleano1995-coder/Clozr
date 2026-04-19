@@ -70,6 +70,7 @@ export async function createSale(
     })
 
     revalidatePath(`/workspace/${workspaceId}/ventas`)
+    revalidatePath(`/workspace/${workspaceId}/hoy`)
     return ok({ id: ref.id })
 
   } catch (err) {
