@@ -13,6 +13,10 @@ import type { Turno, OrdenTrabajo, Producto2, Tarea } from '@/types'
 import { format, isToday, isTomorrow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/services'
+// ── Nueva arquitectura: métricas reales ──────────────────────────────────────
+import { useDashboardMetrics } from '@/hooks/useDashboard'
+import { useTasks } from '@/hooks/useTasks'
+import { useCustomers } from '@/hooks/useCustomers'
 
 const MOTIVOS_GENERAL = [
   { id: 'compra',      label: 'Compra equipo',  emoji: '📱', esCompra: true },
@@ -43,6 +47,12 @@ export default function HoyPage() {
   const { user } = useAuthStore()
   const { workspaces } = useWorkspaceStore()
   const ws = workspaces.find(w => w.id === workspaceId)
+
+  // ── Nueva arquitectura — métricas reales ──────────────────────────────────
+  const { metrics } = useDashboardMetrics(workspaceId)
+  const { rutinas, puntuales } = useTasks(workspaceId)
+  const { customers } = useCustomers(workspaceId)
+  const tareasActivas = rutinas.filter(t => !t.completada).length + puntuales.length
 
   const [turnosHoy, setTurnosHoy] = useState<Turno[]>([])
   const [turnosFuturos, setTurnosFuturos] = useState<Turno[]>([])
@@ -196,6 +206,23 @@ export default function HoyPage() {
 
   return (
     <div className="space-y-4 animate-fade-in pb-6">
+
+      {/* ── Panel métricas (nueva arquitectura) ──────────────────────────── */}
+      <div className="grid grid-cols-3 gap-2 pt-1">
+        {[
+          { label: 'Clientes', value: customers.length, emoji: '👥', path: 'clientes' },
+          { label: 'Pipeline', value: metrics?.pipelineOpenCount ?? 0, emoji: '📊', path: 'pipeline' },
+          { label: 'Tareas',   value: tareasActivas, emoji: '✅', path: 'tareas' },
+        ].map(m => (
+          <button key={m.label} onClick={() => router.push(`/workspace/${workspaceId}/${m.path}`)}
+            className="flex flex-col items-center py-3 px-2 rounded-2xl text-center transition-all"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <span className="text-xl">{m.emoji}</span>
+            <span className="text-lg font-bold mt-1" style={{ color: 'var(--text-primary)' }}>{m.value}</span>
+            <span className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{m.label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* Header con toggle de calendario */}
       <div className="pt-1 flex items-start justify-between">

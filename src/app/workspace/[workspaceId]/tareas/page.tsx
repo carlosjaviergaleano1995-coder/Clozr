@@ -1,113 +1,82 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, CheckSquare, Square, Trash2, RefreshCw, RotateCcw } from 'lucide-react'
-import { getTareas, createTarea, toggleTarea, deleteTarea } from '@/lib/services'
-import { useAuthStore } from '@/store'
+import { Plus, CheckSquare, Square, Trash2, RotateCcw } from 'lucide-react'
 import { useMemberRole } from '@/hooks/useMemberRole'
-import type { Tarea, TareaFrecuencia } from '@/types'
 
-// Opción C: Tareas recurrentes fijas + tareas puntuales del día
-// - Recurrentes (diaria/semanal): persisten, se resetean solas
-// - Única: desaparecen al completarse
+// ── Nueva arquitectura ────────────────────────────────────────────────────────
+import { useTasks } from '@/hooks/useTasks'
+import { createTask, completeTask, deleteTask, resetRoutineTasks } from '@/features/tasks/actions'
+import type { Task, TaskType, TaskFrequency } from '@/features/tasks/types'
 
-const FRECUENCIA_CONFIG: Record<TareaFrecuencia, { label: string; color: string }> = {
-  diaria:  { label: 'Diaria',  color: 'var(--brand)' },
-  semanal: { label: 'Semanal', color: 'var(--blue)' },
-  unica:   { label: 'Puntual', color: 'var(--text-tertiary)' },
+const TIPO_CONFIG: Record<string, { label: string; color: string }> = {
+  rutina:  { label: 'Rutina',  color: 'var(--brand)'          },
+  puntual: { label: 'Puntual', color: 'var(--text-tertiary)'  },
+}
+
+// Mapeo de frecuencia a display
+const FREQ_LABEL: Record<string, string> = {
+  daily:   'Diaria',
+  weekly:  'Semanal',
+  puntual: 'Solo hoy',
 }
 
 export default function TareasPage() {
-  const params = useParams()
+  const params      = useParams()
   const workspaceId = params.workspaceId as string
-  const { user } = useAuthStore()
-  const { isVendedor, isViewerOnly } = useMemberRole(workspaceId)
+  const { isViewerOnly } = useMemberRole(workspaceId)
   const canEdit = !isViewerOnly
 
-  const [tareas, setTareas] = useState<Tarea[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [titulo, setTitulo] = useState('')
-  const [frecuencia, setFrecuencia] = useState<TareaFrecuencia>('diaria')
-  const [saving, setSaving] = useState(false)
-  const [toggling, setToggling] = useState<Set<string>>(new Set())
+  // ── NUEVA ARQUITECTURA: datos reactivos ───────────────────────────────────
+  const { tasks, rutinas, puntuales, loading } = useTasks(workspaceId)
 
-  useEffect(() => { load() }, [workspaceId])
+  const [isPending, startTransition] = useTransition()
+  const [showForm, setShowForm]  = useState(false)
+  const [titulo,   setTitulo]    = useState('')
+  const [tipo,     setTipo]      = useState<'rutina' | 'puntual'>('rutina')
+  const [frecuencia, setFrecuencia] = useState<TaskFrequency>('daily')
+  const [toggling, setToggling]  = useState<Set<string>>(new Set())
 
-  const load = async () => {
-    try {
-      const data = await getTareas(workspaceId)
-      setTareas(data)
-    } finally { setLoading(false) }
-  }
+  // Métricas
+  const rutinasCompletadas = rutinas.filter(t => t.completada).length
+  const totalRutinas       = rutinas.length
+  const progreso           = totalRutinas > 0 ? Math.round((rutinasCompletadas / totalRutinas) * 100) : 0
 
-  // Separar por tipo
-  const recurrentes = tareas.filter(t => t.frecuencia === 'diaria' || t.frecuencia === 'semanal')
-  const puntuales   = tareas.filter(t => t.frecuencia === 'unica' && !t.completada)
-  const completadasHoy = tareas.filter(t => t.completada)
+  // ── Acciones ──────────────────────────────────────────────────────────────
 
-  const totalActivas = recurrentes.length + puntuales.length
-  const completadas  = recurrentes.filter(t => t.completada).length
-  const progreso     = totalActivas > 0 ? Math.round((completadas / totalActivas) * 100) : 0
-
-  const handleToggle = async (t: Tarea) => {
+  const handleToggle = (t: Task) => {
     if (toggling.has(t.id)) return
-    const nuevaCompletada = !t.completada
-
-    // Si es puntual y se completa, la eliminamos directamente
-    if (t.frecuencia === 'unica' && nuevaCompletada) {
-      setTareas(ts => ts.filter(x => x.id !== t.id))
-      setToggling(prev => new Set(prev).add(t.id))
-      try {
-        await deleteTarea(workspaceId, t.id)
-      } catch {
-        await load()
-      } finally {
-        setToggling(prev => { const s = new Set(prev); s.delete(t.id); return s })
-      }
-      return
-    }
-
-    setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: nuevaCompletada } : x))
     setToggling(prev => new Set(prev).add(t.id))
-    try {
-      await toggleTarea(workspaceId, t.id, nuevaCompletada)
-    } catch {
-      setTareas(ts => ts.map(x => x.id === t.id ? { ...x, completada: t.completada } : x))
-    } finally {
+    startTransition(async () => {
+      await completeTask(workspaceId, t.id)
       setToggling(prev => { const s = new Set(prev); s.delete(t.id); return s })
-    }
+    })
   }
 
-  const handleAdd = async () => {
-    if (!titulo.trim() || !user) return
-    setSaving(true)
-    try {
-      await createTarea(workspaceId, {
-        workspaceId,
-        titulo: titulo.trim(),
-        frecuencia,
-        completada: false,
-        orden: tareas.length,
+  const handleDelete = (id: string) => {
+    startTransition(async () => {
+      await deleteTask(workspaceId, id)
+    })
+  }
+
+  const handleReset = () => {
+    startTransition(async () => {
+      await resetRoutineTasks(workspaceId)
+    })
+  }
+
+  const handleAdd = () => {
+    if (!titulo.trim()) return
+    startTransition(async () => {
+      await createTask(workspaceId, {
+        tipo,
+        frecuencia: tipo === 'rutina' ? frecuencia : undefined,
+        titulo:     titulo.trim(),
       })
-      await load()
       setTitulo('')
       setShowForm(false)
-    } finally { setSaving(false) }
-  }
-
-  const handleDelete = async (id: string) => {
-    setTareas(ts => ts.filter(t => t.id !== id))
-    try { await deleteTarea(workspaceId, id) }
-    catch { await load() }
-  }
-
-  // Resetear solo las recurrentes completadas
-  const handleReset = async () => {
-    const aReset = recurrentes.filter(t => t.completada)
-    setTareas(ts => ts.map(t => aReset.find(r => r.id === t.id) ? { ...t, completada: false } : t))
-    await Promise.all(aReset.map(t => toggleTarea(workspaceId, t.id, false)))
+    })
   }
 
   if (loading) return (
@@ -124,12 +93,12 @@ export default function TareasPage() {
         <div>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Tareas</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {completadas} de {recurrentes.length} recurrentes · {puntuales.length} pendientes hoy
+            {rutinasCompletadas} de {totalRutinas} rutinas · {puntuales.length} pendientes hoy
           </p>
         </div>
         <div className="flex gap-2">
-          {canEdit && recurrentes.some(t => t.completada) && (
-            <button onClick={handleReset}
+          {canEdit && rutinas.some(t => t.completada) && (
+            <button onClick={handleReset} disabled={isPending}
               className="btn-ghost text-xs gap-1"
               style={{ color: 'var(--text-tertiary)' }}>
               <RotateCcw size={13} /> Reset
@@ -143,8 +112,8 @@ export default function TareasPage() {
         </div>
       </div>
 
-      {/* Progreso solo de recurrentes */}
-      {recurrentes.length > 0 && (
+      {/* Progreso rutinas */}
+      {totalRutinas > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Rutina del día</span>
@@ -157,18 +126,17 @@ export default function TareasPage() {
               style={{ width: `${progreso}%`, background: progreso === 100 ? 'var(--green)' : 'var(--brand)' }} />
           </div>
           {progreso === 100 && (
-            <p className="text-xs font-medium mt-2 text-center" style={{ color: 'var(--green)' }}>
-              ✅ Rutina completa
-            </p>
+            <p className="text-xs font-medium mt-2 text-center" style={{ color: 'var(--green)' }}>✅ Rutina completa</p>
           )}
         </div>
       )}
 
-      {/* Tareas de hoy (puntuales) */}
+      {/* Tareas puntuales */}
       {puntuales.length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
-            style={{ color: 'var(--text-tertiary)' }}>Para hoy</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>
+            Para hoy
+          </p>
           <div className="space-y-2">
             {puntuales.map(t => (
               <TareaRow key={t.id} t={t} toggling={toggling}
@@ -178,13 +146,14 @@ export default function TareasPage() {
         </div>
       )}
 
-      {/* Rutina — recurrentes pendientes */}
-      {recurrentes.filter(t => !t.completada).length > 0 && (
+      {/* Rutinas pendientes */}
+      {rutinas.filter(t => !t.completada).length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
-            style={{ color: 'var(--text-tertiary)' }}>Rutina</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>
+            Rutina
+          </p>
           <div className="space-y-2">
-            {recurrentes.filter(t => !t.completada).map(t => (
+            {rutinas.filter(t => !t.completada).map(t => (
               <TareaRow key={t.id} t={t} toggling={toggling}
                 onToggle={handleToggle} onDelete={handleDelete} canEdit={canEdit} />
             ))}
@@ -192,13 +161,14 @@ export default function TareasPage() {
         </div>
       )}
 
-      {/* Rutina completada */}
-      {recurrentes.filter(t => t.completada).length > 0 && (
+      {/* Rutinas completadas */}
+      {rutinas.filter(t => t.completada).length > 0 && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1"
-            style={{ color: 'var(--text-tertiary)' }}>Completadas</p>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>
+            Completadas
+          </p>
           <div className="space-y-2 opacity-50">
-            {recurrentes.filter(t => t.completada).map(t => (
+            {rutinas.filter(t => t.completada).map(t => (
               <TareaRow key={t.id} t={t} toggling={toggling}
                 onToggle={handleToggle} onDelete={handleDelete} done />
             ))}
@@ -206,8 +176,8 @@ export default function TareasPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {tareas.length === 0 && (
+      {/* Empty */}
+      {tasks.length === 0 && (
         <div className="text-center py-12">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
             style={{ background: 'var(--surface-2)' }}>
@@ -247,32 +217,33 @@ export default function TareasPage() {
                 <label className="label">Tipo</label>
                 <div className="grid grid-cols-3 gap-2">
                   {([
-                    { k: 'diaria',  label: '🔄 Rutina diaria',  sub: 'Se resetea cada día' },
-                    { k: 'semanal', label: '📅 Rutina semanal', sub: 'Se resetea por semana' },
-                    { k: 'unica',   label: '⚡ Solo hoy',       sub: 'Desaparece al tildar' },
-                  ] as const).map(({ k, label, sub }) => (
-                    <button key={k} onClick={() => setFrecuencia(k)}
-                      className="flex flex-col items-center p-2.5 rounded-xl text-center transition-all"
-                      style={frecuencia === k
-                        ? { background: 'var(--brand)', border: '1.5px solid var(--brand)' }
-                        : { background: 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
-                      <span className={`text-xs font-semibold ${frecuencia === k ? 'text-white' : ''}`}
-                        style={frecuencia === k ? {} : { color: 'var(--text-primary)' }}>
-                        {label}
-                      </span>
-                      <span className={`text-[9px] mt-0.5 leading-tight ${frecuencia === k ? 'text-white/70' : ''}`}
-                        style={frecuencia === k ? {} : { color: 'var(--text-tertiary)' }}>
-                        {sub}
-                      </span>
-                    </button>
-                  ))}
+                    { k: 'rutina-daily',   tipo: 'rutina'  as const, freq: 'daily'  as const, label: '🔄 Rutina diaria',  sub: 'Se resetea cada día'    },
+                    { k: 'rutina-weekly',  tipo: 'rutina'  as const, freq: 'weekly' as const, label: '📅 Rutina semanal', sub: 'Se resetea por semana'  },
+                    { k: 'puntual',        tipo: 'puntual' as const, freq: undefined,          label: '⚡ Solo hoy',       sub: 'Desaparece al tildar'   },
+                  ]).map(({ k, tipo: t, freq, label, sub }) => {
+                    const activo = tipo === t && (t === 'puntual' || frecuencia === freq)
+                    return (
+                      <button key={k} onClick={() => { setTipo(t); if (freq) setFrecuencia(freq) }}
+                        className="flex flex-col items-center p-2.5 rounded-xl text-center transition-all"
+                        style={activo
+                          ? { background: 'var(--brand)', border: '1.5px solid var(--brand)' }
+                          : { background: 'var(--surface-2)', border: '1.5px solid var(--border)' }}>
+                        <span className="text-xs font-semibold" style={{ color: activo ? '#fff' : 'var(--text-primary)' }}>
+                          {label}
+                        </span>
+                        <span className="text-[9px] mt-0.5 leading-tight" style={{ color: activo ? 'rgba(255,255,255,0.7)' : 'var(--text-tertiary)' }}>
+                          {sub}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button onClick={handleAdd} disabled={!titulo.trim() || saving} className="btn-primary flex-1">
-                {saving ? 'Guardando...' : 'Agregar'}
+              <button onClick={handleAdd} disabled={!titulo.trim() || isPending} className="btn-primary flex-1">
+                {isPending ? 'Guardando...' : 'Agregar'}
               </button>
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
             </div>
@@ -283,15 +254,15 @@ export default function TareasPage() {
   )
 }
 
-function TareaRow({ t, toggling, onToggle, onDelete, done = false, canEdit = true }: {
-  t: Tarea
-  toggling: Set<string>
-  onToggle: (t: Tarea) => void
-  onDelete: (id: string) => void
-  done?: boolean
-  canEdit?: boolean
+function TareaRow({
+  t, toggling, onToggle, onDelete, done = false, canEdit = true,
+}: {
+  t: Task; toggling: Set<string>
+  onToggle: (t: Task) => void; onDelete: (id: string) => void
+  done?: boolean; canEdit?: boolean
 }) {
-  const cfg = FRECUENCIA_CONFIG[t.frecuencia]
+  const freqLabel = t.tipo === 'puntual' ? 'Puntual' : FREQ_LABEL[t.frecuencia ?? 'daily']
+  const color     = t.tipo === 'puntual' ? 'var(--text-tertiary)' : 'var(--brand)'
   return (
     <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
       style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -305,13 +276,13 @@ function TareaRow({ t, toggling, onToggle, onDelete, done = false, canEdit = tru
           style={{ color: done ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
           {t.titulo}
         </p>
-        <span className="text-[10px] font-semibold" style={{ color: cfg.color }}>
-          {cfg.label}
+        <span className="text-[10px] font-semibold" style={{ color }}>
+          {freqLabel}
         </span>
       </div>
       {canEdit && (
         <button onClick={() => onDelete(t.id)}
-          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
+          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg"
           style={{ color: 'var(--text-tertiary)' }}>
           <Trash2 size={14} />
         </button>
