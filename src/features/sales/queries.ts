@@ -6,7 +6,7 @@ export async function listSales(
   options: { month?: string; customerId?: string; limit?: number } = {},
 ): Promise<Sale[]> {
   let q = adminDb
-    .collection(`workspaces/${workspaceId}/sales`)
+    .collection(`workspaces/${workspaceId}/ventas`)
     .orderBy('fecha', 'desc')
     .limit(options.limit ?? 200) as FirebaseFirestore.Query
 
@@ -33,7 +33,7 @@ export async function getSaleById(
   workspaceId: string,
   saleId: string,
 ): Promise<Sale | null> {
-  const doc = await adminDb.doc(`workspaces/${workspaceId}/sales/${saleId}`).get()
+  const doc = await adminDb.doc(`workspaces/${workspaceId}/ventas/${saleId}`).get()
   if (!doc.exists) return null
   return { id: doc.id, ...doc.data() } as Sale
 }

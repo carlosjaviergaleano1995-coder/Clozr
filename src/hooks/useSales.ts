@@ -18,7 +18,7 @@ export function useSales(workspaceId: string, options: UseSalesOptions = {}) {
     if (!workspaceId) { setLoading(false); return }
 
     let q = query(
-      collection(db, `workspaces/${workspaceId}/sales`),
+      collection(db, `workspaces/${workspaceId}/ventas`),
       orderBy('fecha', 'desc'),
       limit(options.limit ?? 200),
     )

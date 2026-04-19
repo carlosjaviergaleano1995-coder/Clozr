@@ -24,7 +24,7 @@ export async function createSale(
     const { user, membership } = await requireMembership(workspaceId)
     requirePermission(membership.role, 'sale:create')
 
-    const ref = adminDb.collection(`workspaces/${workspaceId}/sales`).doc()
+    const ref = adminDb.collection(`workspaces/${workspaceId}/ventas`).doc()
 
     const batch = adminDb.batch()
 
@@ -85,7 +85,7 @@ export async function markSalePaid(
     const { user, membership } = await requireMembership(workspaceId)
     requirePermission(membership.role, 'sale:update')
 
-    await adminDb.doc(`workspaces/${workspaceId}/sales/${saleId}`).update({
+    await adminDb.doc(`workspaces/${workspaceId}/ventas/${saleId}`).update({
       pagado:   true,
       pagadoAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

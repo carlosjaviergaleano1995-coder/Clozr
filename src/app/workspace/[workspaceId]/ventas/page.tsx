@@ -1,230 +1,293 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useParams } from 'next/navigation'
-import { Plus, TrendingUp, DollarSign, CheckCircle, Clock } from 'lucide-react'
-import { getVentas, createVenta, getClientes, toDate } from '@/lib/services'
-import { useAuthStore } from '@/store'
-import type { Venta, Cliente, VentaEstado } from '@/types'
+import { Plus, TrendingUp, CheckCircle, Clock } from 'lucide-react'
+import { useMemberRole } from '@/hooks/useMemberRole'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const ESTADO_CONFIG: Record<VentaEstado, { label: string; class: string }> = {
-  presupuesto: { label: 'Presupuesto', class: 'badge-gray' },
-  pendiente:   { label: 'Pendiente',   class: 'badge-amber' },
-  cerrada:     { label: 'Cerrada ✅',  class: 'badge-green' },
-  cancelada:   { label: 'Cancelada',   class: 'badge-red' },
-}
+// ── Nueva arquitectura ────────────────────────────────────────────────────────
+import { useSales } from '@/hooks/useSales'
+import { useCustomers } from '@/hooks/useCustomers'
+import { createSale } from '@/features/sales/actions'
+import type { Sale } from '@/features/sales/types'
 
 const FORMAS_PAGO = ['Efectivo USD', 'Efectivo ARS', 'USDT', 'Transferencia ARS', 'Tarjeta', 'Cuotas', 'Otro']
 
-export default function VentasPage() {
-  const params = useParams()
-  const workspaceId = params.workspaceId as string
-  const { user } = useAuthStore()
+const fmt = (n: number, moneda = 'USD') =>
+  moneda === 'USD'
+    ? `U$S ${n.toLocaleString('es-AR')}`
+    : `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
-  const [ventas, setVentas] = useState<Venta[]>([])
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
+export default function VentasPage() {
+  const params      = useParams()
+  const workspaceId = params.workspaceId as string
+  const { isViewerOnly } = useMemberRole(workspaceId)
+  const canCreate   = !isViewerOnly
+
+  // ── Datos reactivos ──────────────────────────────────────────────────────
+  const { sales, thisMonthSales, totalThisMonth, loading } = useSales(workspaceId)
+  const { customers } = useCustomers(workspaceId)
+
+  const [isPending, startTransition] = useTransition()
+  const [showForm,  setShowForm]     = useState(false)
+  const [error,     setError]        = useState<string | null>(null)
 
   const [form, setForm] = useState({
-    clienteId: '', clienteNombre: '',
-    total: 0, moneda: 'USD' as 'USD' | 'ARS',
-    formaPago: 'Efectivo USD',
-    estado: 'cerrada' as VentaEstado,
-    notas: '',
+    clienteId:   '',
+    clienteNombre: '',
+    total:       0,
+    moneda:      'USD' as 'USD' | 'ARS',
+    formaPago:   'Efectivo USD',
+    pagado:      true,
+    notas:       '',
   })
 
-  useEffect(() => { load() }, [workspaceId])
+  const handleSave = () => {
+    if (!form.total) return
+    setError(null)
 
-  const load = async () => {
-    try {
-      const [v, c] = await Promise.all([getVentas(workspaceId), getClientes(workspaceId)])
-      setVentas(v)
-      setClientes(c)
-    } finally { setLoading(false) }
-  }
+    const cliente = customers.find(c => c.id === form.clienteId)
+    const customerName = cliente?.nombre || form.clienteNombre || 'Sin cliente'
 
-  // Métricas
-  const now = new Date()
-  const ventasMes = ventas.filter(v => {
-    const fecha = toDate(v.createdAt)
-    return fecha.getMonth() === now.getMonth() && fecha.getFullYear() === now.getFullYear() && v.estado === 'cerrada'
-  })
-  const totalMes = ventasMes.reduce((acc, v) => acc + v.total, 0)
-
-  const fmt = (n: number, moneda = 'USD') =>
-    moneda === 'USD' ? `U$S ${n.toLocaleString('es-AR')}` : `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-
-  const handleSave = async () => {
-    if (!form.total || !user) return
-    setSaving(true)
-    try {
-      const clienteSeleccionado = clientes.find(c => c.id === form.clienteId)
-      await createVenta(workspaceId, {
-        workspaceId,
-        clienteId: form.clienteId,
-        clienteNombre: clienteSeleccionado?.nombre ?? form.clienteNombre,
-        items: [],
-        subtotal: form.total,
-        total: form.total,
-        moneda: form.moneda,
+    startTransition(async () => {
+      const result = await createSale(workspaceId, {
+        customerId:   form.clienteId || undefined,
+        customerName,
+        items: [{
+          descripcion:    customerName,
+          cantidad:       1,
+          precioUnitario: form.total,
+          subtotal:       form.total,
+        }],
+        subtotal:  form.total,
+        total:     form.total,
+        currency:  form.moneda,
         formaPago: form.formaPago,
-        estado: form.estado,
-        notas: form.notas,
-        creadoPor: user.uid,
+        pagado:    form.pagado,
+        notas:     form.notas || undefined,
+        fecha:     new Date(),
       })
-      await load()
+
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+
       setShowForm(false)
-      setForm({ clienteId: '', clienteNombre: '', total: 0, moneda: 'USD', formaPago: 'Efectivo USD', estado: 'cerrada', notas: '' })
-    } finally { setSaving(false) }
+      setForm({ clienteId: '', clienteNombre: '', total: 0, moneda: 'USD', formaPago: 'Efectivo USD', pagado: true, notas: '' })
+    })
   }
 
   if (loading) return (
     <div className="space-y-3 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-20 bg-[var(--surface-3)] rounded-2xl animate-pulse" />)}
+      {[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
     </div>
   )
 
   return (
     <div className="space-y-4 animate-fade-in">
+
       {/* Header */}
       <div className="flex items-center justify-between pt-1">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Ventas</h2>
-          <p className="text-[var(--text-secondary)] text-xs mt-0.5">{ventasMes.length} cerradas este mes</p>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Ventas</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+            {thisMonthSales.length} este mes · {sales.length} total
+          </p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary">
-          <Plus size={16} /> Registrar
-        </button>
+        {canCreate && (
+          <button onClick={() => setShowForm(true)} className="btn-primary gap-1">
+            <Plus size={15} /> Registrar
+          </button>
+        )}
       </div>
 
       {/* Métricas del mes */}
       <div className="grid grid-cols-2 gap-3">
         <div className="card">
-          <p className="text-xs text-[var(--text-secondary)] mb-1">Ventas del mes</p>
-          <p className="text-2xl font-bold text-[var(--text-primary)]">{ventasMes.length}</p>
+          <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Ventas del mes</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{thisMonthSales.length}</p>
         </div>
         <div className="card">
-          <p className="text-xs text-[var(--text-secondary)] mb-1">Total facturado</p>
-          <p className="text-base font-bold text-[var(--text-primary)] leading-tight">{fmt(totalMes)}</p>
+          <p className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>Total facturado</p>
+          <p className="text-base font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
+            {fmt(totalThisMonth)}
+          </p>
         </div>
       </div>
 
-      {/* Lista de ventas */}
+      {/* Lista */}
       <div className="space-y-2">
-        {ventas.length === 0 ? (
-          <div className="empty-state mt-6">
-            <div className="empty-icon"><TrendingUp size={22} className="text-[var(--text-tertiary)]" /></div>
-            <p className="text-[var(--text-secondary)] text-sm font-medium">Sin ventas registradas</p>
-            <p className="text-[var(--text-tertiary)] text-xs mt-1">Registrá tu primera venta cuando cierres</p>
-          </div>
-        ) : ventas.map(v => {
-          const fecha = toDate(v.createdAt)
-          return (
-            <div key={v.id} className="card">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${v.estado === 'cerrada' ? 'bg-[var(--green-bg)]' : 'bg-[var(--amber-bg)]'}`}>
-                    {v.estado === 'cerrada'
-                      ? <CheckCircle size={16} className="text-[var(--green)]" />
-                      : <Clock size={16} className="text-[var(--amber)]" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-primary)]">{v.clienteNombre || 'Sin cliente'}</p>
-                    <p className="text-xs text-[var(--text-tertiary)]">
-                      {format(fecha, 'dd/MM/yyyy')} · {v.formaPago}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-[var(--text-primary)]">{fmt(v.total, v.moneda)}</p>
-                  <span className={`badge ${ESTADO_CONFIG[v.estado].class} mt-0.5`}>
-                    {ESTADO_CONFIG[v.estado].label}
-                  </span>
-                </div>
-              </div>
-              {v.notas && <p className="text-xs text-[var(--text-tertiary)] mt-2 pt-2 border-t border-[var(--border)]">{v.notas}</p>}
+        {sales.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+              style={{ background: 'var(--surface-2)' }}>
+              <TrendingUp size={22} style={{ color: 'var(--text-tertiary)' }} />
             </div>
-          )
-        })}
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Sin ventas registradas</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              Registrá tu primera venta cuando cierres
+            </p>
+          </div>
+        ) : (
+          sales.map(v => <VentaCard key={v.id} venta={v} />)
+        )}
       </div>
 
-      {/* Modal */}
+      {/* Modal nueva venta */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[var(--surface)] rounded-2xl shadow-modal overflow-y-auto max-h-[90vh] animate-slide-up">
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-[var(--text-primary)]">Registrar venta</h3>
-                <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowForm(false)}>
+          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up max-h-[90vh] overflow-y-auto"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Registrar venta</h3>
+              <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
+            </div>
+
+            {error && (
+              <div className="mb-3 px-3 py-2 rounded-xl text-xs"
+                style={{ background: 'var(--red-bg)', color: 'var(--brand-light)' }}>
+                {error}
               </div>
-              <div className="space-y-3">
-                {/* Cliente */}
-                <div>
-                  <label className="label">Cliente</label>
-                  {clientes.length > 0 ? (
-                    <select className="input" value={form.clienteId}
-                      onChange={e => setForm(f => ({...f, clienteId: e.target.value}))}>
-                      <option value="">Sin cliente / Ocasional</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
-                  ) : (
-                    <input className="input" placeholder="Nombre del cliente" value={form.clienteNombre}
-                      onChange={e => setForm(f => ({...f, clienteNombre: e.target.value}))} />
-                  )}
-                </div>
-                {/* Monto */}
-                <div>
-                  <label className="label">Monto total</label>
-                  <div className="flex gap-2">
-                    <select className="input w-24 flex-shrink-0" value={form.moneda}
-                      onChange={e => setForm(f => ({...f, moneda: e.target.value as 'USD' | 'ARS'}))}>
-                      <option value="USD">USD</option>
-                      <option value="ARS">ARS</option>
-                    </select>
-                    <input className="input flex-1" type="number" min="0" placeholder="720"
-                      value={form.total || ''} onChange={e => setForm(f => ({...f, total: Number(e.target.value)}))} />
-                  </div>
-                </div>
-                {/* Forma de pago */}
-                <div>
-                  <label className="label">Forma de pago</label>
-                  <select className="input" value={form.formaPago}
-                    onChange={e => setForm(f => ({...f, formaPago: e.target.value}))}>
-                    {FORMAS_PAGO.map(fp => <option key={fp}>{fp}</option>)}
-                  </select>
-                </div>
-                {/* Estado */}
-                <div>
-                  <label className="label">Estado</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {(['cerrada', 'pendiente', 'presupuesto'] as VentaEstado[]).map(est => (
-                      <button key={est} onClick={() => setForm(f => ({...f, estado: est}))}
-                        className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${form.estado === est ? 'bg-[var(--surface-3)] text-white' : 'bg-[var(--surface-2)] text-[var(--text-secondary)]'}`}>
-                        {ESTADO_CONFIG[est].label}
-                      </button>
+            )}
+
+            <div className="space-y-3">
+              {/* Cliente */}
+              <div>
+                <label className="label">Cliente</label>
+                {customers.length > 0 ? (
+                  <select className="input text-sm" value={form.clienteId}
+                    onChange={e => setForm(f => ({ ...f, clienteId: e.target.value }))}>
+                    <option value="">Sin cliente / Ocasional</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
                     ))}
-                  </div>
-                </div>
-                {/* Notas */}
-                <div>
-                  <label className="label">Notas</label>
-                  <textarea className="input resize-none" rows={2} placeholder="Detalles, modelo, observaciones..."
-                    value={form.notas} onChange={e => setForm(f => ({...f, notas: e.target.value}))} />
+                  </select>
+                ) : (
+                  <input className="input text-sm" placeholder="Nombre del cliente"
+                    value={form.clienteNombre}
+                    onChange={e => setForm(f => ({ ...f, clienteNombre: e.target.value }))} />
+                )}
+              </div>
+
+              {/* Monto */}
+              <div>
+                <label className="label">Monto total</label>
+                <div className="flex gap-2">
+                  <select className="input text-sm w-24 flex-shrink-0" value={form.moneda}
+                    onChange={e => setForm(f => ({ ...f, moneda: e.target.value as 'USD' | 'ARS' }))}>
+                    <option value="USD">USD</option>
+                    <option value="ARS">ARS</option>
+                  </select>
+                  <input type="number" min="0" className="input text-sm flex-1"
+                    placeholder="0"
+                    value={form.total || ''}
+                    onChange={e => setForm(f => ({ ...f, total: Number(e.target.value) }))} />
                 </div>
               </div>
-              <div className="flex gap-2 mt-5">
-                <button onClick={handleSave} disabled={!form.total || saving} className="btn-primary flex-1">
-                  {saving ? 'Guardando...' : 'Registrar venta'}
-                </button>
-                <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
+
+              {/* Forma de pago */}
+              <div>
+                <label className="label">Forma de pago</label>
+                <select className="input text-sm" value={form.formaPago}
+                  onChange={e => setForm(f => ({ ...f, formaPago: e.target.value }))}>
+                  {FORMAS_PAGO.map(fp => <option key={fp}>{fp}</option>)}
+                </select>
               </div>
+
+              {/* Pagado */}
+              <div>
+                <label className="label">Estado del pago</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: true,  label: '✅ Pagado'   },
+                    { value: false, label: '⏳ Pendiente' },
+                  ].map(opt => (
+                    <button key={String(opt.value)} onClick={() => setForm(f => ({ ...f, pagado: opt.value }))}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={form.pagado === opt.value
+                        ? { background: 'var(--brand)', color: '#fff' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label className="label">Notas</label>
+                <textarea className="input text-sm resize-none" rows={2}
+                  placeholder="Detalles, modelo, observaciones..."
+                  value={form.notas}
+                  onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <button onClick={handleSave} disabled={!form.total || isPending}
+                className="btn-primary flex-1">
+                {isPending ? 'Guardando...' : 'Registrar venta'}
+              </button>
+              <button onClick={() => setShowForm(false)} className="btn-secondary">Cancelar</button>
             </div>
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Card de venta ─────────────────────────────────────────────────────────────
+
+function VentaCard({ venta }: { venta: Sale }) {
+  const fecha = venta.fecha instanceof Date ? venta.fecha : new Date()
+  const esPagada = venta.pagado
+
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+            style={{ background: esPagada ? 'var(--green-bg)' : 'var(--amber-bg)' }}>
+            {esPagada
+              ? <CheckCircle size={16} style={{ color: 'var(--green)' }} />
+              : <Clock size={16} style={{ color: 'var(--amber)' }} />
+            }
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {venta.customerName || 'Sin cliente'}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              {format(fecha, 'dd/MM/yyyy', { locale: es })} · {venta.formaPago}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+            {venta.currency === 'USD'
+              ? `U$S ${venta.total.toLocaleString('es-AR')}`
+              : `$${venta.total.toLocaleString('es-AR')}`}
+          </p>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold mt-0.5 inline-block"
+            style={esPagada
+              ? { background: 'var(--green-bg)', color: 'var(--green)' }
+              : { background: 'var(--amber-bg)', color: 'var(--amber)' }}>
+            {esPagada ? 'Pagado' : 'Pendiente'}
+          </span>
+        </div>
+      </div>
+      {venta.notas && (
+        <p className="text-xs mt-2 pt-2 border-t" style={{ borderColor: 'var(--border)', color: 'var(--text-tertiary)' }}>
+          {venta.notas}
+        </p>
       )}
     </div>
   )
