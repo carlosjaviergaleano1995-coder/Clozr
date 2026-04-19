@@ -27,7 +27,7 @@ export function derivarTipo(config: WorkspaceConfig): WorkspaceType {
 // Inicio y Más son invariantes — el usuario nunca pierde el hub ni el menú.
 
 export function derivarNav(config: WorkspaceConfig): NavItem[] {
-  const inicio: NavItem = { id: 'inicio', label: 'Inicio', icon: Home }
+  const inicio: NavItem = { id: 'hoy', label: 'Inicio', icon: Home }
   const mas:    NavItem = { id: '__mas',  label: 'Más',    icon: MoreHorizontal, isMore: true }
 
   // Verisure

@@ -89,11 +89,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   const masItems = derivarMas(config as any)
 
   // Detectar tab activo
-  // /inicio y /hoy son equivalentes — ambos activan el tab Inicio
+  // Tab Inicio tiene id='hoy' — la ruta real es /hoy
+  // /inicio redirige a /hoy (ver inicio/page.tsx)
   const activeTab = (() => {
-    // /hoy → Inicio
-    if (pathname === `/workspace/${workspaceId}/hoy`) return 'inicio'
-
     for (const item of navItems) {
       if (item.isMore) continue
       const base     = item.id.split('?')[0]
@@ -102,7 +100,9 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
         return item.id
       }
     }
-    return 'inicio'
+    // Fallback: /inicio también activa el tab hoy
+    if (pathname.endsWith('/inicio')) return 'hoy'
+    return 'hoy'
   })()
 
   if (!displayWs) return (
