@@ -15,7 +15,7 @@ import type { PipelineItem } from '@/features/pipeline/types'
 // Plantillas y seña: sin equivalente canónico aún — se mantienen con servicios legacy
 import { agregarMovimientoCaja, getPlantillas } from '@/lib/services'
 import type { PlantillaMensaje } from '@/types'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { toDate } from '@/lib/utils'
 import { fmtARS, fmtUSD } from '@/lib/format'
@@ -317,106 +317,213 @@ export default function ClientesPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  // ── Status config ─────────────────────────────────────────────────────────
+  const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    activo:    { label: 'Activo',    color: 'var(--green)',        bg: 'var(--green-bg)'   },
+    potencial: { label: 'Potencial', color: 'var(--blue)',         bg: 'var(--blue-bg)'    },
+    dormido:   { label: 'Dormido',   color: 'var(--amber)',        bg: 'var(--amber-bg)'   },
+    inactivo:  { label: 'Inactivo',  color: 'var(--text-tertiary)',bg: 'var(--surface-3)'  },
+    perdido:   { label: 'Perdido',   color: 'var(--brand-light)',  bg: 'var(--red-bg)'     },
+  }
+
+  function iniciales(nombre: string) {
+    return nombre.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+  }
+
   if (loading) return (
-    <div className="space-y-2 mt-2">
-      {[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl animate-pulse" style={{ background: 'var(--surface-2)' }} />)}
+    <div className="space-y-3 pt-1 pb-6 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1.5">
+          <div className="h-6 w-24 rounded-lg" style={{ background: 'var(--surface-2)' }} />
+          <div className="h-3.5 w-20 rounded" style={{ background: 'var(--surface-2)' }} />
+        </div>
+        <div className="h-9 w-24 rounded-xl" style={{ background: 'var(--surface-2)' }} />
+      </div>
+      <div className="h-10 rounded-xl" style={{ background: 'var(--surface-2)' }} />
+      <div className="flex gap-2">
+        {[80,70,90].map((w,i) => <div key={i} className="h-8 rounded-full flex-shrink-0" style={{ background: 'var(--surface-2)', width: `${w}px` }} />)}
+      </div>
+      {[1,2,3,4,5].map(i => (
+        <div key={i} className="h-[70px] rounded-2xl" style={{ background: 'var(--surface-2)' }} />
+      ))}
     </div>
   )
 
   return (
-    <div className="space-y-3 animate-fade-in pb-4">
+    <div className="animate-fade-in pb-6" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between pt-1">
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: '4px' }}>
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Clientes</h2>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-            {customers.filter(c => c.estado === 'activo').length} activos · {customers.length} total
+          <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.4px' }}>
+            Clientes
+          </h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+            {customers.filter(c => c.estado === 'activo').length} activos
+            <span style={{ margin: '0 6px', opacity: 0.4 }}>·</span>
+            {customers.length} total
           </p>
         </div>
         {canEdit && (
-          <button onClick={abrirNuevo} className="btn-primary gap-1 text-sm">
-            <Plus size={15} /> Agregar
+          <button
+            onClick={abrirNuevo}
+            className="btn-primary press"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 13px', borderRadius: '12px' }}
+          >
+            <Plus size={13} /> Nuevo
           </button>
         )}
       </div>
 
-      {/* Filtros tipo */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4">
-        <button onClick={() => setFiltroTipo('todos')}
-          className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-          style={filtroTipo === 'todos'
-            ? { background: 'var(--brand)', color: '#fff' }
-            : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-          Todos ({customers.length})
-        </button>
-        {tiposDisponibles.map(t => {
-          const count = customers.filter(c => c.tipo === t.id).length
+      {/* ── SEARCH ─────────────────────────────────────────────────────────── */}
+      <div style={{ position: 'relative' }}>
+        <Search
+          size={14}
+          style={{
+            position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+            color: 'var(--text-tertiary)', pointerEvents: 'none',
+          }}
+        />
+        <input
+          className="input"
+          placeholder="Buscar por nombre, teléfono..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ paddingLeft: '36px', fontSize: '14px' }}
+        />
+      </div>
+
+      {/* ── TYPE FILTER TABS ───────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px',
+        marginLeft: '-16px', marginRight: '-16px', paddingLeft: '16px', paddingRight: '16px',
+      }}>
+        {[{ id: 'todos' as const, label: 'Todos', count: customers.length }, ...tiposDisponibles.map(t => ({
+          id: t.id as CustomerType | 'todos',
+          label: t.label,
+          count: customers.filter(c => c.tipo === t.id).length,
+        }))].map(tab => {
+          const isActive = filtroTipo === tab.id
           return (
-            <button key={t.id} onClick={() => setFiltroTipo(t.id)}
-              className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-              style={filtroTipo === t.id
-                ? { background: 'var(--brand)', color: '#fff' }
-                : { background: 'var(--surface-2)', color: 'var(--text-tertiary)', border: '1px solid var(--border)' }}>
-              {t.label} ({count})
+            <button
+              key={tab.id}
+              onClick={() => setFiltroTipo(tab.id as CustomerType | 'todos')}
+              style={{
+                flexShrink: 0, padding: '6px 12px', borderRadius: '20px',
+                fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap',
+                background: isActive ? 'var(--brand)' : 'var(--surface)',
+                color:      isActive ? '#fff' : 'var(--text-secondary)',
+                border:     isActive ? 'none' : '1px solid var(--border)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab.label}
+              {!isActive && tab.count > 0 && (
+                <span style={{ marginLeft: '4px', opacity: 0.55 }}>({tab.count})</span>
+              )}
             </button>
           )
         })}
       </div>
 
-      {/* Búsqueda */}
-      <div className="relative">
-        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-        <input className="input pl-8 text-sm" placeholder="Buscar por nombre, teléfono..."
-          value={search} onChange={e => setSearch(e.target.value)} />
-      </div>
-
-      {/* Lista */}
+      {/* ── CLIENT LIST ────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+        <div style={{ textAlign: 'center', padding: '48px 0' }}>
+          <p style={{ fontSize: '32px', marginBottom: '12px' }}>
+            {customers.length === 0 ? '👥' : '🔍'}
+          </p>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
             {customers.length === 0 ? 'Sin clientes todavía' : 'Sin resultados'}
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-            {customers.length === 0 ? 'Tocá + Agregar para cargar el primero' : 'Probá otro filtro'}
+          <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+            {customers.length === 0
+              ? 'Tocá Nuevo para agregar el primero'
+              : 'Probá con otro filtro o término de búsqueda'
+            }
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {filtered.map(c => {
-            const tipo   = tiposDisponibles.find(t => t.id === c.tipo)
-            const estado = ESTADOS.find(e => e.id === c.estado)
-            // ventas del cliente mostradas en el detalle — aquí no tenemos el customerId directamente
+            const tipo      = tiposDisponibles.find(t => t.id === c.tipo)
+            const statusCfg = STATUS_CONFIG[c.estado] ?? STATUS_CONFIG.potencial
+
             return (
-              <button key={c.id} onClick={() => abrirDetalle(c)}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-base font-bold"
-                  style={{ background: tipo?.bg ?? 'var(--surface-2)', color: tipo?.color ?? 'var(--text-secondary)' }}>
-                  {c.nombre.charAt(0).toUpperCase()}
+              <button
+                key={c.id}
+                onClick={() => abrirDetalle(c)}
+                className="press"
+                style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '16px',
+                  padding: '13px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                {/* Avatar with initials */}
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  background: tipo?.bg ?? 'var(--surface-2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '13px', fontWeight: 700,
+                  color: tipo?.color ?? 'var(--text-secondary)',
+                  flexShrink: 0,
+                  border: `1px solid ${tipo?.color ?? 'var(--border)'}30`,
+                }}>
+                  {iniciales(c.nombre)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{c.nombre}</span>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {c.nombre}
+                    </span>
                     {tipo && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                        style={{ background: tipo.bg, color: tipo.color }}>
+                      <span style={{
+                        fontSize: '10px', fontWeight: 700, padding: '1px 6px',
+                        borderRadius: '20px', background: tipo.bg, color: tipo.color,
+                      }}>
                         {tipo.label}
                       </span>
                     )}
-                    <span className="text-[10px]">{estado?.emoji}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {c.telefono && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{c.telefono}</span>}
-  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
+                    <span style={{
+                      width: '6px', height: '6px', borderRadius: '50%',
+                      background: statusCfg.color, flexShrink: 0,
+                      opacity: 0.8,
+                    }} />
+                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                      {statusCfg.label}
+                    </span>
+                    {c.barrio && (
+                      <>
+                        <span style={{ color: 'var(--text-tertiary)', opacity: 0.4, fontSize: '10px' }}>·</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{c.barrio}</span>
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+
+                {/* Right: WA + chevron */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                   {c.telefono && (
-                    <a href={`https://wa.me/54${c.telefono.replace(/\D/g,'')}`} target="_blank"
+                    <a
+                      href={`https://wa.me/54${c.telefono.replace(/\D/g, '')}`}
+                      target="_blank"
                       onClick={e => e.stopPropagation()}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center"
-                      style={{ background: 'var(--green-bg)', color: 'var(--green)' }}>
+                      style={{
+                        width: '30px', height: '30px', borderRadius: '10px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'var(--green-bg)', color: 'var(--green)',
+                      }}
+                    >
                       <MessageCircle size={14} />
                     </a>
                   )}
@@ -428,242 +535,362 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ── Modal detalle ─────────────────────────────────────────────────── */}
-      {detalle && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={() => { setDetalle(null); setDetalleClienteId(null) }}>
-          <div className="w-full max-w-md rounded-2xl animate-slide-up max-h-[92vh] overflow-y-auto"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            onClick={e => e.stopPropagation()}>
+      {/* ── DETALLE SHEET ────────────────────────────────────────────────── */}
+      {detalle && (() => {
+        const tipo      = tiposDisponibles.find(t => t.id === detalle.tipo)
+        const statusCfg = STATUS_CONFIG[detalle.estado] ?? STATUS_CONFIG.potencial
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
+            onClick={() => { setDetalle(null); setDetalleClienteId(null) }}
+          >
+            <div
+              className="w-full max-w-md animate-slide-up"
+              style={{
+                background: 'var(--surface)', border: '1px solid var(--border-strong)',
+                borderRadius: '24px', maxHeight: '90vh', overflowY: 'auto',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+                <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: 'var(--border-strong)' }} />
+              </div>
 
-            <div className="px-5 pt-5 pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold"
-                    style={{ background: tiposDisponibles.find(t => t.id === detalle.tipo)?.bg ?? 'var(--surface-2)' }}>
-                    {detalle.nombre.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>{detalle.nombre}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                      {tiposDisponibles.find(t => t.id === detalle.tipo) && (() => {
-                        const t = tiposDisponibles.find(x => x.id === detalle.tipo)!
-                        return <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: t.bg, color: t.color }}>{t.label}</span>
-                      })()}
-                      <span className="text-[10px]">{ESTADOS.find(e => e.id === detalle.estado)?.emoji} {ESTADOS.find(e => e.id === detalle.estado)?.label}</span>
+              {/* Hero header */}
+              <div style={{ padding: '8px 20px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div style={{
+                      width: '52px', height: '52px', borderRadius: '50%',
+                      background: tipo?.bg ?? 'var(--surface-2)',
+                      border: `1px solid ${tipo?.color ?? 'var(--border)'}30`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '16px', fontWeight: 800,
+                      color: tipo?.color ?? 'var(--text-secondary)',
+                      flexShrink: 0,
+                    }}>
+                      {iniciales(detalle.nombre)}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                        {detalle.nombre}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '5px', flexWrap: 'wrap' }}>
+                        {tipo && (
+                          <span style={{
+                            fontSize: '11px', fontWeight: 700, padding: '2px 8px',
+                            borderRadius: '20px', background: tipo.bg, color: tipo.color,
+                          }}>
+                            {tipo.label}
+                            {'desc' in tipo ? ` — ${(tipo as any).desc}` : ''}
+                          </span>
+                        )}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusCfg.color }} />
+                          <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{statusCfg.label}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <button onClick={() => { setDetalle(null); setDetalleClienteId(null) }} className="btn-icon">✕</button>
-              </div>
-
-              {/* Acciones rápidas */}
-              <div className="flex gap-2 mt-3 flex-wrap">
-                {detalle.telefono && (
-                  <a href={`https://wa.me/54${detalle.telefono.replace(/\D/g,'')}`} target="_blank"
-                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'var(--green-bg)', color: 'var(--green)', border: '1px solid var(--green)' }}>
-                    <MessageCircle size={15} /> WA
-                  </a>
-                )}
-                {detalle.telefono && plantillas.length > 0 && (
-                  <button onClick={() => { setPlantillaCliente(detalle); setShowPlantillas(true) }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid var(--blue)' }}>
-                    <MessageCircle size={15} /> Plantilla
-                  </button>
-                )}
-                {detalle.direccion && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detalle.direccion)}`}
-                    target="_blank"
-                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7', border: '1px solid #a855f7' }}>
-                    <MapPin size={15} /> Maps
-                  </a>
-                )}
-                {canEdit && (
-                  <button onClick={() => { setSenaCliente(detalle); setSenaDesc(''); setSenaMonto(0); setShowSena(true) }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
-                    <DollarSign size={15} /> Seña
-                  </button>
-                )}
-                {canEdit && (
-                  <button onClick={() => { abrirEditar(detalle); setDetalle(null) }}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold"
-                    style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                    <Pencil size={15} />
-                  </button>
-                )}
-                {canDelete && (
-                  <button onClick={() => handleDelete(detalle.id)}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl"
-                    style={{ background: 'var(--red-bg)', color: 'var(--brand-light)' }}>
-                    <Trash2 size={15} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)' }} />
-
-            {/* Info */}
-            <div className="px-5 py-3 space-y-2">
-              {detalle.telefono && <div className="flex items-center gap-2"><Phone size={13} style={{ color: 'var(--text-tertiary)' }} /><span className="text-sm">{detalle.telefono}</span></div>}
-              {detalle.direccion && <div className="flex items-start gap-2"><MapPin size={13} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} /><span className="text-sm">{detalle.direccion}</span></div>}
-              {detalle.barrio && <div className="flex items-center gap-2"><span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Barrio:</span><span className="text-sm">{detalle.barrio}</span></div>}
-              {detalle.dni && <div className="flex items-center gap-2"><span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>DNI:</span><span className="text-sm">{detalle.dni}</span></div>}
-              {detalle.referido && <div className="flex items-center gap-2"><span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Referido por:</span><span className="text-sm">{detalle.referido}</span></div>}
-              {detalle.email && <div className="flex items-center gap-2"><span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Email:</span><span className="text-sm">{detalle.email}</span></div>}
-              {detalle.notas && <p className="text-xs italic px-1" style={{ color: 'var(--text-tertiary)' }}>{detalle.notas}</p>}
-            </div>
-
-            {/* Cambiar estado */}
-            <div className="px-5 pb-3">
-              <p className="section-label mb-2" style={{ color: 'var(--text-tertiary)' }}>Estado</p>
-              <div className="flex gap-1.5 flex-wrap">
-                {ESTADOS.map(e => (
-                  <button key={e.id} onClick={() => cambiarEstado(detalle, e.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
-                    style={detalle.estado === e.id
-                      ? { background: 'var(--brand)', color: '#fff' }
-                      : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                    {e.emoji} {e.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)' }} />
-
-            {/* Historial de compras (no-Verisure) */}
-            {!esVerisure && (
-              <div className="px-5 py-3">
-                <p className="section-label mb-2" style={{ color: 'var(--text-tertiary)' }}>Historial de compras</p>
-                {ventasDelCliente.length === 0 ? (
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
-                ) : (
-                  <div className="space-y-2">
-                    {ventasDelCliente.slice(0, 8).map(v => (
-                      <div key={v.id} className="px-3 py-2 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono" style={{ color: 'var(--brand-light)' }}>{v.id.slice(-6).toUpperCase()}</span>
-                          <span className="text-xs font-bold" style={{ color: 'var(--green)' }}>
-                            {v.currency === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
-                          </span>
-                        </div>
-                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                          {format(v.createdAt, 'd MMM yyyy · HH:mm', { locale: es })}
-                        </p>
-                        <div className="mt-1 space-y-0.5">
-                          {v.items.map((item, i) => (
-                            <p key={i} className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                              {item.cantidad}× {item.descripcion}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Pipeline Verisure */}
-            {esVerisure && (
-              <>
-                <div style={{ borderTop: '1px solid var(--border)' }} />
-                <div className="px-5 py-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Seguimiento</p>
-                    {loadingPipeline && <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Cargando...</span>}
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {([
-                      { id: 'prospecto', label: 'Prospecto', emoji: '🎯' },
-                      { id: 'contactado', label: 'Contactado', emoji: '📞' },
-                      { id: 'visita_agendada', label: 'Visita', emoji: '📅' },
-                      { id: 'presupuestado', label: 'Presupuestado', emoji: '💰' },
-                      { id: 'aprobado', label: 'Aprobado', emoji: '✅' },
-                      { id: 'instalado', label: 'Instalado', emoji: '🛡️' },
-                      { id: 'cobrado', label: 'Cobrado', emoji: '💵' },
-                      { id: 'perdido', label: 'Perdido', emoji: '❌' },
-                    ] as { id: string; label: string; emoji: string }[]).map(e => (
-                      <button key={e.id} onClick={() => cambiarEstadoPipeline(e.id)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
-                        style={pipelineItem?.stageId === e.id
-                          ? { background: 'var(--brand)', color: '#fff' }
-                          : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                        {e.emoji} {e.label}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => { setDetalle(null); setDetalleClienteId(null) }}
+                    className="btn-icon"
+                    style={{ marginTop: '2px' }}
+                  >✕</button>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--border)' }} />
-                <div className="px-5 py-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Historial de visitas</p>
-                    <button onClick={() => { setShowNota(true); setNotaTexto(''); setNotaProximoPaso(''); setNotaResultado('neutro') }}
-                      className="text-[10px] px-2 py-1 rounded-lg font-semibold"
-                      style={{ background: 'var(--brand)', color: '#fff' }}>
-                      + Agregar
+                {/* Quick action bar */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+                  {detalle.telefono && (
+                    <a href={`https://wa.me/54${detalle.telefono.replace(/\D/g, '')}`} target="_blank"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '8px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 600,
+                        background: 'var(--green-bg)', color: 'var(--green)',
+                        border: '1px solid rgba(48,209,88,0.25)', textDecoration: 'none',
+                      }}>
+                      <MessageCircle size={14} /> WhatsApp
+                    </a>
+                  )}
+                  {detalle.telefono && plantillas.length > 0 && (
+                    <button onClick={() => { setPlantillaCliente(detalle); setShowPlantillas(true) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '8px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 600,
+                        background: 'var(--blue-bg)', color: 'var(--blue)',
+                        border: '1px solid rgba(10,132,255,0.25)',
+                      }}>
+                      <MessageCircle size={14} /> Plantilla
                     </button>
+                  )}
+                  {detalle.direccion && (
+                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detalle.direccion)}`}
+                      target="_blank"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '8px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 600,
+                        background: 'rgba(168,85,247,0.1)', color: '#a855f7',
+                        border: '1px solid rgba(168,85,247,0.25)', textDecoration: 'none',
+                      }}>
+                      <MapPin size={14} /> Maps
+                    </a>
+                  )}
+                  {canEdit && (
+                    <button onClick={() => { setSenaCliente(detalle); setSenaDesc(''); setSenaMonto(0); setShowSena(true) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        padding: '8px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 600,
+                        background: 'var(--amber-bg)', color: 'var(--amber)',
+                        border: '1px solid rgba(255,214,10,0.25)',
+                      }}>
+                      <DollarSign size={14} /> Seña
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+                    {canEdit && (
+                      <button onClick={() => { abrirEditar(detalle); setDetalle(null) }}
+                        style={{
+                          width: '36px', height: '36px', borderRadius: '10px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'var(--surface-2)', color: 'var(--text-secondary)',
+                          border: '1px solid var(--border)',
+                        }}>
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button onClick={() => handleDelete(detalle.id)}
+                        style={{
+                          width: '36px', height: '36px', borderRadius: '10px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'var(--red-bg)', color: 'var(--brand-light)',
+                        }}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
-                  {(!pipelineItem || pipelineItem.activities.length === 0) ? (
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Sin visitas registradas</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {[...pipelineItem.activities].reverse().map((n, i) => (
-                          <div key={n.id ?? i} className="px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                                style={{ background: 'var(--surface-3)', color: 'var(--text-secondary)' }}>
-                                {n.type === 'visit' ? '🏠 Visita' : n.type === 'call' ? '📞 Llamada' : '📝 Nota'}
+                </div>
+              </div>
+
+              <div style={{ height: '1px', background: 'var(--border)' }} />
+
+              {/* Contact info */}
+              <div style={{ padding: '16px 20px' }}>
+                {[
+                  { icon: Phone,    val: detalle.telefono,  label: 'Teléfono' },
+                  { icon: MapPin,   val: detalle.direccion, label: 'Dirección' },
+                ].filter(r => r.val).map(row => (
+                  <div key={row.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                    <row.icon size={14} style={{ color: 'var(--text-tertiary)', marginTop: '2px', flexShrink: 0 }} />
+                    <span style={{ fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: 1.4 }}>{row.val}</span>
+                  </div>
+                ))}
+                {[
+                  { label: 'Barrio', val: detalle.barrio },
+                  { label: 'DNI', val: detalle.dni },
+                  { label: 'Referido por', val: detalle.referido },
+                  { label: 'Email', val: detalle.email },
+                ].filter(r => r.val).map(row => (
+                  <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', minWidth: '70px' }}>{row.label}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{row.val}</span>
+                  </div>
+                ))}
+                {detalle.notas && (
+                  <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontStyle: 'italic', marginTop: '4px' }}>
+                    {detalle.notas}
+                  </p>
+                )}
+              </div>
+
+              {/* Status selector */}
+              <div style={{ padding: '0 20px 16px' }}>
+                <p className="section-label" style={{ marginBottom: '10px' }}>Estado</p>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {ESTADOS.map(e => {
+                    const cfg = STATUS_CONFIG[e.id] ?? STATUS_CONFIG.potencial
+                    const isActive = detalle.estado === e.id
+                    return (
+                      <button key={e.id} onClick={() => cambiarEstado(detalle, e.id)}
+                        style={{
+                          padding: '6px 12px', borderRadius: '20px',
+                          fontSize: '12px', fontWeight: 600,
+                          background: isActive ? cfg.color : 'var(--surface-2)',
+                          color:      isActive ? '#000' : 'var(--text-secondary)',
+                          border:     isActive ? 'none' : '1px solid var(--border)',
+                          opacity:    isActive ? 1 : 0.8,
+                        }}>
+                        {e.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Historial de compras (non-Verisure) */}
+              {!esVerisure && (
+                <>
+                  <div style={{ height: '1px', background: 'var(--border)' }} />
+                  <div style={{ padding: '16px 20px' }}>
+                    <p className="section-label" style={{ marginBottom: '12px' }}>Historial de compras</p>
+                    {ventasDelCliente.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {ventasDelCliente.slice(0, 8).map(v => (
+                          <div key={v.id} style={{
+                            background: 'var(--surface-2)', border: '1px solid var(--border)',
+                            borderRadius: '12px', padding: '10px 12px',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-tertiary)' }}>
+                                #{v.id.slice(-5).toUpperCase()}
                               </span>
-                              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                                {format(n.performedAt, 'd MMM yyyy · HH:mm', { locale: es })}
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--green)' }}>
+                                {v.currency === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
                               </span>
                             </div>
-                            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{n.description}</p>
-                            {n.result && <p className="text-[10px] mt-1 italic" style={{ color: 'var(--blue)' }}>→ {n.result}</p>}
+                            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                              {format(v.createdAt, "d MMM yyyy · HH:mm", { locale: es })}
+                              {!v.pagado && <span style={{ marginLeft: '6px', color: 'var(--amber)' }}>⏳ Pendiente</span>}
+                            </p>
+                            {v.items.slice(0,2).map((item, i) => (
+                              <p key={i} style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                                {item.cantidad}× {item.descripcion}
+                              </p>
+                            ))}
                           </div>
                         ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
-      {/* ── Modal nota de visita ──────────────────────────────────────────── */}
+              {/* Pipeline Verisure */}
+              {esVerisure && (
+                <>
+                  <div style={{ height: '1px', background: 'var(--border)' }} />
+                  <div style={{ padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <p className="section-label">Seguimiento</p>
+                      {loadingPipeline && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Cargando...</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {([
+                        { id: 'prospecto', label: 'Prospecto' },
+                        { id: 'contactado', label: 'Contactado' },
+                        { id: 'visita_agendada', label: 'Visita' },
+                        { id: 'presupuestado', label: 'Ppto.' },
+                        { id: 'aprobado', label: 'Aprobado' },
+                        { id: 'instalado', label: 'Instalado' },
+                        { id: 'cobrado', label: 'Cobrado' },
+                        { id: 'perdido', label: 'Perdido' },
+                      ] as { id: string; label: string }[]).map(e => {
+                        const isActive = pipelineItem?.stageId === e.id
+                        return (
+                          <button key={e.id} onClick={() => cambiarEstadoPipeline(e.id)}
+                            style={{
+                              padding: '6px 12px', borderRadius: '20px',
+                              fontSize: '12px', fontWeight: 600,
+                              background: isActive ? 'var(--brand)' : 'var(--surface-2)',
+                              color:      isActive ? '#fff' : 'var(--text-secondary)',
+                              border:     isActive ? 'none' : '1px solid var(--border)',
+                            }}>
+                            {e.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ height: '1px', background: 'var(--border)' }} />
+                  <div style={{ padding: '16px 20px 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <p className="section-label">Historial de visitas</p>
+                      <button
+                        onClick={() => { setShowNota(true); setNotaTexto(''); setNotaProximoPaso(''); setNotaResultado('neutro') }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '5px',
+                          fontSize: '12px', fontWeight: 600, padding: '6px 11px',
+                          borderRadius: '10px', background: 'var(--brand)', color: '#fff', border: 'none',
+                        }}>
+                        <Plus size={12} /> Agregar
+                      </button>
+                    </div>
+                    {(!pipelineItem || pipelineItem.activities.length === 0) ? (
+                      <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Sin visitas registradas</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {[...pipelineItem.activities].reverse().map((n, i) => {
+                          const texto = n.description ?? ''
+                          const fecha = n.performedAt instanceof Date ? n.performedAt : new Date()
+                          return (
+                            <div key={n.id ?? i} style={{
+                              background: 'var(--surface-2)', border: '1px solid var(--border)',
+                              borderRadius: '12px', padding: '12px 14px',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                <span style={{
+                                  fontSize: '11px', fontWeight: 600, padding: '2px 7px',
+                                  borderRadius: '20px', background: 'var(--surface-3)', color: 'var(--text-secondary)',
+                                }}>
+                                  {n.type === 'visit' ? 'Visita' : n.type === 'call' ? 'Llamada' : 'Nota'}
+                                </span>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                  {format(fecha, "d MMM · HH:mm", { locale: es })}
+                                </span>
+                              </div>
+                              <p style={{ fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: 1.4 }}>{texto}</p>
+                              {n.result && (
+                                <p style={{ fontSize: '12px', color: 'var(--amber)', marginTop: '6px', fontWeight: 500 }}>
+                                  → {n.result}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ── NOTA MODAL ───────────────────────────────────────────────────── */}
       {showNota && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        <div className="fixed inset-0 z-[70] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
           onClick={() => setShowNota(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          <div className="w-full max-w-md animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '24px', padding: '20px' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Registrar visita</h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{detalle?.nombre}</p>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Registrar visita</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{detalle?.nombre}</p>
               </div>
               <button onClick={() => setShowNota(false)} className="btn-icon">✕</button>
             </div>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label className="label">¿Cómo salió?</label>
-                <div className="flex gap-2">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                   {(['positivo','neutro','negativo'] as const).map(r => (
                     <button key={r} onClick={() => setNotaResultado(r)}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={notaResultado === r
-                        ? { background: 'var(--brand)', color: '#fff' }
-                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      style={{
+                        padding: '8px', borderRadius: '10px', fontSize: '12px', fontWeight: 600,
+                        background: notaResultado === r ? 'var(--brand)' : 'var(--surface-2)',
+                        color:      notaResultado === r ? '#fff' : 'var(--text-secondary)',
+                        border:     notaResultado === r ? 'none' : '1px solid var(--border)',
+                      }}>
                       {r === 'positivo' ? '👍 Positivo' : r === 'neutro' ? '🔄 Neutro' : '👎 Negativo'}
                     </button>
                   ))}
@@ -681,7 +908,7 @@ export default function ClientesPage() {
                   value={notaProximoPaso} onChange={e => setNotaProximoPaso(e.target.value)} />
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={guardarNota} disabled={!notaTexto.trim() || isPending} className="btn-primary flex-1">
                 {isPending ? 'Guardando...' : 'Guardar visita'}
               </button>
@@ -691,42 +918,45 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ── Modal seña ───────────────────────────────────────────────────── */}
+      {/* ── SEÑA MODAL ───────────────────────────────────────────────────── */}
       {showSena && senaCliente && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        <div className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
           onClick={() => setShowSena(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          <div className="w-full max-w-md animate-slide-up"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '24px', padding: '20px' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Registrar seña</h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{senaCliente.nombre}</p>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Registrar seña</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{senaCliente.nombre}</p>
               </div>
               <button onClick={() => setShowSena(false)} className="btn-icon">✕</button>
             </div>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label className="label">Descripción</label>
                 <input className="input text-sm" placeholder="Ej: Seña iPhone 16 Pro Black"
                   value={senaDesc} onChange={e => setSenaDesc(e.target.value)} autoFocus />
               </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1 }}>
                   <label className="label">Monto</label>
                   <input type="number" className="input text-sm" placeholder="0"
                     value={senaMonto || ''} onChange={e => setSenaMonto(Number(e.target.value))} />
                 </div>
                 <div>
                   <label className="label">Moneda</label>
-                  <div className="flex gap-1.5 h-[42px] items-center">
+                  <div style={{ display: 'flex', gap: '6px', height: '42px', alignItems: 'center' }}>
                     {(['USD','ARS'] as const).map(m => (
                       <button key={m} onClick={() => setSenaMoneda(m)}
-                        className="px-3 h-full rounded-xl text-sm font-bold transition-all"
-                        style={senaMoneda === m
-                          ? { background: 'var(--brand)', color: '#fff' }
-                          : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        style={{
+                          padding: '0 14px', height: '100%', borderRadius: '10px',
+                          fontSize: '13px', fontWeight: 700,
+                          background: senaMoneda === m ? 'var(--brand)' : 'var(--surface-2)',
+                          color:      senaMoneda === m ? '#fff' : 'var(--text-secondary)',
+                          border:     senaMoneda === m ? 'none' : '1px solid var(--border)',
+                        }}>
                         {m}
                       </button>
                     ))}
@@ -734,7 +964,7 @@ export default function ClientesPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={handleSena} disabled={!senaDesc || !senaMonto || guardandoSena} className="btn-primary flex-1">
                 {guardandoSena ? 'Guardando...' : 'Registrar seña'}
               </button>
@@ -744,28 +974,28 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ── Modal formulario cliente ──────────────────────────────────────── */}
+      {/* ── FORM CLIENTE ─────────────────────────────────────────────────── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
           onClick={() => setShowForm(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up max-h-[90vh] overflow-y-auto"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          <div className="w-full max-w-md animate-slide-up max-h-[90vh] overflow-y-auto"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '24px', padding: '20px' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {editando ? 'Editar cliente' : 'Nuevo cliente'}
               </h3>
               <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
             </div>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label className="label">Nombre *</label>
                 <input className="input text-sm" placeholder="Nombre completo"
                   value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                {fieldErrors.nombre && <p className="text-xs text-red-400 mt-1">{fieldErrors.nombre}</p>}
+                {fieldErrors.nombre && <p style={{ fontSize: '12px', color: 'var(--brand-light)', marginTop: '4px' }}>{fieldErrors.nombre}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label className="label">Teléfono</label>
                   <input className="input text-sm" placeholder="221..."
@@ -775,33 +1005,38 @@ export default function ClientesPage() {
                   <label className="label">Email</label>
                   <input className="input text-sm" placeholder="email@..."
                     value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-                  {fieldErrors.email && <p className="text-xs text-red-400 mt-1">{fieldErrors.email}</p>}
+                  {fieldErrors.email && <p style={{ fontSize: '12px', color: 'var(--brand-light)', marginTop: '4px' }}>{fieldErrors.email}</p>}
                 </div>
               </div>
               <div>
                 <label className="label">Tipo</label>
-                <div className="flex gap-1.5 flex-wrap">
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {tiposDisponibles.map(t => (
                     <button key={t.id} onClick={() => setForm(f => ({ ...f, tipo: t.id as CustomerType }))}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                      style={form.tipo === t.id
-                        ? { background: 'var(--brand)', color: '#fff' }
-                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                      style={{
+                        padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                        background: form.tipo === t.id ? 'var(--brand)' : 'var(--surface-2)',
+                        color:      form.tipo === t.id ? '#fff' : 'var(--text-secondary)',
+                        border:     form.tipo === t.id ? 'none' : '1px solid var(--border)',
+                      }}>
                       {t.label}
+                      {'desc' in t ? ` — ${(t as any).desc}` : ''}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
                 <label className="label">Estado</label>
-                <div className="flex gap-1.5 flex-wrap">
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {ESTADOS.map(e => (
                     <button key={e.id} onClick={() => setForm(f => ({ ...f, estado: e.id }))}
-                      className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                      style={form.estado === e.id
-                        ? { background: 'var(--brand)', color: '#fff' }
-                        : { background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                      {e.emoji} {e.label}
+                      style={{
+                        padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                        background: form.estado === e.id ? 'var(--brand)' : 'var(--surface-2)',
+                        color:      form.estado === e.id ? '#fff' : 'var(--text-secondary)',
+                        border:     form.estado === e.id ? 'none' : '1px solid var(--border)',
+                      }}>
+                      {e.label}
                     </button>
                   ))}
                 </div>
@@ -811,24 +1046,28 @@ export default function ClientesPage() {
                 <textarea className="input text-sm resize-none" rows={2} placeholder="Observaciones..."
                   value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
               </div>
-              <details className="group">
-                <summary className="text-xs font-semibold cursor-pointer select-none py-1" style={{ color: 'var(--text-tertiary)' }}>
-                  + Más información (dirección, DNI, barrio...)
+              <details>
+                <summary style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px 0' }}>
+                  Más información (dirección, DNI, barrio...)
                 </summary>
-                <div className="space-y-2 mt-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
                   <div>
                     <label className="label">Dirección</label>
-                    <div className="flex gap-2">
-                      <input className="input text-sm flex-1" placeholder="Ej: Av. Corrientes 1234"
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input className="input text-sm" style={{ flex: 1 }} placeholder="Av. Corrientes 1234"
                         value={form.direccion} onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
                       <button onClick={obtenerUbicacionGPS} disabled={buscandoUbicacion}
-                        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+                        style={{
+                          width: '42px', height: '42px', borderRadius: '10px', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'var(--surface-2)', color: 'var(--text-secondary)',
+                          border: '1px solid var(--border)',
+                        }}>
                         {buscandoUbicacion ? '⏳' : <Navigation size={16} />}
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <div>
                       <label className="label">Barrio</label>
                       <input className="input text-sm" placeholder="Ej: Palermo"
@@ -848,7 +1087,7 @@ export default function ClientesPage() {
                 </div>
               </details>
             </div>
-            <div className="flex gap-2 mt-4">
+            <div style={{ display: 'flex', gap: '8px', marginTop: '20px' }}>
               <button onClick={handleSave} disabled={!form.nombre.trim() || isPending} className="btn-primary flex-1">
                 {isPending ? 'Guardando...' : editando ? 'Guardar cambios' : 'Agregar cliente'}
               </button>
@@ -858,33 +1097,36 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ── Modal plantillas ──────────────────────────────────────────────── */}
+      {/* ── PLANTILLAS MODAL ─────────────────────────────────────────────── */}
       {showPlantillas && plantillaCliente && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+        <div className="fixed inset-0 z-[60] flex items-end justify-center"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '16px' }}
           onClick={() => setShowPlantillas(false)}>
-          <div className="w-full max-w-md rounded-2xl p-5 animate-slide-up max-h-[85vh] overflow-y-auto"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          <div className="w-full max-w-md animate-slide-up max-h-[85vh] overflow-y-auto"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '24px', padding: '20px' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Enviar mensaje</h3>
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{plantillaCliente.nombre}</p>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Enviar mensaje</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{plantillaCliente.nombre}</p>
               </div>
               <button onClick={() => setShowPlantillas(false)} className="btn-icon">✕</button>
             </div>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {plantillas.map(p => (
                 <button key={p.id} onClick={() => usarPlantilla(p, plantillaCliente)}
-                  className="w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{p.nombre}</p>
-                    <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '12px',
+                    padding: '12px 14px', borderRadius: '14px', textAlign: 'left',
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                  }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{p.nombre}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
                       {p.texto.replace(/{nombre}/g, plantillaCliente.nombre).slice(0, 80)}...
                     </p>
                   </div>
-                  <MessageCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--green)' }} />
+                  <MessageCircle size={16} style={{ color: 'var(--green)', flexShrink: 0, marginTop: '2px' }} />
                 </button>
               ))}
             </div>
