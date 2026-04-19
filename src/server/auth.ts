@@ -1,6 +1,16 @@
-// ── SERVER AUTH ───────────────────────────────────────────────────────────────
-// Helpers de autenticación para Server Actions y Route Handlers.
-// Todos los checks de auth/membership pasan por aquí.
+// ── SERVER AUTH — PREPARADO, NO ACTIVO EN MVP ────────────────────────────────
+//
+// ESTADO: implementado y listo, pero no conectado al flujo de login actual.
+//
+// El MVP usa auth client-side (Firebase Auth + Zustand).
+// requireAuth() y requireMembership() están listos para cuando se active
+// la cookie __session en AuthProvider.
+//
+// Ver plan de activación: docs/AUTH_SERVER_SIDE.md
+//
+// Para que funcionen en producción también hacen falta estas env vars en Vercel:
+//   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from './firebase-admin'

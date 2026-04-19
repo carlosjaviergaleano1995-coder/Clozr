@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// ── MIDDLEWARE DE CLOZR ────────────────────────────────────────────────────────
-// Por ahora solo pasa todo sin bloquear.
-// El auth se maneja en el cliente via Firebase Auth + Zustand (AuthProvider).
+// ── MIDDLEWARE — DESHABILITADO INTENCIONALMENTE ───────────────────────────────
 //
-// FUTURO: cuando se implemente la cookie __session en AuthProvider,
-// descomentar la lógica de protección de rutas.
-// Ver: server/auth.ts → requireAuth() para la versión server-side.
+// DECISIÓN (Abril 2026):
+// El auth del MVP es client-side via Firebase Auth + Zustand (AuthProvider.tsx).
+// Este middleware está preparado pero NO activo.
+//
+// Por qué está deshabilitado:
+// La protección de rutas requiere la cookie __session, que el AuthProvider
+// todavía no setea. Activar esto sin esa cookie bloquea el login.
+//
+// Ver plan de reactivación: docs/AUTH_SERVER_SIDE.md
+// Ver implementación futura: server/auth.ts → getServerSession()
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function middleware(_request: NextRequest) {
   return NextResponse.next()
