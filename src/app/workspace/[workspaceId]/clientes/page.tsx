@@ -10,7 +10,8 @@ import { useSales } from '@/hooks/useSales'
 import { usePipeline } from '@/hooks/usePipeline'
 import { createCustomer, updateCustomer, deleteCustomer } from '@/features/customers/actions'
 import { createPipelineItem, addActivity, updateStage } from '@/features/pipeline/actions'
-import type { Customer, CustomerType, CustomerStatus } from '@/features/customers/types'
+import type { Customer, CustomerType, CustomerStatus, PricingPolicy } from '@/features/customers/types'
+import { describePricingPolicy } from '@/features/customers/types'
 import type { PipelineItem } from '@/features/pipeline/types'
 // Plantillas y seña: sin equivalente canónico aún — se mantienen con servicios legacy
 import { agregarMovimientoCaja, getPlantillas } from '@/lib/services'
@@ -45,10 +46,12 @@ type FormData = {
   nombre: string; telefono: string; email: string
   tipo: CustomerType; estado: CustomerStatus
   notas: string; direccion: string; dni: string; barrio: string; referido: string
+  pricingPolicy?: PricingPolicy
 }
 const EMPTY: FormData = {
   nombre: '', telefono: '', email: '', tipo: 'final', estado: 'potencial',
   notas: '', direccion: '', dni: '', barrio: '', referido: '',
+  pricingPolicy: undefined,
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -158,6 +161,7 @@ export default function ClientesPage() {
       dni:      form.dni        || undefined,
       barrio:   form.barrio     || undefined,
       referido: form.referido   || undefined,
+      pricingPolicy: form.pricingPolicy ?? undefined,
     }
 
     startTransition(async () => {
@@ -289,6 +293,7 @@ export default function ClientesPage() {
       tipo: c.tipo, estado: c.estado, notas: c.notas ?? '',
       direccion: c.direccion ?? '', dni: c.dni ?? '',
       barrio: c.barrio ?? '', referido: c.referido ?? '',
+      pricingPolicy: c.pricingPolicy ?? undefined,
     })
     setFieldErrors({})
     setEmailError('')
@@ -596,6 +601,14 @@ export default function ClientesPage() {
                           }}>
                             {tipo.label}
                             {'desc' in tipo ? ` — ${(tipo as any).desc}` : ''}
+                          </span>
+                        )}
+                        {detalle.pricingPolicy && (
+                          <span style={{
+                            fontSize: '11px', fontWeight: 600, padding: '2px 8px',
+                            borderRadius: '20px', background: 'var(--amber-bg)', color: 'var(--amber)',
+                          }}>
+                            🏷️ {describePricingPolicy(detalle.pricingPolicy)}
                           </span>
                         )}
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1095,6 +1108,113 @@ export default function ClientesPage() {
                 <textarea className="input text-sm resize-none" rows={2} placeholder="Observaciones..."
                   value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
               </div>
+              {/* Política de precios */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '8px' }}>
+                  <label className="label" style={{ margin: 0 }}>Precio personalizado</label>
+                  <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Opcional</span>
+                </div>
+
+                {/* Selector de tipo de política */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                  {[
+                    { type: undefined,      label: 'Sin política', desc: 'Precio de lista' },
+                    { type: 'percentage',   label: '% Descuento',  desc: 'Porcentaje fijo' },
+                    { type: 'volume',       label: 'Por volumen',  desc: 'Escalonado' },
+                    { type: 'fixed',        label: 'Precio fijo',  desc: 'Por producto' },
+                  ].map(opt => {
+                    const isActive = (form.pricingPolicy?.type ?? undefined) === opt.type
+                    return (
+                      <button key={opt.label} type="button"
+                        onClick={() => setForm(f => ({
+                          ...f,
+                          pricingPolicy: opt.type === undefined ? undefined
+                            : opt.type === 'percentage' ? { type: 'percentage', percentage: -5 }
+                            : opt.type === 'volume'     ? { type: 'volume', tiers: [{ minQty: 1, percentage: 0 }, { minQty: 5, percentage: -5 }] }
+                            : { type: 'fixed', prices: {} }
+                        }))}
+                        style={{
+                          padding: '6px 11px', borderRadius: '20px', fontSize: '12px', fontWeight: 600,
+                          background: isActive ? 'var(--brand)' : 'var(--surface-2)',
+                          color:      isActive ? '#fff' : 'var(--text-secondary)',
+                          border:     isActive ? 'none' : '1px solid var(--border)',
+                        }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Campos según tipo de política */}
+                {form.pricingPolicy?.type === 'percentage' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Aplicar</span>
+                    <input
+                      type="number" min="-99" max="100" step="0.5"
+                      className="input text-sm" style={{ width: '80px' }}
+                      value={form.pricingPolicy.percentage}
+                      onChange={e => setForm(f => f.pricingPolicy?.type === 'percentage'
+                        ? { ...f, pricingPolicy: { type: 'percentage', percentage: Number(e.target.value) } }
+                        : f
+                      )}
+                    />
+                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>% sobre el precio de lista</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                      (negativo = descuento)
+                    </span>
+                  </div>
+                )}
+
+                {form.pricingPolicy?.type === 'volume' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {form.pricingPolicy.tiers.map((tier: {minQty:number;percentage:number}, idx: number) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flexShrink: 0 }}>Desde</span>
+                        <input type="number" min="1" className="input text-sm" style={{ width: '60px' }}
+                          value={tier.minQty}
+                          onChange={e => setForm(f => {
+                            if (f.pricingPolicy?.type !== 'volume') return f
+                            const tiers = [...f.pricingPolicy.tiers]
+                            tiers[idx] = { ...tiers[idx], minQty: Number(e.target.value) }
+                            return { ...f, pricingPolicy: { type: 'volume', tiers } }
+                          })} />
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flexShrink: 0 }}>u:</span>
+                        <input type="number" min="-99" max="100" step="0.5" className="input text-sm" style={{ width: '70px' }}
+                          value={tier.percentage}
+                          onChange={e => setForm(f => {
+                            if (f.pricingPolicy?.type !== 'volume') return f
+                            const tiers = [...f.pricingPolicy.tiers]
+                            tiers[idx] = { ...tiers[idx], percentage: Number(e.target.value) }
+                            return { ...f, pricingPolicy: { type: 'volume', tiers } }
+                          })} />
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flexShrink: 0 }}>%</span>
+                        {form.pricingPolicy?.type === "volume" && form.pricingPolicy.tiers.length > 1 && (
+                          <button type="button" onClick={() => setForm(f => {
+                            if (f.pricingPolicy?.type !== 'volume') return f
+                            return { ...f, pricingPolicy: { type: 'volume', tiers: f.pricingPolicy.tiers.filter((_: unknown, i: number) => i !== idx) } }
+                          })} style={{ color: 'var(--brand-light)', fontSize: '16px', lineHeight: 1 }}>×</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button"
+                      onClick={() => setForm(f => {
+                        if (f.pricingPolicy?.type !== 'volume') return f
+                        const lastMin = f.pricingPolicy.tiers.at(-1)?.minQty ?? 0
+                        return { ...f, pricingPolicy: { type: 'volume', tiers: [...f.pricingPolicy.tiers, { minQty: lastMin + 5, percentage: -10 }] } }
+                      })}
+                      style={{ fontSize: '12px', color: 'var(--brand)', fontWeight: 600, textAlign: 'left', paddingTop: '2px' }}>
+                      + Agregar tramo
+                    </button>
+                  </div>
+                )}
+
+                {form.pricingPolicy?.type === 'fixed' && (
+                  <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                    Los precios fijos se configuran desde la venta, al seleccionar el producto.
+                  </p>
+                )}
+              </div>
+
               <details>
                 <summary style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px 0' }}>
                   Más información (dirección, DNI, barrio...)
