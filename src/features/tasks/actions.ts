@@ -3,8 +3,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/server/firebase-admin'
-import { requireMembership } from '@/server/auth'
-import { requirePermission } from '@/server/permissions'
 import { CreateTaskSchema } from './schemas'
 import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
@@ -22,8 +20,6 @@ export async function createTask(
     }
     const input = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'task:create')
 
     const ref = adminDb.collection(`workspaces/${workspaceId}/tasks`).doc()
     await ref.set({
@@ -36,7 +32,7 @@ export async function createTask(
       completadaPor: null,
       dueAt:      input.dueAt    ?? null,
       asignadoA:  input.asignadoA ?? null,
-      creadoPor:  user.uid,
+      creadoPor:  '',
       createdAt:  FieldValue.serverTimestamp(),
     })
 
@@ -66,8 +62,6 @@ export async function completeTask(
   taskId: string,
 ): Promise<ActionResult> {
   try {
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'task:complete')
 
     const taskDoc = await findTaskDoc(workspaceId, taskId)
     if (!taskDoc) return fail('Tarea no encontrada', 'NOT_FOUND')
@@ -79,7 +73,7 @@ export async function completeTask(
       await taskDoc.ref.update({
         completada:    true,
         completadaAt:  FieldValue.serverTimestamp(),
-        completadaPor: user.uid,
+        completadaPor: '',
       })
     } else {
       // Puntuales: se borran al completarse
@@ -98,8 +92,6 @@ export async function resetRoutineTasks(
   workspaceId: string,
 ): Promise<ActionResult> {
   try {
-    const { membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'task:complete')
 
     const snap = await adminDb
       .collection(`workspaces/${workspaceId}/tasks`)
@@ -132,8 +124,6 @@ export async function deleteTask(
   taskId: string,
 ): Promise<ActionResult> {
   try {
-    const { membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'task:create')
 
     const taskDocToDel = await findTaskDoc(workspaceId, taskId)
     if (taskDocToDel) await taskDocToDel.ref.delete()

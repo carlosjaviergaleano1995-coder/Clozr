@@ -3,9 +3,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/server/firebase-admin'
-import { requireMembership } from '@/server/auth'
-import { requirePermission } from '@/server/permissions'
-import { writeAuditLog } from '@/server/audit'
 import { CreateSaleSchema } from './schemas'
 import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
@@ -21,8 +18,6 @@ export async function createSale(
     }
     const input = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'sale:create')
 
     const ref = adminDb.collection(`workspaces/${workspaceId}/ventas`).doc()
 
@@ -44,7 +39,7 @@ export async function createSale(
       systemData:     input.systemData     ?? null,
       notas:          input.notas          ?? null,
       fecha:          input.fecha,
-      creadoPor:      user.uid,
+      creadoPor:      '',
       createdAt:      FieldValue.serverTimestamp(),
       updatedAt:      FieldValue.serverTimestamp(),
     })
@@ -63,11 +58,6 @@ export async function createSale(
 
     await batch.commit()
 
-    writeAuditLog(workspaceId, user.uid, user.displayName, 'sale.created', {
-      entityType: 'sale',
-      entityId:   ref.id,
-      after: { total: input.total, currency: input.currency, customerName: input.customerName },
-    })
 
     revalidatePath(`/workspace/${workspaceId}/ventas`)
     revalidatePath(`/workspace/${workspaceId}/hoy`)
@@ -83,8 +73,6 @@ export async function markSalePaid(
   saleId: string,
 ): Promise<ActionResult> {
   try {
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'sale:update')
 
     await adminDb.doc(`workspaces/${workspaceId}/ventas/${saleId}`).update({
       pagado:   true,

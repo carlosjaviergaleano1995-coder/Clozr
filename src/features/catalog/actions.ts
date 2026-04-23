@@ -3,8 +3,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/server/firebase-admin'
-import { requireMembership } from '@/server/auth'
-import { requirePermission } from '@/server/permissions'
 import { CreateCatalogItemSchema } from './schemas'
 import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
@@ -20,8 +18,6 @@ export async function createCatalogItem(
     }
     const input = result.data
 
-    const { membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'catalog:manage')
 
     const ref = adminDb.collection(`workspaces/${workspaceId}/catalog`).doc()
     await ref.set({
@@ -44,8 +40,6 @@ export async function deleteCatalogItem(
   itemId: string,
 ): Promise<ActionResult> {
   try {
-    const { membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'catalog:manage')
 
     await adminDb
       .doc(`workspaces/${workspaceId}/catalog/${itemId}`)

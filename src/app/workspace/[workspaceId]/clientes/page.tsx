@@ -170,7 +170,7 @@ export default function ClientesPage() {
         // Actualizar detalle si está abierto
         if (detalle?.id === editando.id) setDetalle(d => d ? { ...d, ...input } : d)
       } else {
-        const result = await createCustomer(workspaceId, input)
+        const result = await createCustomer(workspaceId, input, user?.uid)
         if (!result.ok) {
           if (result.code === 'LIMIT_REACHED') {
             window.dispatchEvent(new CustomEvent('clozr:limit-reached', { detail: result }))

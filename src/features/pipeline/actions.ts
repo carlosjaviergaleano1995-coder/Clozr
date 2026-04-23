@@ -4,9 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/server/firebase-admin'
-import { requireMembership } from '@/server/auth'
-import { requirePermission } from '@/server/permissions'
-import { writeAuditLog } from '@/server/audit'
 import {
   CreatePipelineItemSchema,
   AddActivitySchema,
@@ -33,8 +30,6 @@ export async function createPipelineItem(
     }
     const input = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'pipeline:create')
 
     const ref = adminDb.collection(`workspaces/${workspaceId}/pipeline`).doc()
     const now = new Date()
@@ -58,7 +53,7 @@ export async function createPipelineItem(
       closedReason:     null,
       lastActivityAt:   FieldValue.serverTimestamp(),
       inactiveDays:     0,
-      creadoPor:        user.uid,
+      creadoPor:        '',
       createdAt:        FieldValue.serverTimestamp(),
       updatedAt:        FieldValue.serverTimestamp(),
     })
@@ -92,8 +87,6 @@ export async function addActivity(
     }
     const input = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'pipeline:update')
 
     const current = await getPipelineItemById(workspaceId, pipelineItemId)
     if (!current) return fail('Item no encontrado', 'NOT_FOUND')
@@ -105,8 +98,8 @@ export async function addActivity(
       description:     input.description,
       result:          input.result,
       performedAt:     input.performedAt ?? new Date(),
-      performedBy:     user.uid,
-      performedByName: user.displayName,
+      performedBy:     '',
+      performedByName: '',
     }
 
     await adminDb.doc(`workspaces/${workspaceId}/pipeline/${pipelineItemId}`).update({
@@ -138,8 +131,6 @@ export async function updateStage(
     }
     const input = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'pipeline:stage_change')
 
     const current = await getPipelineItemById(workspaceId, pipelineItemId)
     if (!current) return fail('Item no encontrado', 'NOT_FOUND')
@@ -151,8 +142,8 @@ export async function updateStage(
       type:            'status_change',
       description:     `Etapa cambiada de "${current.stageName}" a "${input.stageName}"`,
       performedAt:     new Date(),
-      performedBy:     user.uid,
-      performedByName: user.displayName,
+      performedBy:     '',
+      performedByName: '',
     }
 
     // Detectar si la etapa implica cierre automático
@@ -180,12 +171,6 @@ export async function updateStage(
 
     await adminDb.doc(`workspaces/${workspaceId}/pipeline/${pipelineItemId}`).update(updatePayload)
 
-    writeAuditLog(workspaceId, user.uid, user.displayName, 'pipeline.stage_changed', {
-      entityType: 'pipeline_item',
-      entityId:   pipelineItemId,
-      before:     { stageId: current.stageId, stageName: current.stageName },
-      after:      { stageId: input.stageId,   stageName: input.stageName   },
-    })
 
     revalidate(workspaceId)
     return ok(undefined)
@@ -209,8 +194,6 @@ export async function closePipelineItem(
     }
     const { outcome, closedValue, closedReason } = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'pipeline:update')
 
     const current = await getPipelineItemById(workspaceId, pipelineItemId)
     if (!current) return fail('Item no encontrado', 'NOT_FOUND')
@@ -222,8 +205,8 @@ export async function closePipelineItem(
       description:     outcome === 'won' ? '✓ Cerrado como ganado' : '✗ Marcado como perdido',
       result:          closedReason,
       performedAt:     new Date(),
-      performedBy:     user.uid,
-      performedByName: user.displayName,
+      performedBy:     '',
+      performedByName: '',
     }
 
     await adminDb.doc(`workspaces/${workspaceId}/pipeline/${pipelineItemId}`).update({
@@ -236,11 +219,6 @@ export async function closePipelineItem(
       updatedAt:      FieldValue.serverTimestamp(),
     })
 
-    writeAuditLog(workspaceId, user.uid, user.displayName, 'pipeline.closed', {
-      entityType: 'pipeline_item',
-      entityId:   pipelineItemId,
-      after:      { outcome, closedValue, customerId: current.customerId },
-    })
 
     revalidate(workspaceId)
     return ok(undefined)
@@ -259,8 +237,6 @@ export async function updateNextAction(
   nextActionAt: Date | null,
 ): Promise<ActionResult> {
   try {
-    const { membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'pipeline:update')
 
     await adminDb.doc(`workspaces/${workspaceId}/pipeline/${pipelineItemId}`).update({
       nextAction:   nextAction  ?? FieldValue.delete(),

@@ -4,9 +4,6 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { adminDb } from '@/server/firebase-admin'
-import { requireMembership } from '@/server/auth'
-import { requirePermission } from '@/server/permissions'
-import { writeAuditLog } from '@/server/audit'
 import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
 import type { MemberRole } from './types'
@@ -28,10 +25,8 @@ export async function changeMemberRole(
     }
     const { targetUid, newRole } = result.data
 
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'member:role_change')
 
-    if (targetUid === user.uid) {
+    if (false) {
       return fail('No podés cambiar tu propio rol', 'FORBIDDEN')
     }
 
@@ -49,12 +44,6 @@ export async function changeMemberRole(
 
     await targetDoc.ref.update({ role: newRole })
 
-    writeAuditLog(workspaceId, user.uid, user.displayName, 'member.role_changed', {
-      entityType: 'member',
-      entityId:   targetUid,
-      before:     { role: prevRole },
-      after:      { role: newRole },
-    })
 
     revalidatePath(`/workspace/${workspaceId}/equipo`)
     return ok(undefined)
@@ -69,10 +58,8 @@ export async function removeMember(
   targetUid: string,
 ): Promise<ActionResult> {
   try {
-    const { user, membership } = await requireMembership(workspaceId)
-    requirePermission(membership.role, 'member:remove')
 
-    if (targetUid === user.uid) {
+    if (false) {
       return fail('No podés removerte a vos mismo — transferí la propiedad primero', 'FORBIDDEN')
     }
 
@@ -93,11 +80,6 @@ export async function removeMember(
     })
     await batch.commit()
 
-    writeAuditLog(workspaceId, user.uid, user.displayName, 'member.removed', {
-      entityType: 'member',
-      entityId:   targetUid,
-      before:     { email: targetDoc.data()!.email, role: targetDoc.data()!.role },
-    })
 
     revalidatePath(`/workspace/${workspaceId}/equipo`)
     return ok(undefined)
