@@ -1,68 +1,57 @@
-'use server'
-
-import { FieldValue } from 'firebase-admin/firestore'
-import { revalidatePath } from 'next/cache'
-import { adminDb } from '@/server/firebase-admin'
-import { CreateSaleSchema } from './schemas'
-import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
+import {
+  collection, doc, setDoc, updateDoc, serverTimestamp,
+} from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { ok, fail, handleActionError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
+
+interface SaleInput {
+  customerId?:   string
+  customerName:  string
+  pipelineItemId?: string
+  items:         { descripcion: string; cantidad: number; precioUnitario: number; subtotal: number; catalogItemId?: string }[]
+  subtotal:      number
+  discount?:     number
+  total:         number
+  currency:      'ARS' | 'USD'
+  formaPago:     string
+  pagado:        boolean
+  notas?:        string
+  fecha?:        Date
+  systemData?:   Record<string, unknown>
+}
 
 export async function createSale(
   workspaceId: string,
-  rawInput: unknown,
+  input: SaleInput,
+  userId?: string,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const result = CreateSaleSchema.safeParse(rawInput)
-    if (!result.success) {
-      return fail('Datos inválidos', 'VALIDATION_ERROR', parseZodError(result.error))
-    }
-    const input = result.data
+    const ref  = doc(collection(db, `workspaces/${workspaceId}/ventas`))
+    const now  = input.fecha ?? new Date()
 
-
-    const ref = adminDb.collection(`workspaces/${workspaceId}/ventas`).doc()
-
-    const batch = adminDb.batch()
-
-    batch.set(ref, {
+    await setDoc(ref, {
       workspaceId,
-      customerId:     input.customerId     ?? null,
+      customerId:     input.customerId    ?? null,
       customerName:   input.customerName,
       pipelineItemId: input.pipelineItemId ?? null,
       items:          input.items,
       subtotal:       input.subtotal,
-      discount:       input.discount       ?? null,
+      discount:       input.discount      ?? null,
       total:          input.total,
       currency:       input.currency,
       formaPago:      input.formaPago,
       pagado:         input.pagado,
-      pagadoAt:       input.pagado ? FieldValue.serverTimestamp() : null,
-      systemData:     input.systemData     ?? null,
-      notas:          input.notas          ?? null,
-      fecha:          input.fecha,
-      creadoPor:      '',
-      createdAt:      FieldValue.serverTimestamp(),
-      updatedAt:      FieldValue.serverTimestamp(),
+      pagadoAt:       input.pagado ? serverTimestamp() : null,
+      systemData:     input.systemData    ?? null,
+      notas:          input.notas         ?? null,
+      fecha:          now,
+      creadoPor:      userId              ?? '',
+      createdAt:      serverTimestamp(),
+      updatedAt:      serverTimestamp(),
     })
 
-    // Actualizar totalSales del cliente
-    if (input.customerId) {
-      batch.update(
-        adminDb.doc(`workspaces/${workspaceId}/customers/${input.customerId}`),
-        {
-          totalSales:           FieldValue.increment(input.total),
-          lastInteractionAt:    FieldValue.serverTimestamp(),
-          updatedAt:            FieldValue.serverTimestamp(),
-        },
-      )
-    }
-
-    await batch.commit()
-
-
-    revalidatePath(`/workspace/${workspaceId}/ventas`)
-    revalidatePath(`/workspace/${workspaceId}/hoy`)
     return ok({ id: ref.id })
-
   } catch (err) {
     return handleActionError(err, 'createSale')
   }
@@ -73,16 +62,12 @@ export async function markSalePaid(
   saleId: string,
 ): Promise<ActionResult> {
   try {
-
-    await adminDb.doc(`workspaces/${workspaceId}/ventas/${saleId}`).update({
-      pagado:   true,
-      pagadoAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+    await updateDoc(doc(db, `workspaces/${workspaceId}/ventas/${saleId}`), {
+      pagado:    true,
+      pagadoAt:  serverTimestamp(),
+      updatedAt: serverTimestamp(),
     })
-
-    revalidatePath(`/workspace/${workspaceId}/ventas`)
     return ok(undefined)
-
   } catch (err) {
     return handleActionError(err, 'markSalePaid')
   }

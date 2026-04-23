@@ -1,35 +1,31 @@
-'use server'
-
-import { FieldValue } from 'firebase-admin/firestore'
-import { revalidatePath } from 'next/cache'
-import { adminDb } from '@/server/firebase-admin'
-import { CreateCatalogItemSchema } from './schemas'
-import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
+import {
+  collection, doc, setDoc, updateDoc, deleteDoc, serverTimestamp,
+} from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { ok, fail, handleActionError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
 
 export async function createCatalogItem(
   workspaceId: string,
-  rawInput: unknown,
+  input: {
+    categoria: string; subcategoria: string; nombre: string
+    precio?: number; currency?: 'ARS' | 'USD'; orden: number
+  },
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const result = CreateCatalogItemSchema.safeParse(rawInput)
-    if (!result.success) {
-      return fail('Datos inválidos', 'VALIDATION_ERROR', parseZodError(result.error))
-    }
-    const input = result.data
-
-
-    const ref = adminDb.collection(`workspaces/${workspaceId}/catalog`).doc()
-    await ref.set({
+    const ref = doc(collection(db, `workspaces/${workspaceId}/catalog`))
+    await setDoc(ref, {
       workspaceId,
-      ...input,
-      activo:    true,
-      createdAt: FieldValue.serverTimestamp(),
+      categoria:    input.categoria,
+      subcategoria: input.subcategoria,
+      nombre:       input.nombre,
+      precio:       input.precio   ?? null,
+      currency:     input.currency ?? 'ARS',
+      activo:       true,
+      orden:        input.orden,
+      createdAt:    serverTimestamp(),
     })
-
-    revalidatePath(`/workspace/${workspaceId}/catalogo`)
     return ok({ id: ref.id })
-
   } catch (err) {
     return handleActionError(err, 'createCatalogItem')
   }
@@ -40,14 +36,10 @@ export async function deleteCatalogItem(
   itemId: string,
 ): Promise<ActionResult> {
   try {
-
-    await adminDb
-      .doc(`workspaces/${workspaceId}/catalog/${itemId}`)
-      .update({ activo: false })
-
-    revalidatePath(`/workspace/${workspaceId}/catalogo`)
+    await updateDoc(doc(db, `workspaces/${workspaceId}/catalog/${itemId}`), {
+      activo: false,
+    })
     return ok(undefined)
-
   } catch (err) {
     return handleActionError(err, 'deleteCatalogItem')
   }

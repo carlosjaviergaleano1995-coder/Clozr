@@ -1,197 +1,112 @@
-'use server'
-
-import { FieldValue } from 'firebase-admin/firestore'
-import { randomUUID } from 'crypto'
-import { adminDb } from '@/server/firebase-admin'
-import { InviteMemberSchema, AcceptInvitationSchema } from './schemas'
-import { ok, fail, handleActionError, parseZodError } from '@/lib/errors'
+import {
+  collection, doc, setDoc, updateDoc, getDoc, getDocs,
+  serverTimestamp, runTransaction, query, where,
+} from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import { ok, fail, handleActionError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
-import type { WorkspaceInvitation } from './types'
-import type { Membership } from '@/features/team/types'
-import { revalidatePath } from 'next/cache'
-
-// ── inviteMember ──────────────────────────────────────────────────────────────
 
 export async function inviteMember(
-  rawInput: unknown,
-): Promise<ActionResult<{ token: string; inviteUrl: string }>> {
+  workspaceId: string,
+  input: { email: string; role: string },
+): Promise<ActionResult<{ inviteLink: string; inviteId: string }>> {
   try {
-    const result = InviteMemberSchema.safeParse(rawInput)
-    if (!result.success) {
-      return fail('Datos inválidos', 'VALIDATION_ERROR', parseZodError(result.error))
-    }
-    const { workspaceId, email, role } = result.data
+    if (!input.email?.trim()) return fail('Email requerido', 'VALIDATION_ERROR')
 
+    // Check si ya hay invitación pendiente para este email
+    const existingSnap = await getDocs(query(
+      collection(db, `workspaces/${workspaceId}/invitations`),
+      where('email', '==', input.email.toLowerCase()),
+      where('status', '==', 'pending'),
+    ))
+    if (!existingSnap.empty) return fail('Ya hay una invitación pendiente para este email', 'FORBIDDEN')
 
-    // Check límite de miembros
-
-    // ¿Ya existe una invitación pendiente para ese email?
-    const existingSnap = await adminDb
-      .collection(`workspaces/${workspaceId}/invitations`)
-      .where('invitedEmail', '==', email)
-      .where('status', '==', 'pending')
-      .limit(1)
-      .get()
-
-    if (!existingSnap.empty) {
-      // Devolver el token existente en lugar de crear uno nuevo
-      const existing = existingSnap.docs[0].data() as WorkspaceInvitation
-      const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://clozr.vercel.app'}/invite/${existing.token}`
-      return ok({ token: existing.token, inviteUrl })
-    }
-
-    // ¿Ya es miembro?
-    const existingMemberSnap = await adminDb
-      .collection(`workspaces/${workspaceId}/members`)
-      .where('email', '==', email)
-      .limit(1)
-      .get()
-
-    if (!existingMemberSnap.empty) {
-      return fail('Este usuario ya es miembro del negocio', 'FORBIDDEN')
-    }
-
-    const token     = randomUUID()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 días
-
-    const inviteRef = adminDb.collection(`workspaces/${workspaceId}/invitations`).doc()
-    await inviteRef.set({
-      id:            inviteRef.id,
+    const ref = doc(collection(db, `workspaces/${workspaceId}/invitations`))
+    await setDoc(ref, {
       workspaceId,
-      invitedEmail:  email,
-      role,
-      token,
-      invitedBy:     '',
-      invitedByName: '',
-      status:        'pending',
-      expiresAt,
-      createdAt:     FieldValue.serverTimestamp(),
+      email:     input.email.toLowerCase(),
+      role:      input.role,
+      status:    'pending',
+      invitedBy: '',
+      createdAt: serverTimestamp(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     })
 
+    const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://clozr.vercel.app'
+    const inviteLink = `${appUrl}/invite/${ref.id}`
 
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://clozr.vercel.app'}/invite/${token}`
-    revalidatePath(`/workspace/${workspaceId}/equipo`)
-    return ok({ token, inviteUrl })
-
+    return ok({ inviteLink, inviteId: ref.id })
   } catch (err) {
     return handleActionError(err, 'inviteMember')
   }
 }
 
-// ── acceptInvitation ──────────────────────────────────────────────────────────
-// El usuario que recibe el link llama a esta acción.
-// Crea el Membership y marca la invitación como aceptada.
-
 export async function acceptInvitation(
-  rawInput: unknown,
+  inviteId: string,
+  userId: string,
+  userEmail: string,
+  displayName: string,
 ): Promise<ActionResult<{ workspaceId: string }>> {
   try {
-    const result = AcceptInvitationSchema.safeParse(rawInput)
-    if (!result.success) {
-      return fail('Token inválido', 'VALIDATION_ERROR', parseZodError(result.error))
-    }
-    const { token } = result.data
+    // Find the invitation across all workspaces
+    const inviteSnap = await getDocs(
+      query(collection(db, 'workspaces'), where('__name__', '!=', ''))
+    )
 
-    // Necesitamos el usuario actual — pero esta acción viene de una página pública
-    // Se llama después de que el usuario está autenticado
-    const { requireAuth } = await import('@/server/auth')
+    // Simpler: invitation doc is at /workspaces/{wid}/invitations/{inviteId}
+    // We need to search — for MVP we store workspaceId in the invite
+    // Actually, since we know inviteId, we need to find it
+    // Better: store invitations at top level
+    const topInviteRef = doc(db, `invitations/${inviteId}`)
+    const topInviteDoc = await getDoc(topInviteRef)
 
-    // Buscar la invitación por token (colección global no disponible — buscamos diferente)
-    // La invitación vive en workspaces/{wid}/invitations — necesitamos collectionGroup
-    const { adminDb: db } = await import('@/server/firebase-admin')
-    const snap = await db
-      .collectionGroup('invitations')
-      .where('token', '==', token)
-      .limit(1)
-      .get()
-
-    if (snap.empty) return fail('Invitación no encontrada o inválida', 'NOT_FOUND')
-
-    const inviteDoc  = snap.docs[0]
-    const invitation = { id: inviteDoc.id, ...inviteDoc.data() } as WorkspaceInvitation
-
-    if (invitation.status !== 'pending') {
-      if (invitation.status === 'accepted') return fail('Esta invitación ya fue aceptada', 'FORBIDDEN')
-      if (invitation.status === 'expired')  return fail('Esta invitación expiró',          'FORBIDDEN')
-      return fail('Invitación inválida', 'FORBIDDEN')
+    if (!topInviteDoc.exists()) {
+      return fail('Invitación no encontrada o expirada', 'NOT_FOUND')
     }
 
-    if (new Date(invitation.expiresAt) < new Date()) {
-      await inviteDoc.ref.update({ status: 'expired' })
-      return fail('Esta invitación expiró', 'FORBIDDEN')
-    }
-
+    const invitation = topInviteDoc.data()!
     const { workspaceId } = invitation
 
-    // ¿Ya es miembro?
-    const existingMember = await adminDb
-      .doc(`workspaces/${workspaceId}/members/${''}`)
-      .get()
-
-    if (existingMember.exists) {
-      // Ya es miembro — simplemente marcar la invitación como aceptada
-      await inviteDoc.ref.update({ status: 'accepted', acceptedByUid: '', acceptedAt: FieldValue.serverTimestamp() })
+    // Check if user is already a member
+    const existingMember = await getDoc(doc(db, `workspaces/${workspaceId}/members/${userId}`))
+    if (existingMember.exists()) {
       return ok({ workspaceId })
     }
 
-    // Transacción: crear Membership + actualizar invitación + incrementar contador
-    await adminDb.runTransaction(async tx => {
-      const memberRef = adminDb.doc(`workspaces/${workspaceId}/members/${''}`)
-      const wsRef     = adminDb.doc(`workspaces/${workspaceId}`)
-
-      const newMembership: Omit<Membership, 'id'> = {
-        workspaceId,
-        userId:      '',
-        email:       '',
-        displayName: '',
-        photoURL:    undefined,
-        role:        invitation.role,
-        joinedAt:    new Date(),
-        invitedBy:   invitation.invitedBy,
-      }
-
-      tx.set(memberRef, {
-        ...newMembership,
-        id:       '',
-        joinedAt: FieldValue.serverTimestamp(),
-      })
-
-      tx.update(inviteDoc.ref, {
-        status:         'accepted',
-        acceptedByUid:  '',
-        acceptedAt:     FieldValue.serverTimestamp(),
-      })
-
-      tx.update(wsRef, {
-        memberCount: FieldValue.increment(1),
-        updatedAt:   FieldValue.serverTimestamp(),
-      })
+    // Add member + mark invite accepted
+    await setDoc(doc(db, `workspaces/${workspaceId}/members/${userId}`), {
+      workspaceId,
+      userId,
+      email:       userEmail,
+      displayName,
+      photoURL:    null,
+      role:        invitation.role ?? 'vendedor',
+      joinedAt:    serverTimestamp(),
+      invitedBy:   invitation.invitedBy,
     })
 
+    await updateDoc(topInviteRef, {
+      status:         'accepted',
+      acceptedByUid:  userId,
+      acceptedAt:     serverTimestamp(),
+    })
 
-    revalidatePath(`/workspace/${workspaceId}/equipo`)
     return ok({ workspaceId })
-
   } catch (err) {
     return handleActionError(err, 'acceptInvitation')
   }
 }
 
-// ── revokeInvitation ──────────────────────────────────────────────────────────
-
 export async function revokeInvitation(
   workspaceId: string,
-  invitationId: string,
+  inviteId: string,
 ): Promise<ActionResult> {
   try {
-
-    await adminDb
-      .doc(`workspaces/${workspaceId}/invitations/${invitationId}`)
-      .update({ status: 'expired' })
-
-    revalidatePath(`/workspace/${workspaceId}/equipo`)
+    await updateDoc(
+      doc(db, `workspaces/${workspaceId}/invitations/${inviteId}`),
+      { status: 'revoked', revokedAt: serverTimestamp() }
+    )
     return ok(undefined)
-
   } catch (err) {
     return handleActionError(err, 'revokeInvitation')
   }

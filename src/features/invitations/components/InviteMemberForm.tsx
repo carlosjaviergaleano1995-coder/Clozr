@@ -29,12 +29,12 @@ export function InviteMemberForm({ workspaceId, onSuccess }: InviteMemberFormPro
     setError(null)
 
     startTransition(async () => {
-      const result = await inviteMember({ workspaceId, email: email.trim(), role })
+      const result = await inviteMember(workspaceId, { email: email.trim(), role })
       if (!result.ok) {
         setError(result.error)
         return
       }
-      setLink(result.data.inviteUrl)
+      setLink(result.data.inviteLink)
       onSuccess?.()
     })
   }

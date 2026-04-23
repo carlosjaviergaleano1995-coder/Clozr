@@ -32,7 +32,8 @@ export default function InvitePage() {
 
   function handleAccept() {
     startTransition(async () => {
-      const result = await acceptInvitation({ token })
+      if (!user) return
+      const result = await acceptInvitation(token, user.uid, user.email, user.displayName)
       if (!result.ok) {
         setError(result.error)
         return
