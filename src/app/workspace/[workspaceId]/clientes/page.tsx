@@ -96,6 +96,7 @@ export default function ClientesPage() {
   const [detalle,     setDetalle]     = useState<Customer | null>(null)
   const [isPending,   startTransition] = useTransition()
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [emailError,  setEmailError]  = useState('')
 
   // Ubicación GPS
   const [buscandoUbicacion, setBuscandoUbicacion] = useState(false)
@@ -136,6 +137,14 @@ export default function ClientesPage() {
 
   const handleSave = () => {
     if (!form.nombre.trim()) return
+
+    // Validar email en cliente antes de enviar al servidor
+    const emailTrimmed = form.email.trim()
+    if (emailTrimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      setEmailError('El email no es válido')
+      return
+    }
+    setEmailError('')
     setFieldErrors({})
 
     const input = {
@@ -269,6 +278,7 @@ export default function ClientesPage() {
     setEditando(null)
     setForm({ ...EMPTY, tipo: tiposDisponibles[0].id as CustomerType })
     setFieldErrors({})
+    setEmailError('')
     setShowForm(true)
   }
 
@@ -281,6 +291,7 @@ export default function ClientesPage() {
       barrio: c.barrio ?? '', referido: c.referido ?? '',
     })
     setFieldErrors({})
+    setEmailError('')
     // Limpiar el detalle activo para que useSales y usePipeline no sigan suscritos
     setDetalleClienteId(null)
     setShowForm(true)
@@ -989,23 +1000,58 @@ export default function ClientesPage() {
               <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              {/* Nombre — obligatorio */}
               <div>
-                <label className="label">Nombre *</label>
-                <input className="input text-sm" placeholder="Nombre completo"
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+                  <label className="label" style={{ margin: 0 }}>Nombre</label>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-light)' }}>Obligatorio</span>
+                </div>
+                <input className="input text-sm" placeholder="Nombre y apellido"
                   value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                {fieldErrors.nombre && <p style={{ fontSize: '12px', color: 'var(--brand-light)', marginTop: '4px' }}>{fieldErrors.nombre}</p>}
+                {fieldErrors.nombre && (
+                  <p style={{ fontSize: '12px', color: 'var(--brand-light)', marginTop: '5px' }}>
+                    {fieldErrors.nombre}
+                  </p>
+                )}
               </div>
+
+              {/* Teléfono + Email — opcionales */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <label className="label">Teléfono</label>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+                    <label className="label" style={{ margin: 0 }}>Teléfono</label>
+                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Opcional</span>
+                  </div>
                   <input className="input text-sm" placeholder="221..."
                     value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="label">Email</label>
-                  <input className="input text-sm" placeholder="email@..."
-                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-                  {fieldErrors.email && <p style={{ fontSize: '12px', color: 'var(--brand-light)', marginTop: '4px' }}>{fieldErrors.email}</p>}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+                    <label className="label" style={{ margin: 0 }}>Email</label>
+                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Opcional</span>
+                  </div>
+                  <input
+                    className="input text-sm"
+                    placeholder="nombre@mail.com"
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    value={form.email}
+                    onChange={e => {
+                      setForm(f => ({ ...f, email: e.target.value }))
+                      setEmailError('')  // limpiar error al escribir
+                    }}
+                    style={{
+                      borderColor: emailError ? 'var(--brand-light)' : undefined,
+                    }}
+                  />
+                  {(emailError || fieldErrors.email) && (
+                    <p style={{ fontSize: '12px', color: 'var(--brand-light)', marginTop: '5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {emailError || fieldErrors.email}
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -1042,7 +1088,10 @@ export default function ClientesPage() {
                 </div>
               </div>
               <div>
-                <label className="label">Notas</label>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '6px' }}>
+                  <label className="label" style={{ margin: 0 }}>Notas</label>
+                  <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Opcional</span>
+                </div>
                 <textarea className="input text-sm resize-none" rows={2} placeholder="Observaciones..."
                   value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
               </div>
