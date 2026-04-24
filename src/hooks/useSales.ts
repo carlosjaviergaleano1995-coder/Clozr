@@ -43,5 +43,13 @@ export function useSales(workspaceId: string, options: UseSalesOptions = {}) {
   })
   const totalThisMonth = thisMonthSales.reduce((sum, s) => sum + s.total, 0)
 
-  return { sales, thisMonthSales, totalThisMonth, loading }
+  // Agrupar por vendedor para métricas
+  const byVendedor = sales.reduce<Record<string, { nombre: string; ventas: typeof sales }>>((acc, v) => {
+    const vid = v.vendedorId || 'sin_asignar'
+    if (!acc[vid]) acc[vid] = { nombre: v.vendedorNombre || 'Sin asignar', ventas: [] }
+    acc[vid].ventas.push(v)
+    return acc
+  }, {})
+
+  return { sales, thisMonthSales, totalThisMonth, byVendedor, loading }
 }

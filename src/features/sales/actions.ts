@@ -2,51 +2,70 @@ import {
   collection, doc, setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { decrementStock } from '@/features/catalog/actions'
 import { ok, fail, handleActionError } from '@/lib/errors'
 import type { ActionResult } from '@/lib/errors'
+import type { SaleItem, SalePayment } from './types'
 
-interface SaleInput {
-  customerId?:   string
-  customerName:  string
-  pipelineItemId?: string
-  items:         { descripcion: string; cantidad: number; precioUnitario: number; subtotal: number; catalogItemId?: string }[]
-  subtotal:      number
-  discount?:     number
-  total:         number
-  currency:      'ARS' | 'USD'
-  formaPago:     string
-  pagado:        boolean
-  notas?:        string
-  fecha?:        Date
-  systemData?:   Record<string, unknown>
+export interface CreateSaleInput {
+  customerId?:    string
+  customerName:   string
+  vendedorId?:    string
+  vendedorNombre?: string
+  items:          SaleItem[]
+  pagos:          SalePayment[]
+  notas?:         string
+  fecha?:         Date
+  systemData?:    Record<string, unknown>
+  // compat legacy
+  subtotal?:      number
+  total?:         number
+  currency?:      'ARS' | 'USD'
+  formaPago?:     string
+  pagado?:        boolean
 }
 
 export async function createSale(
   workspaceId: string,
-  input: SaleInput,
-  userId?: string,
+  input: CreateSaleInput,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const ref  = doc(collection(db, `workspaces/${workspaceId}/ventas`))
-    const now  = input.fecha ?? new Date()
+    // Calcular totales
+    const subtotal    = input.items.reduce((s, i) => s + i.subtotal, 0)
+    const totalPagado = input.pagos.reduce((s, p) => s + p.monto, 0)
+    const total       = input.total ?? subtotal
+    const pagado      = totalPagado >= total
+    const saldo       = Math.max(0, total - totalPagado)
 
+    // Descontar stock para items que vienen del catálogo
+    for (const item of input.items) {
+      if (item.desdeStock && item.catalogItemId) {
+        await decrementStock(workspaceId, item.catalogItemId, item.cantidad, item.imei)
+      }
+    }
+
+    const ref = doc(collection(db, `workspaces/${workspaceId}/ventas`))
     await setDoc(ref, {
       workspaceId,
       customerId:     input.customerId    ?? null,
       customerName:   input.customerName,
-      pipelineItemId: input.pipelineItemId ?? null,
+      vendedorId:     input.vendedorId    ?? '',
+      vendedorNombre: input.vendedorNombre ?? '',
       items:          input.items,
-      subtotal:       input.subtotal,
-      discount:       input.discount      ?? null,
-      total:          input.total,
-      currency:       input.currency,
-      formaPago:      input.formaPago,
-      pagado:         input.pagado,
-      pagadoAt:       input.pagado ? serverTimestamp() : null,
-      systemData:     input.systemData    ?? null,
+      subtotal,
+      total,
+      pagos:          input.pagos,
+      totalPagado,
+      pagado,
+      saldo,
+      pagadoAt:       pagado ? serverTimestamp() : null,
       notas:          input.notas         ?? null,
-      fecha:          now,
-      creadoPor:      userId              ?? '',
+      fecha:          input.fecha         ?? new Date(),
+      systemData:     input.systemData    ?? null,
+      // compat legacy
+      currency:       input.currency      ?? 'ARS',
+      formaPago:      input.formaPago     ?? (input.pagos[0] ? `${input.pagos[0].metodo}` : 'otro'),
+      creadoPor:      input.vendedorId    ?? '',
       createdAt:      serverTimestamp(),
       updatedAt:      serverTimestamp(),
     })
@@ -59,11 +78,12 @@ export async function createSale(
 
 export async function markSalePaid(
   workspaceId: string,
-  saleId: string,
+  saleId:      string,
 ): Promise<ActionResult> {
   try {
     await updateDoc(doc(db, `workspaces/${workspaceId}/ventas/${saleId}`), {
       pagado:    true,
+      saldo:     0,
       pagadoAt:  serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
