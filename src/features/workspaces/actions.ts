@@ -15,24 +15,25 @@ export async function createWorkspace(
     if (!input.nombre?.trim()) return fail('Nombre requerido', 'VALIDATION_ERROR')
 
     const ref = doc(collection(db, 'workspaces'))
+    const uid  = input.userId ?? ''
     await setDoc(ref, {
       nombre:      input.nombre.trim(),
       emoji:       input.emoji  ?? '🏪',
       color:       input.color  ?? '#E8001D',
       config:      input.config ?? {},
-      ownerId:     input.userId ?? '',
-      miembros:    [input.userId ?? ''],
+      ownerId:     uid,
+      miembros:    uid ? [uid] : [],   // array legacy para compat con rules
       customerCount: 0,
       plan:        'free',
       createdAt:   serverTimestamp(),
       updatedAt:   serverTimestamp(),
     })
 
-    // Crear membership del owner
-    if (input.userId) {
-      await setDoc(doc(db, `workspaces/${ref.id}/members/${input.userId}`), {
+    // Crear membership del owner en subcolección (arquitectura nueva)
+    if (uid) {
+      await setDoc(doc(db, `workspaces/${ref.id}/members/${uid}`), {
         workspaceId: ref.id,
-        userId:      input.userId,
+        userId:      uid,
         role:        'owner',
         joinedAt:    serverTimestamp(),
       })

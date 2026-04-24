@@ -105,6 +105,14 @@ export function handleActionError(err: unknown, context?: string): ActionResult<
     return fail(err.message, err.code)
   }
   const msg = err instanceof Error ? err.message : 'Error desconocido'
-  console.error(`[${context ?? 'action'}]`, err)
-  return fail('Error interno del servidor', 'INTERNAL_ERROR')
+  // Surfacear el código de error de Firestore si existe
+  const firestoreCode = (err as any)?.code ?? ''
+  console.error(`[${context ?? 'action'}] code=${firestoreCode}`, err)
+  if (firestoreCode === 'permission-denied') {
+    return fail('Sin permisos: verificá que estés logueado correctamente (permission-denied)', 'FORBIDDEN')
+  }
+  if (firestoreCode === 'unavailable' || firestoreCode === 'deadline-exceeded') {
+    return fail('Sin conexión. Revisá tu red e intentá de nuevo.', 'INTERNAL_ERROR')
+  }
+  return fail(`Error: ${msg || 'Error interno del servidor'}`, 'INTERNAL_ERROR')
 }

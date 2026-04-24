@@ -3,16 +3,34 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
     function isAuth() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return isAuth() && request.auth.uid == userId;
     }
-    function isMember(workspaceId) {
+
+    // Verifica membresía via subcolección members/{uid}
+    // (arquitectura nueva — creado por createWorkspace o inviteMember)
+    function isMemberViaSubcollection(workspaceId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    // Verifica membresía via array legacy workspace.miembros
+    // (workspaces creados con la arquitectura vieja)
+    function isMemberViaArray(workspaceId) {
       return isAuth() &&
         request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.miembros;
     }
+
+    // Acepta cualquiera de los dos métodos
+    function isMember(workspaceId) {
+      return isMemberViaSubcollection(workspaceId) || isMemberViaArray(workspaceId);
+    }
+
     function isWorkspaceOwner(workspaceId) {
       return isAuth() &&
         request.auth.uid == get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId;
@@ -26,22 +44,36 @@ service cloud.firestore {
 
     // ── Workspaces ────────────────────────────────────────────────────────────
     match /workspaces/{workspaceId} {
-      // Cualquier usuario autenticado puede crear un workspace
       allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
-      // Solo miembros pueden leer
       allow read:   if isMember(workspaceId);
-      // Solo el owner puede editar o eliminar
-      allow update: if isWorkspaceOwner(workspaceId);
+      allow update: if isWorkspaceOwner(workspaceId) || isMember(workspaceId);
       allow delete: if isWorkspaceOwner(workspaceId);
 
-      // ── Subcolecciones (clientes, catalogo, ventas, tareas, config) ─────────
+      // Subcolecciones: clientes, catalog, ventas, tasks, tareas, pipeline, members, etc.
       match /{subcollection}/{docId} {
         allow read:   if isMember(workspaceId);
         allow create: if isMember(workspaceId);
         allow update: if isMember(workspaceId);
-        // Solo el owner puede eliminar datos del workspace
-        allow delete: if isWorkspaceOwner(workspaceId) || isMember(workspaceId);
+        allow delete: if isMember(workspaceId);
       }
+    }
+
+    // ── Invitations (top-level) ────────────────────────────────────────────────
+    match /invitations/{inviteId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+    }
+
+    // ── Activation codes ──────────────────────────────────────────────────────
+    match /activation_codes/{codeId} {
+      allow read:   if isAuth();
+      allow update: if isAuth();
+    }
+
+    // ── System definitions ────────────────────────────────────────────────────
+    match /system_definitions/{systemId} {
+      allow read: if isAuth();
     }
   }
 }
