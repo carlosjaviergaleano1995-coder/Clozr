@@ -24,11 +24,15 @@ export function useSales(workspaceId: string, options: UseSalesOptions = {}) {
       limit(options.limit ?? 200),
     )
 
-    if (options.customerId) q = query(q, where('clienteId', '==', options.customerId))
+    // customerId filter applied locally (legacy uses 'clienteId', new uses 'customerId')
 
     const unsub = onSnapshot(q, snap => {
       // adaptVentaDoc normaliza legacy (estado string) y nuevo (pagado boolean)
-      setSales(snap.docs.map(d => adaptVentaDoc(d.id, d.data())))
+      let result = snap.docs.map(d => adaptVentaDoc(d.id, d.data()))
+      if (options.customerId) {
+        result = result.filter(s => s.customerId === options.customerId)
+      }
+      setSales(result)
       setLoading(false)
     }, () => setLoading(false))
 

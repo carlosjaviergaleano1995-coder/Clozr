@@ -21,6 +21,8 @@ import type { Sale, SaleItem, SalePayment, PaymentMethod } from '@/features/sale
 import type { Customer } from '@/features/customers/types'
 import type { CatalogItem } from '@/features/catalog/types'
 import { fmtARS, fmtUSD } from '@/lib/format'
+import { useSalesMetrics } from '@/hooks/useSalesMetrics'
+import { formatDistanceToNow } from 'date-fns'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -363,6 +365,8 @@ export default function VentasPage() {
   const canCreate   = !isViewerOnly
 
   const { sales, thisMonthSales, totalThisMonth, loading } = useSales(workspaceId)
+  const { metrics } = useSalesMetrics(workspaceId)
+  const [tab, setTab] = useState<'ventas' | 'metricas'>('ventas')
   const { customers }                                       = useCustomers(workspaceId)
   const { items: catalog }                                  = useCatalog(workspaceId)
 
@@ -516,32 +520,76 @@ export default function VentasPage() {
         )}
       </div>
 
-      {/* Métricas del mes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-        <div className="card">
-          <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Ventas del mes</p>
-          <p className="stat-number">{thisMonthSales.length}</p>
-        </div>
-        <div className="card">
-          <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total facturado</p>
-          <p className="stat-number" style={{ fontSize: '18px', color: 'var(--green)' }}>
-            {fmtARS(totalThisMonth)}
-          </p>
-        </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '6px' }}>
+        {(['ventas', 'metricas'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            style={{
+              padding: '7px 16px', borderRadius: '20px',
+              fontSize: '13px', fontWeight: 600,
+              background: tab === t ? 'var(--brand)' : 'var(--surface)',
+              color:      tab === t ? '#fff' : 'var(--text-secondary)',
+              border:     tab === t ? 'none' : '1px solid var(--border)',
+            }}>
+            {t === 'ventas' ? '💰 Ventas' : '📊 Métricas'}
+          </button>
+        ))}
       </div>
 
-      {/* Lista de ventas */}
-      {sales.length === 0 ? (
+      {tab === 'ventas' && (
+        <>
+          {/* Métricas del mes */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="card">
+              <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Ventas del mes</p>
+              <p className="stat-number">{thisMonthSales.length}</p>
+              {metrics && metrics.mesPasado > 0 && (
+                <p style={{ fontSize: '11px', marginTop: '4px', color: thisMonthSales.length >= metrics.mesPasado ? 'var(--green)' : 'var(--brand-light)' }}>
+                  {thisMonthSales.length >= metrics.mesPasado ? '↑' : '↓'} vs mes ant. ({metrics.mesPasado})
+                </p>
+              )}
+            </div>
+            <div className="card">
+              <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total del mes</p>
+              <p className="stat-number" style={{ fontSize: '18px', color: 'var(--green)' }}>
+                {fmtARS(totalThisMonth)}
+              </p>
+              {metrics && metrics.importeMesPasado > 0 && (
+                <p style={{ fontSize: '11px', marginTop: '4px', color: totalThisMonth >= metrics.importeMesPasado ? 'var(--green)' : 'var(--brand-light)' }}>
+                  {totalThisMonth >= metrics.importeMesPasado ? '↑' : '↓'} {fmtARS(metrics.importeMesPasado)} mes ant.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Lista */}
+          {sales.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <p style={{ fontSize: '32px', marginBottom: '12px' }}>💰</p>
+              <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Sin ventas todavía</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                Registrá tu primera venta cuando cerrés
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {sales.map(v => <VentaCard key={v.id} venta={v} />)}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'metricas' && metrics && (
+        <MetricasView metrics={metrics} />
+      )}
+
+      {tab === 'metricas' && !metrics && (
         <div style={{ textAlign: 'center', padding: '48px 0' }}>
-          <p style={{ fontSize: '32px', marginBottom: '12px' }}>💰</p>
-          <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Sin ventas todavía</p>
+          <p style={{ fontSize: '32px', marginBottom: '12px' }}>📊</p>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Sin datos todavía</p>
           <p style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-            Registrá tu primera venta cuando cerrés
+            Las métricas aparecen cuando hay ventas registradas
           </p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {sales.map(v => <VentaCard key={v.id} venta={v} />)}
         </div>
       )}
 
@@ -924,6 +972,149 @@ function VentaCard({ venta }: { venta: Sale }) {
               {venta.notas}
             </p>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Métricas View ─────────────────────────────────────────────────────────────
+
+function MetricasView({ metrics }: { metrics: NonNullable<ReturnType<typeof import('@/hooks/useSalesMetrics').useSalesMetrics>['metrics']> }) {
+  const pctMes = metrics.mesPasado > 0
+    ? Math.round(((metrics.estesMes - metrics.mesPasado) / metrics.mesPasado) * 100)
+    : null
+
+  const maxImporte = Math.max(...metrics.ultimos6Meses.map(m => m.importe), 1)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+      {/* KPIs globales */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        {[
+          { label: 'Total ventas', value: metrics.total, color: 'var(--text-primary)' },
+          { label: 'Ticket promedio', value: fmtARS(metrics.ticketPromedio), color: 'var(--text-primary)' },
+          { label: 'Facturado total', value: fmtARS(metrics.totalImporte), color: 'var(--green)' },
+          { label: 'Este mes vs ant.', value: pctMes != null ? `${pctMes >= 0 ? '+' : ''}${pctMes}%` : '-', color: pctMes != null && pctMes >= 0 ? 'var(--green)' : 'var(--brand-light)' },
+        ].map(k => (
+          <div key={k.label} className="card" style={{ gap: '4px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{k.label}</p>
+            <p style={{ fontSize: '20px', fontWeight: 800, color: k.color, letterSpacing: '-0.5px' }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Barras últimos 6 meses */}
+      <div>
+        <p className="section-label" style={{ marginBottom: '12px' }}>Últimos 6 meses</p>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '80px' }}>
+          {metrics.ultimos6Meses.map((m, i) => {
+            const height = Math.max(4, Math.round((m.importe / maxImporte) * 72))
+            const isLast = i === metrics.ultimos6Meses.length - 1
+            return (
+              <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <p style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                  {m.ventas > 0 ? m.ventas : ''}
+                </p>
+                <div style={{
+                  width: '100%', height: `${height}px`, borderRadius: '6px 6px 0 0',
+                  background: isLast ? 'var(--brand)' : 'var(--surface-3)',
+                  transition: 'height 0.4s ease',
+                }} />
+                <p style={{ fontSize: '9px', color: isLast ? 'var(--brand-light)' : 'var(--text-tertiary)', fontWeight: isLast ? 700 : 400 }}>
+                  {m.label}
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Top vendedores */}
+      {metrics.porVendedor.length > 0 && metrics.porVendedor[0].vendedorId !== '__sin__' && (
+        <div>
+          <p className="section-label" style={{ marginBottom: '10px' }}>Por vendedor</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {metrics.porVendedor.filter(v => v.vendedorId !== '__sin__').map((v, idx) => (
+              <div key={v.vendedorId} style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '12px 14px', borderRadius: '14px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+              }}>
+                <span style={{
+                  width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                  background: idx === 0 ? 'rgba(255,214,10,0.2)' : 'var(--surface-2)',
+                  color: idx === 0 ? 'var(--amber)' : 'var(--text-tertiary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '11px', fontWeight: 700,
+                }}>
+                  {idx + 1}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {v.nombre}
+                  </p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
+                    {v.totalVentas} venta{v.totalVentas !== 1 ? 's' : ''} · ticket prom. {fmtARS(v.ticketPromedio)}
+                  </p>
+                </div>
+                <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--green)', flexShrink: 0 }}>
+                  {fmtARS(v.totalImporte)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top clientes */}
+      {metrics.topClientes.length > 0 && (
+        <div>
+          <p className="section-label" style={{ marginBottom: '10px' }}>Mejores clientes</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {metrics.topClientes.map((c, idx) => (
+              <div key={c.customerId} style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '12px 14px', borderRadius: '14px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+              }}>
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                  background: idx === 0 ? 'rgba(255,214,10,0.15)' : 'var(--surface-2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', fontWeight: 700,
+                  color: idx === 0 ? 'var(--amber)' : 'var(--text-tertiary)',
+                  border: idx === 0 ? '1px solid rgba(255,214,10,0.3)' : '1px solid transparent',
+                }}>
+                  {c.nombre.split(' ').slice(0,2).map((w: string) => w[0]?.toUpperCase()).join('')}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {c.nombre}
+                    {idx === 0 && <span style={{ marginLeft: '6px', fontSize: '12px' }}>👑</span>}
+                  </p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
+                    {c.totalVentas} compra{c.totalVentas !== 1 ? 's' : ''} · {fmtARS(c.ticketPromedio)} prom.
+                    {c.ultimaVenta && ` · últ. ${formatDistanceToNow(c.ultimaVenta, { locale: es, addSuffix: true })}`}
+                  </p>
+                  {c.productos.length > 0 && (
+                    <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px', opacity: 0.7 }}>
+                      {c.productos.join(' · ')}
+                    </p>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <p style={{ fontSize: '14px', fontWeight: 700, color: idx === 0 ? 'var(--amber)' : 'var(--green)' }}>
+                    {fmtARS(c.totalImporte)}
+                  </p>
+                  <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                    total gastado
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

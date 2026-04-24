@@ -753,40 +753,87 @@ export default function ClientesPage() {
                 </div>
               </div>
 
-              {/* Historial de compras (non-Verisure) */}
+              {/* Historial de compras */}
               {!esVerisure && (
                 <>
                   <div style={{ height: '1px', background: 'var(--border)' }} />
                   <div style={{ padding: '16px 20px' }}>
-                    <p className="section-label" style={{ marginBottom: '12px' }}>Historial de compras</p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <p className="section-label">Historial de compras</p>
+                      {ventasDelCliente.length > 0 && (
+                        <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--green)' }}>
+                          {fmtARS(ventasDelCliente.reduce((s, v) => s + v.total, 0))} total
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Métricas del cliente */}
+                    {ventasDelCliente.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+                        {[
+                          { label: 'Compras', value: String(ventasDelCliente.length) },
+                          { label: 'Promedio', value: fmtARS(ventasDelCliente.reduce((s, v) => s + v.total, 0) / ventasDelCliente.length) },
+                          { label: 'Saldo pend.', value: fmtARS(ventasDelCliente.filter(v => !v.pagado).reduce((s, v) => s + v.total, 0)), color: ventasDelCliente.some(v => !v.pagado) ? 'var(--amber)' : 'var(--green)' },
+                        ].map(m => (
+                          <div key={m.label} style={{
+                            background: 'var(--surface-2)', borderRadius: '10px',
+                            padding: '8px 10px', textAlign: 'center',
+                          }}>
+                            <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginBottom: '3px' }}>{m.label}</p>
+                            <p style={{ fontSize: '13px', fontWeight: 700, color: m.color ?? 'var(--text-primary)' }}>{m.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {ventasDelCliente.length === 0 ? (
                       <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>Sin compras registradas</p>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {ventasDelCliente.slice(0, 8).map(v => (
                           <div key={v.id} style={{
-                            background: 'var(--surface-2)', border: '1px solid var(--border)',
+                            background: 'var(--surface-2)', border: `1px solid ${v.pagado ? 'var(--border)' : 'rgba(255,214,10,0.3)'}`,
                             borderRadius: '12px', padding: '10px 12px',
                           }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                               <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-tertiary)' }}>
                                 #{v.id.slice(-5).toUpperCase()}
                               </span>
-                              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--green)' }}>
-                                {v.currency === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {!v.pagado && <span style={{ fontSize: '10px', color: 'var(--amber)' }}>⏳ Saldo</span>}
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: v.pagado ? 'var(--green)' : 'var(--amber)' }}>
+                                  {v.currency === 'USD' ? fmtUSD(v.total) : fmtARS(v.total)}
+                                </span>
+                              </div>
                             </div>
-                            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                              {format(v.createdAt, "d MMM yyyy · HH:mm", { locale: es })}
-                              {!v.pagado && <span style={{ marginLeft: '6px', color: 'var(--amber)' }}>⏳ Pendiente</span>}
+                            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
+                              {format(v.createdAt, "d MMM yyyy", { locale: es })}
+                              {v.vendedorNombre && ` · ${v.vendedorNombre}`}
                             </p>
-                            {v.items.slice(0,2).map((item, i) => (
-                              <p key={i} style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px' }}>
-                                {item.cantidad}× {item.descripcion}
+                            {(v.items ?? []).slice(0,3).map((item, i) => (
+                              <p key={i} style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                {item.cantidad > 1 ? `${item.cantidad}× ` : ''}{item.descripcion}
+                                {item.imei && <span style={{ marginLeft: '6px', fontFamily: 'monospace', fontSize: '10px', color: 'var(--text-tertiary)' }}>{item.imei}</span>}
                               </p>
                             ))}
+                            {/* Pagos */}
+                            {(v.pagos ?? []).length > 0 && (
+                              <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                {v.pagos.map((p, i) => (
+                                  <span key={i} className="chip chip-muted" style={{ fontSize: '10px' }}>
+                                    {p.metodo.replace('_', ' ')} {p.moneda === 'USD' ? fmtUSD(p.monto) : fmtARS(p.monto)}
+                                    {p.esSena ? ' (seña)' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
+                        {ventasDelCliente.length > 8 && (
+                          <p style={{ fontSize: '12px', textAlign: 'center', color: 'var(--text-tertiary)', padding: '4px 0' }}>
+                            +{ventasDelCliente.length - 8} compras anteriores
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
