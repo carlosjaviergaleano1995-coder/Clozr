@@ -99,6 +99,7 @@ export default function ClientesPage() {
   const [detalle,     setDetalle]     = useState<Customer | null>(null)
   const [isPending,   startTransition] = useTransition()
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [formError,   setFormError]   = useState<string | null>(null)
   const [emailError,  setEmailError]  = useState('')
 
   // Ubicación GPS
@@ -167,21 +168,27 @@ export default function ClientesPage() {
     startTransition(async () => {
       if (editando) {
         const result = await updateCustomer(workspaceId, editando.id, input)
+        console.log('[handleSave] updateCustomer result:', result)
         if (!result.ok) {
           if (result.fields) setFieldErrors(result.fields)
+          setFormError(result.error ?? 'No se pudo guardar. Intentá de nuevo.')
           return
         }
+        setFormError(null)
         // Actualizar detalle si está abierto
         if (detalle?.id === editando.id) setDetalle(d => d ? { ...d, ...input } : d)
       } else {
         const result = await createCustomer(workspaceId, input, user?.uid)
+        console.log('[handleSave] createCustomer result:', result)
         if (!result.ok) {
           if (result.code === 'LIMIT_REACHED') {
             window.dispatchEvent(new CustomEvent('clozr:limit-reached', { detail: result }))
           }
           if (result.fields) setFieldErrors(result.fields)
+          setFormError(result.error ?? 'No se pudo guardar. Intentá de nuevo.')
           return
         }
+        setFormError(null)
       }
       setShowForm(false)
       setFieldErrors({})
@@ -283,6 +290,7 @@ export default function ClientesPage() {
     setForm({ ...EMPTY, tipo: tiposDisponibles[0].id as CustomerType })
     setFieldErrors({})
     setEmailError('')
+    setFormError(null)
     setShowForm(true)
   }
 
@@ -1059,6 +1067,16 @@ export default function ClientesPage() {
               </h3>
               <button onClick={() => setShowForm(false)} className="btn-icon">✕</button>
             </div>
+
+            {formError && (
+              <div style={{
+                padding: '10px 12px', borderRadius: '10px', marginBottom: '16px',
+                background: 'var(--red-bg)', color: 'var(--brand-light)',
+                fontSize: '13px', fontWeight: 500,
+              }}>
+                ⚠️ {formError}
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 
               {/* Nombre — obligatorio */}

@@ -48,7 +48,8 @@ export async function createCustomer(
     })
 
     return ok({ id: ref.id })
-  } catch (err) {
+  } catch (err: any) {
+    console.error('[createCustomer] Firestore error:', err?.code, err?.message)
     return handleActionError(err, 'createCustomer')
   }
 }
@@ -72,7 +73,8 @@ export async function updateCustomer(
 
     await updateDoc(doc(db, `workspaces/${workspaceId}/clientes/${customerId}`), updates)
     return ok(undefined)
-  } catch (err) {
+  } catch (err: any) {
+    console.error('[updateCustomer] Firestore error:', err?.code, err?.message)
     return handleActionError(err, 'updateCustomer')
   }
 }
